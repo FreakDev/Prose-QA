@@ -1,0 +1,52 @@
+name: Regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify skill lock
+        run: npm run skills:sync
+
+      - name: Install browser
+        run: npx agent-browser install --with-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: Skill drift check
+        run: |
+          node --input-type=module -e "
+          import { verifyLockDrift } from './dist/skills/registry.js';
+          const msg = verifyLockDrift(process.cwd());
+          if (msg) { console.error(msg); process.exit(1); }
+          "
+
+      - name: Run smoke scenarios
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SAQ_BASE_URL: ${{ vars.SAQ_BASE_URL || 'https://example.com' }}
+        run: node dist/cli/index.js run scenarios/example-smoke.md --tags smoke
+        continue-on-error: true
+
+      - name: Upload artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: saq-runs
+          path: .saq/runs/

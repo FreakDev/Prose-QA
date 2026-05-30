@@ -1,0 +1,44 @@
+{
+  "name": "saq",
+  "version": "0.1.0",
+  "description": "Agent harness for NL E2E regression testing via agent-browser",
+  "type": "module",
+  "bin": {
+    "saq": "./dist/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "skills",
+    "skills.lock.json"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli/index.ts",
+    "postinstall": "agent-browser install && tsx scripts/sync-skills.ts",
+    "skills:sync": "tsx scripts/sync-skills.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@ai-sdk/anthropic": "^2.0.0",
+    "@ai-sdk/fireworks": "^2.0.53",
+    "@ai-sdk/openai": "^2.0.0",
+    "agent-browser": "0.27.0",
+    "ai": "^6.0.193",
+    "chalk": "^5.4.1",
+    "commander": "^14.0.0",
+    "dotenv-flow": "^4.1.0",
+    "fast-glob": "^3.3.3",
+    "gray-matter": "^4.0.3",
+    "ora": "^8.2.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.8.0"
+  },
+  "license": "MIT"
+}
