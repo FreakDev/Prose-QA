@@ -27,7 +27,7 @@ npm run dev -- debug scenarios/example-smoke.md --verbose
 
 ## Scenario format
 
-See [skills/saq-e2e/references/scenario-format.md](skills/saq-e2e/references/scenario-format.md).
+See [prompt/references/scenario-format.md](prompt/references/scenario-format.md).
 
 ```markdown
 ---
@@ -55,11 +55,11 @@ Edit [saq.config.ts](saq.config.ts):
 ```typescript
 export default {
   baseUrl: process.env.SAQ_BASE_URL ?? "http://localhost:3000",
+  systemPromptPath: "prompt/SYSTEM.md",
   llm: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
   skills: {
     dirs: ["skills", ".agents/skills"],
     preloads: ["core"],
-    activate: ["saq-e2e"],
   },
   auth: {
     admin: { statePath: ".saq/auth/admin.json" },
@@ -72,7 +72,7 @@ export default {
 | Command | Description |
 | --- | --- |
 | `saq run [globs]` | Run scenarios (headless by default) |
-| `saq debug <file>` | Verbose single-scenario run |
+| `saq debug [globs]` | Verbose debug run (headed by default, supports `--tags`) |
 | `saq skills list` | List discovered skills |
 | `saq skills show <name>` | Print skill body |
 | `saq skills sync` | Re-vendor agent-browser skill |
@@ -80,14 +80,14 @@ export default {
 
 **Exit codes:** `0` pass · `1` failure · `2` config/harness error
 
-## Skills
+## System prompt & skills
 
-| Skill | Source |
+| File / skill | Role |
 | --- | --- |
+| [prompt/SYSTEM.md](prompt/SYSTEM.md) | Agent system prompt (workflow, verdict schema, rules) |
 | `core` | Vendored agent-browser skill at `skills/agent-browser/` (`npm run skills:sync`) |
-| `saq-e2e` | Authored in [skills/saq-e2e/](skills/saq-e2e/) |
 
-The harness preloads both skills into the agent system prompt. Browser control stays in bash — the agent runs `agent-browser` commands directly.
+`prompt/SYSTEM.md` is loaded as the system prompt; `core` is appended as a supplemental skill. Browser control stays in bash — the agent runs `agent-browser` commands directly.
 
 ## Auth bootstrap
 

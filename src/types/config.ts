@@ -1,5 +1,6 @@
 export interface SaqConfig {
   baseUrl: string;
+  systemPromptPath?: string;
   llm: {
     provider: "anthropic" | "openai" | "fireworks";
     model: string;

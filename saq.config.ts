@@ -15,13 +15,14 @@ const config: SaqConfig = {
     sessionName: "saq",
     defaultTimeout: 25_000,
   },
+  systemPromptPath: "prompt/SYSTEM.md",
   skills: {
     dirs: ["skills", ".agents/skills"],
     preloads: ["core"],
-    activate: ["saq-e2e"],
+    activate: [],
   },
   agent: {
-    maxTurns: 30,
+    maxTurns: 500,
     bashTimeoutMs: 120_000,
   },
   auth: {},

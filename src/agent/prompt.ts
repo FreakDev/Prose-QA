@@ -1,6 +1,7 @@
 import type { SaqConfig } from "../types/config.js";
 import type { Scenario } from "../types/scenario.js";
 import type { Skill } from "../types/skill.js";
+import { loadSystemPrompt } from "../prompt/load.js";
 import { buildSkillPrompt } from "../skills/loader.js";
 import { formatScenarioForPrompt } from "../scenarios/parser.js";
 
@@ -9,6 +10,7 @@ export function buildSystemPrompt(
   skills: Skill[],
   scenario: Scenario,
   runtime: {
+    cwd: string;
     baseUrl: string;
     artifactDir: string;
     authStatePath?: string;
@@ -16,6 +18,10 @@ export function buildSystemPrompt(
     sessionName: string;
   },
 ): string {
+  const systemPrompt = loadSystemPrompt(
+    runtime.cwd,
+    config.systemPromptPath,
+  );
   const skillBlock = buildSkillPrompt(skills);
   const scenarioBlock = formatScenarioForPrompt(scenario);
 
@@ -37,17 +43,12 @@ export function buildSystemPrompt(
     .filter(Boolean)
     .join("\n");
 
-  return `You are SAQ, an E2E regression testing agent. Execute the scenario using agent-browser via bash commands only.
-
-Rules:
-- Use agent-browser CLI for all browser interactions (see agent-browser skill below).
-- Do NOT use curl, wget, or other HTTP clients to test the web UI.
-- After completing Steps, verify every Then checkpoint using agent-browser CLI.
-- On failure, save screenshot and snapshot to SAQ_ARTIFACT_DIR.
-- Your FINAL message must contain a JSON code block matching the verdict schema from the saq-e2e skill.
+  return `${systemPrompt}
 
 Runtime:
 ${envHints}
+
+---
 
 ${skillBlock}
 
@@ -57,7 +58,7 @@ ${scenarioBlock}`;
 }
 
 export function buildAuthPrompt(
-  config: SaqConfig,
+  _config: SaqConfig,
   skills: Skill[],
   authName: string,
   loginUrl: string,

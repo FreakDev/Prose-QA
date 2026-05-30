@@ -8,6 +8,7 @@
   },
   "files": [
     "dist",
+    "prompt",
     "skills",
     "skills.lock.json"
   ],

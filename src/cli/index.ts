@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import chalk from "chalk";
 import { loadEnv } from "../config/env.js";
 import {
   executeRun,
@@ -12,25 +11,6 @@ import {
 import type { RunOptions } from "../types/config.js";
 
 loadEnv();
-
-const program = new Command();
-
-program
-  .name("saq")
-  .description("Agent harness for NL E2E regression testing")
-  .version("0.1.0");
-
-const sharedOptions = (cmd: Command) =>
-  cmd
-    .option("-c, --config <path>", "Config file path")
-    .option("--base-url <url>", "Target app base URL")
-    .option("--tags <tags>", "Comma-separated scenario tags", (v: string) =>
-      v.split(",").map((t) => t.trim()),
-    )
-    .option("--skills-dir <dirs>", "Extra skill dirs (comma-separated)", (v: string) =>
-      v.split(",").map((d) => d.trim()),
-    )
-    .option("-v, --verbose", "Verbose output");
 
 function baseRunOptions(opts: {
   config?: string;
@@ -56,10 +36,25 @@ function baseRunOptions(opts: {
   };
 }
 
+const program = new Command();
+
+program
+  .name("saq")
+  .description("Agent harness for NL E2E regression testing")
+  .version("0.1.0");
+
 program
   .command("run")
   .description("Run E2E scenarios (CI mode)")
   .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
+  .option("-c, --config <path>", "Config file path")
+  .option("--base-url <url>", "Target app base URL")
+  .option("--tags <tags>", "Comma-separated scenario tags", (v: string) =>
+    v.split(",").map((t) => t.trim()),
+  )
+  .option("--skills-dir <dirs>", "Extra skill dirs (comma-separated)", (v: string) =>
+    v.split(",").map((d) => d.trim()),
+  )
   .option("--retries <n>", "Retries per failed scenario", "0")
   .option(
     "--artifacts <mode>",
@@ -74,19 +69,28 @@ program
 
 program
   .command("debug")
-  .description("Run a single scenario with verbose output")
-  .argument("<scenario>", "Scenario file path")
+  .description("Run scenarios with verbose output (local debug)")
+  .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
+  .option("-c, --config <path>", "Config file path")
+  .option("--base-url <url>", "Target app base URL")
+  .option("--tags <tags>", "Comma-separated scenario tags", (v: string) =>
+    v.split(",").map((t) => t.trim()),
+  )
+  .option("--skills-dir <dirs>", "Extra skill dirs (comma-separated)", (v: string) =>
+    v.split(",").map((d) => d.trim()),
+  )
   .option("--pause", "Pause between agent turns")
   .option("--retries <n>", "Retries", "0")
-  .option("--headed", "Headed browser", true)
-  .action(async (scenario: string, opts) => {
-    const code = await executeRun(
-      [scenario],
-      {
-        ...baseRunOptions({ ...opts, verbose: true, headed: opts.headed ?? true }),
-        pause: opts.pause,
-      },
-    );
+  .option("--no-headed", "Run browser headless")
+  .action(async (patterns: string[], opts) => {
+    const code = await executeRun(patterns, {
+      ...baseRunOptions({
+        ...opts,
+        verbose: true,
+        headed: opts.headed !== false,
+      }),
+      pause: opts.pause,
+    });
     process.exit(code);
   });
 

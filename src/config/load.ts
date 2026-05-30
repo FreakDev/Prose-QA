@@ -5,6 +5,7 @@ import { loadEnv } from "./env.js";
 
 const DEFAULT_CONFIG: SaqConfig = {
   baseUrl: process.env.SAQ_BASE_URL ?? "http://localhost:3000",
+  systemPromptPath: "prompt/SYSTEM.md",
   llm: {
     provider: "fireworks",
     model: "accounts/fireworks/models/deepseek-v4-flash",
@@ -17,7 +18,7 @@ const DEFAULT_CONFIG: SaqConfig = {
   skills: {
     dirs: ["skills", ".agents/skills"],
     preloads: ["core"],
-    activate: ["saq-e2e"],
+    activate: [],
   },
   agent: {
     maxTurns: 30,
