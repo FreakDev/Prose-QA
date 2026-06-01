@@ -37,6 +37,11 @@ export function alignScenarioResults(
   });
 }
 
+/**
+ * Run `fn` over `items` with at most `limit` in-flight tasks at once.
+ * When a task finishes, the next item is started immediately on that slot
+ * (worker pool), not in fixed batches of `limit`.
+ */
 export async function mapWithConcurrency<T, R>(
   items: T[],
   limit: number,

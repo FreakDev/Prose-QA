@@ -80,7 +80,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       {
         flags: "--parallel [n]",
         description:
-          "Run scenarios in parallel; optional max concurrency (omit n for unlimited)",
+          "Run scenarios in parallel subprocesses; optional max concurrency (omit n for unlimited). Keeps up to n scenarios running and starts the next as soon as a slot frees.",
       },
       {
         flags: "--fail-fast",
@@ -141,7 +141,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       {
         flags: "--parallel [n]",
         description:
-          "Run scenarios in parallel; optional max concurrency (omit n for unlimited)",
+          "Run scenarios in parallel subprocesses; optional max concurrency (omit n for unlimited). Keeps up to n scenarios running and starts the next as soon as a slot frees.",
       },
       {
         flags: "--fail-fast",

@@ -158,7 +158,7 @@ program
   .option("--auth-refresh", "Re-run auth scenarios and refresh auth store")
   .option(
     "--parallel [n]",
-    "Run scenarios in parallel (optional max concurrency)",
+    "Run scenarios in parallel subprocesses (optional max concurrency; next scenario starts when a slot frees)",
     parseParallel,
   )
   .option(
@@ -196,7 +196,7 @@ program
   .option("--no-healing", "Disable in-run recovery and transient-only retries")
   .option(
     "--parallel [n]",
-    "Run scenarios in parallel (optional max concurrency)",
+    "Run scenarios in parallel subprocesses (optional max concurrency; next scenario starts when a slot frees)",
     parseParallel,
   )
   .option(

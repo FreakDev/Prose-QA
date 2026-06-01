@@ -20,6 +20,24 @@ function stubScenario(name: string): Scenario {
   };
 }
 
+describe("mapWithConcurrency slot pool", () => {
+  it("starts the next item as soon as a worker slot frees", async () => {
+    const delays = [20, 80, 20];
+    const started: number[] = [];
+
+    await mapWithConcurrency([0, 1, 2], 2, async (item) => {
+      started.push(item);
+      await new Promise((r) => setTimeout(r, delays[item]!));
+      return item;
+    });
+
+    assert.deepEqual(started.slice(0, 2).sort(), [0, 1]);
+    assert.equal(started[2], 2);
+    assert.ok(started.indexOf(2) < started.length);
+    assert.equal(started.length, 3);
+  });
+});
+
 describe("mapWithConcurrency fail-fast", () => {
   it("leaves undefined slots for work never scheduled", async () => {
     const results = await mapWithConcurrency(
