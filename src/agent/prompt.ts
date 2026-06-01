@@ -53,6 +53,7 @@ export function buildSystemPrompt(
     headed: boolean;
     sessionName: string;
     artifacts: ArtifactsMode;
+    scenarioCacheHints?: string;
   },
 ): string {
   const systemPrompt = loadSystemPrompt(
@@ -105,6 +106,18 @@ export function buildSystemPrompt(
     .filter(Boolean)
     .join("\n");
 
+  const cacheBlock = runtime.scenarioCacheHints?.trim()
+    ? `## Scenario replay hints (prior successful runs)
+
+${runtime.scenarioCacheHints.trim()}
+
+Treat these as accelerators, not strict scripts. Re-snapshot and adapt if the UI changed.
+
+---
+
+`
+    : "";
+
   return `${systemPrompt}
 
 Runtime:
@@ -116,5 +129,5 @@ ${skillBlock}
 
 ---
 
-${scenarioBlock}`;
+${cacheBlock}${scenarioBlock}`;
 }

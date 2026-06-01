@@ -65,6 +65,10 @@ const config = {
     outputDir: ".pqa/recordings",
     defaultTags: ["recorded"],
   },
+  cache: {
+    dir: ".pqa/cache",
+    enabled: true,
+  },
 };
 
 export default config;

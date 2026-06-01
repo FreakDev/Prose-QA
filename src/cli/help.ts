@@ -64,6 +64,10 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
           "Disable in-run recovery and transient-only retry gating (retries apply to all failures)",
       },
       {
+        flags: "--no-cache",
+        description: "Do not load or write scenario replay hints cache",
+      },
+      {
         flags: "--artifacts <mode>",
         description: "When to keep artifacts: on-failure, always, or never",
         defaultValue: "on-failure",
@@ -139,6 +143,10 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       { flags: "--no-healing", description: "Disable in-run recovery and transient-only retries" },
       {
+        flags: "--no-cache",
+        description: "Do not load or write scenario replay hints cache",
+      },
+      {
         flags: "--parallel [n]",
         description:
           "Run scenarios in parallel subprocesses; optional max concurrency (omit n for unlimited). Keeps up to n scenarios running and starts the next as soon as a slot frees.",
@@ -150,6 +158,25 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       {
         flags: "--no-headed",
         description: "Run the browser headless instead of the debug default (headed)",
+      },
+    ],
+  },
+  {
+    name: "clear-cache",
+    summary: "Clear scenario replay hints cache",
+    usage: "pqa clear-cache [scenario] [options]",
+    description:
+      "Remove cached replay hints for one scenario (by frontmatter name) or all scenarios.",
+    arguments: [
+      {
+        name: "scenario",
+        description: "Scenario name to clear; omit to clear all caches",
+      },
+    ],
+    options: [
+      {
+        flags: "-c, --config <path>",
+        description: "Path to pqa.config.json (or .mjs / .ts / .js)",
       },
     ],
   },

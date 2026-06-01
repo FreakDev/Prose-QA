@@ -7,6 +7,7 @@ import {
   executeAuthSave,
   executeAuthList,
   executeAuthClear,
+  executeClearCache,
   executeSkillsSync,
   executeSkillsList,
   executeSkillsShow,
@@ -52,6 +53,7 @@ function baseRunOptions(opts: {
   authRefresh?: boolean;
   keepBrowser?: boolean;
   noHealing?: boolean;
+  noCache?: boolean;
   retriesPolicy?: string;
 }): RunOptions {
   const retriesPolicy =
@@ -72,6 +74,7 @@ function baseRunOptions(opts: {
     authRefresh: opts.authRefresh,
     keepBrowser: opts.keepBrowser,
     noHealing: opts.noHealing,
+    noCache: opts.noCache,
     retriesPolicy,
   };
 }
@@ -99,6 +102,7 @@ program
     "transient",
   )
   .option("--no-healing", "Disable in-run recovery and transient-only retries")
+  .option("--no-cache", "Do not load or write scenario replay hints cache")
   .option(
     "--artifacts <mode>",
     "Artifact mode: on-failure|always|never",
@@ -119,6 +123,7 @@ program
       authRefresh: opts.authRefresh,
       keepBrowser: opts.keepBrowser,
       noHealing: opts.noHealing,
+      noCache: opts.noCache,
       retriesPolicy:
         opts.retriesPolicy === "always" || opts.retriesPolicy === "transient"
           ? opts.retriesPolicy
@@ -145,6 +150,7 @@ program
     "transient",
   )
   .option("--no-healing", "Disable in-run recovery and transient-only retries")
+  .option("--no-cache", "Do not load or write scenario replay hints cache")
   .option(
     "--artifacts <mode>",
     "Artifact mode: on-failure|always|never",
@@ -194,6 +200,7 @@ program
     "transient",
   )
   .option("--no-healing", "Disable in-run recovery and transient-only retries")
+  .option("--no-cache", "Do not load or write scenario replay hints cache")
   .option(
     "--parallel [n]",
     "Run scenarios in parallel subprocesses (optional max concurrency; next scenario starts when a slot frees)",
@@ -362,6 +369,14 @@ program
   .description("Set a value in pqa.config.json (creates the file if missing)")
   .action(async (key: string, value: string) => {
     process.exit(await executeConfig(key, value));
+  });
+
+program
+  .command("clear-cache [scenario]")
+  .description("Clear scenario replay hints cache (one scenario or all)")
+  .option("-c, --config <path>", "Config file path")
+  .action(async (scenario: string | undefined, opts: { config?: string }) => {
+    process.exit(await executeClearCache(scenario, opts.config));
   });
 
 program

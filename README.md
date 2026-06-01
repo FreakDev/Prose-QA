@@ -270,7 +270,7 @@ Scenario replay cache settings. See [Scenario replay cache](#scenario-replay-cac
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `dir` | string | `".pqa/cache"` | Directory for per-scenario replay scripts |
+| `dir` | string | `".pqa/cache"` | Directory for per-scenario replay hints |
 | `enabled` | boolean | `true` | Master switch (opt-out via `--no-cache`) |
 
 ---
@@ -377,13 +377,13 @@ Use `--auth-refresh` on `run` / `debug` to re-run auth scenarios and refresh the
 
 ## Scenario replay cache
 
-After a scenario passes via the LLM agent, PQA can generate a deterministic bash replay script under `.pqa/cache/<scenario>/`. Subsequent runs execute `replay.sh` (Steps + Then validations) without calling the agent — much faster.
+After a scenario passes, PQA runs a secondary LLM pass on the run transcript to produce **replay hints** under `.pqa/cache/<scenario-name>/` (`hints.md` + `meta.json`). On the next run, those hints are injected into the agent system prompt (like a skill) so the agent can follow proven `agent-browser` paths and avoid repeating costly recovery loops.
 
 ```bash
-# First run: agent executes, cache is generated on pass
+# First run: agent executes; hints are generated on pass
 pqa run scenarios/lapresse/homepage-smoke.md
 
-# Second run: cache replay (if valid)
+# Second run: agent runs with cached hints (if scenario content unchanged)
 pqa run scenarios/lapresse/homepage-smoke.md
 
 # Skip cache read/write
@@ -394,7 +394,7 @@ pqa clear-cache lapresse-homepage-smoke
 pqa clear-cache
 ```
 
-Cache is invalidated when the scenario markdown changes, when replay fails (automatic fallback to the agent), or when `--auth-refresh` clears caches for affected auth profiles.
+Cache is **invalidated** when the effective scenario content changes (Goal, Steps, Then, frontmatter, and expanded includes — detected via content hash). Hints are **merged and refined** on each subsequent pass. Failed runs do not update the cache.
 
 Config (optional):
 

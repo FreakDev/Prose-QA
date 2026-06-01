@@ -89,4 +89,23 @@ describe("buildSystemPrompt", () => {
     assert.match(prompt, /Observe-Act-Verify loop/);
     assert.match(prompt, /url contains "\/dashboard"/);
   });
+
+  it("includes scenario replay hints block when provided", () => {
+    const scenario = makeScenario();
+    const prompt = buildSystemPrompt(baseConfig, [], scenario, {
+      cwd: repoRoot,
+      artifactDir: "/tmp/pqa-artifacts",
+      headed: false,
+      sessionName: "pqa",
+      artifacts: "on-failure",
+      scenarioCacheHints: "### Effective actions\n- Use snapshot -i first",
+    });
+
+    assert.match(prompt, /Scenario replay hints \(prior successful runs\)/);
+    assert.match(prompt, /Use snapshot -i first/);
+    assert.match(prompt, /Re-snapshot and adapt if the UI changed/);
+    const scenarioIndex = prompt.indexOf("# Scenario: example-smoke");
+    const hintsIndex = prompt.indexOf("Scenario replay hints");
+    assert.ok(hintsIndex > 0 && hintsIndex < scenarioIndex);
+  });
 });

@@ -97,6 +97,9 @@ function buildWorkerArgs(request: ScenarioWorkerRequest): string[] {
   if (options.noHealing) {
     args.push("--no-healing");
   }
+  if (options.noCache) {
+    args.push("--no-cache");
+  }
   if (options.artifacts) {
     args.push("--artifacts", options.artifacts);
   }

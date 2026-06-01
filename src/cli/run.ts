@@ -71,6 +71,9 @@ import {
   createEnvRedactor,
   type EnvRedactor,
 } from "../redact/env-secrets.js";
+import { generateOrMergeScenarioCacheHints } from "../cache/generate.js";
+import { isCacheEnabled } from "../cache/resolve.js";
+import { clearCache, loadScenarioCache } from "../cache/store.js";
 
 function safeScenarioName(name: string): string {
   return name.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
@@ -137,6 +140,7 @@ interface ScenarioRunContext {
   redactor: EnvRedactor;
   noHealing?: boolean;
   retriesPolicy?: "transient" | "always";
+  noCache?: boolean;
 }
 
 function resolveScenarioSessionName(
@@ -257,6 +261,10 @@ async function runOneScenario(
 
     const skills = resolveSkills(ctx.allSkills, ctx.baseSkillNames, scenario.skills);
 
+    const scenarioCacheHints = isCacheEnabled(ctx.config, ctx.noCache)
+      ? loadScenarioCache(ctx.cwd, ctx.config, scenario)
+      : undefined;
+
     let result: ScenarioResult | null = null;
     let attempt = 0;
     let scenarioRetries = 0;
@@ -296,6 +304,7 @@ async function runOneScenario(
           onTurn: hooks?.onTurn,
           redactor: ctx.redactor,
           noHealing: ctx.noHealing,
+          scenarioCacheHints,
         });
 
         if (result.healing) {
@@ -329,6 +338,29 @@ async function runOneScenario(
 
     applyArtifactsPolicy(artifactDir, ctx.artifacts, result!);
     writeScenarioTranscript(artifactDir, result!, ctx.redactor);
+
+    if (
+      result!.status === "pass" &&
+      isCacheEnabled(ctx.config, ctx.noCache)
+    ) {
+      const cacheSpinner = ora(`Caching hints for ${name}`).start();
+      const cacheResult = await generateOrMergeScenarioCacheHints(
+        ctx.config,
+        ctx.cwd,
+        scenario,
+        result!,
+      );
+      if (cacheResult.ok) {
+        cacheSpinner.succeed(chalk.green(`Cached hints for ${name}`));
+      } else {
+        cacheSpinner.warn(
+          chalk.yellow(
+            `Could not cache hints for ${name}: ${cacheResult.error ?? "unknown"}`,
+          ),
+        );
+      }
+    }
+
     return result!;
   } catch (err) {
     const error = String(err);
@@ -485,6 +517,7 @@ export async function executeRun(
     redactor,
     noHealing: options.noHealing,
     retriesPolicy: options.retriesPolicy,
+    noCache: options.noCache,
   };
 
   console.log(chalk.bold(`PQA run ${runId}`));
@@ -512,6 +545,7 @@ export async function executeRun(
       keepBrowser: options.keepBrowser,
       noHealing: options.noHealing,
       retriesPolicy: options.retriesPolicy,
+      noCache: options.noCache,
     };
 
     const partial = await mapWithConcurrency(
@@ -653,6 +687,7 @@ export async function executeScenarioWorker(
     redactor,
     noHealing: options.noHealing,
     retriesPolicy: options.retriesPolicy,
+    noCache: options.noCache,
   };
 
   const result = await runOneScenario(scenario, scenarioCtx);
@@ -769,6 +804,21 @@ export function executeAuthList(): number {
       `${chalk.bold(entry.profile)} — ${entry.scenario ?? "(manual)"} — ${entry.savedAt}`,
     );
     console.log(chalk.dim(`  ${entry.statePath}`));
+  }
+  return 0;
+}
+
+export async function executeClearCache(
+  scenarioName?: string,
+  configPath?: string,
+): Promise<number> {
+  const cwd = process.cwd();
+  const config = await loadConfig(configPath, cwd);
+  clearCache(cwd, config, scenarioName);
+  if (scenarioName) {
+    console.log(chalk.green(`Cleared cache for scenario "${scenarioName}"`));
+  } else {
+    console.log(chalk.green("Cleared all scenario caches"));
   }
   return 0;
 }

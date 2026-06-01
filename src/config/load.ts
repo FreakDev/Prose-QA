@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { HealingConfig, PqaConfig } from "../types/config.js";
+import type { CacheConfig, HealingConfig, PqaConfig } from "../types/config.js";
 import { loadEnv } from "./env.js";
 import { resolveStatePath } from "../auth/store.js";
 import { getPackageRoot, resolveBundledPath } from "../paths.js";
@@ -162,6 +162,15 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
     recorder: override.recorder
       ? { ...base.recorder, ...override.recorder }
       : base.recorder,
+    cache: override.cache ? { ...base.cache, ...override.cache } : base.cache,
+  };
+}
+
+export function resolveCacheConfig(config: PqaConfig): Required<CacheConfig> {
+  const cache = config.cache ?? {};
+  return {
+    dir: cache.dir ?? ".pqa/cache",
+    enabled: cache.enabled ?? true,
   };
 }
 

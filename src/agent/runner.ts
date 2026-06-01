@@ -83,6 +83,7 @@ export interface RunScenarioOptions {
   onTurn?: () => Promise<void>;
   redactor?: EnvRedactor;
   noHealing?: boolean;
+  scenarioCacheHints?: string;
 }
 
 async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
@@ -170,6 +171,7 @@ export async function runScenario(
       headed: options.headed,
       sessionName,
       artifacts: options.artifacts,
+      scenarioCacheHints: options.scenarioCacheHints,
     },
   );
 

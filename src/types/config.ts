@@ -15,6 +15,13 @@ export interface RecorderConfig {
   defaultTags?: string[];
 }
 
+export interface CacheConfig {
+  /** Directory for per-scenario replay hints. Default: ".pqa/cache" */
+  dir?: string;
+  /** Master switch. Default: true */
+  enabled?: boolean;
+}
+
 /** Reasoning intensity; applied only on providers that support it (e.g. OpenAI, Anthropic, Google). */
 export type LlmReasoningEffort =
   | "none"
@@ -63,6 +70,7 @@ export interface PqaConfig {
   auth: Record<string, AuthProfileConfig>;
   healing?: HealingConfig;
   recorder?: RecorderConfig;
+  cache?: CacheConfig;
 }
 
 export interface AuthProfileConfig {
@@ -93,6 +101,8 @@ export interface RunOptions {
   noHealing?: boolean;
   /** When healing is enabled, retry only transient failures unless "always" */
   retriesPolicy?: "transient" | "always";
+  /** Skip reading and writing scenario replay hints cache */
+  noCache?: boolean;
 }
 
 export interface SkillsLock {
