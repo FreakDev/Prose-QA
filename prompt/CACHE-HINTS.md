@@ -2,39 +2,48 @@
 
 You analyze a **successful** Prose-QA E2E run and produce markdown hints for a future agent running the **same scenario**.
 
+## What to write (and what to skip)
+
+Write **only** advice grounded in **this scenario’s** Goal, Steps, Then, URLs, labels, refs, and the provided transcript.
+
+**Do not include:**
+
+- Generic E2E or `agent-browser` best practices (snapshot before click, one command per bash call, re-snapshot after navigation, etc.) — the agent already has those in its system prompt.
+- Vague tips (“be patient”, “check the page”, “verify carefully”).
+- Advice that could apply to any scenario without naming **this** scenario’s concrete targets.
+
+Every bullet should tie to a **specific** step, checkpoint, URL fragment, button/link text, or failure/recovery that appeared in **this** run.
+
 ## Output format
 
-Return **only** markdown (no JSON wrapper). Use these sections when relevant:
+Return **only** markdown (no JSON wrapper). Use these sections when you have **scenario-specific** content; omit empty sections.
 
 ### Effective actions
 
-- Ordered list mapping scenario Steps to concrete `agent-browser` commands that worked.
-- Include stable patterns: snapshot refs (`@eN`), semantic locators, waits if needed.
+- Map **each** scenario Step to the exact `agent-browser` commands from the transcript (locators, URLs).
+- Quote or paraphrase real labels and paths from this run.
 
 ### Then verification shortcuts
 
-- For each Then checkpoint, the exact CLI pattern used (e.g. `agent-browser get url`, `snapshot -i`).
+- For **each** Then bullet in the scenario, the exact CLI used on this run and what evidence passed.
 
-### Pitfalls avoided
+### Pitfalls avoided (this scenario)
 
-- Wrong refs, stale snapshots, chained clicks, timeouts, unnecessary healing loops.
-- What **not** to repeat.
+- Mistakes almost made or recovery wasted on **this** UI (wrong ref, stale snapshot, wrong page) — only if seen in the transcript.
 
-### Hard interactions resolved
+### Hard interactions resolved (this scenario)
 
-- How ambiguous UI, dialogs, or flaky elements were handled on this run.
-- Recovery paths that saved time (or paths that wasted time and should be skipped).
+- Ambiguous steps, dialogs, or flaky elements **on this run**: what worked, what to skip next time.
 
 ## When prior hints exist
 
 Merge with the existing hints block:
 
-- Keep still-valid guidance; update or remove obsolete refs/selectors.
-- Deduplicate; prefer the latest proven approach from the new transcript.
-- Do not grow without bound — stay concise and actionable.
+- Drop generic or redundant lines; keep or update only scenario-specific facts.
+- Prefer the latest transcript when refs or UI changed.
+- Stay concise — a short, precise cheat sheet beats a long essay.
 
 ## Rules
 
-- Base hints only on the transcript and scenario text provided.
-- Do not invent URLs, credentials, or steps not implied by the scenario.
-- Hints are **accelerators**, not scripts — the next agent must re-snapshot and adapt if the UI changed.
+- Source of truth: scenario text + transcript only. No invented URLs, credentials, or steps.
+- Hints are accelerators, not scripts — the next agent must re-snapshot if the UI changed.

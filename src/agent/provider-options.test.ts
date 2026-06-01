@@ -28,6 +28,29 @@ describe("buildProviderOptions", () => {
     );
   });
 
+  it("forces thinking off when opts.thinking is false even if config enables it", () => {
+    assert.equal(
+      buildProviderOptions(
+        config("openai", { enabled: true, budgetTokens: 10_000 }),
+        { thinking: false },
+      ),
+      undefined,
+    );
+    assert.deepEqual(
+      buildProviderOptions(
+        config("anthropic", { enabled: true, budgetTokens: 10_000 }),
+        { thinking: false },
+      ),
+      { anthropic: { disableParallelToolUse: true } },
+    );
+    assert.deepEqual(
+      buildProviderOptions(config("ollama", { enabled: true }), {
+        thinking: false,
+      }),
+      undefined,
+    );
+  });
+
   it("keeps anthropic parallel tool use off when thinking is disabled", () => {
     assert.deepEqual(
       buildProviderOptions(config("anthropic", { enabled: false })),

@@ -4,6 +4,7 @@ import type { PqaConfig } from "../types/config.js";
 import type { Scenario } from "../types/scenario.js";
 import type { ScenarioResult } from "../types/verdict.js";
 import { createLlmModel } from "../agent/llm-model.js";
+import { buildProviderOptions } from "../agent/provider-options.js";
 import { truncateScenarioResult } from "../analyze/build-context.js";
 import { formatScenarioForPrompt } from "../scenarios/parser.js";
 import { resolveBundledPath } from "../paths.js";
@@ -48,7 +49,8 @@ function buildCacheUserPrompt(
 
   parts.push(
     "",
-    "Produce updated scenario replay hints markdown for the next agent run.",
+    "Produce updated scenario replay hints for the next agent run. " +
+      "Only include advice specific to this scenario and transcript — no generic testing tips.",
   );
 
   return parts.join("\n");
@@ -71,7 +73,12 @@ export async function generateOrMergeScenarioCacheHints(
       model: createLlmModel(config),
       system,
       prompt: buildCacheUserPrompt(scenario, result, existingHints),
-      maxOutputTokens: 8192,
+      maxOutputTokens: 4096,
+      // force thinking off for cache hints generation
+      providerOptions: buildProviderOptions({
+        ...config,
+        llm: { ...config.llm, thinking: { enabled: false } },
+      }),
     });
 
     const hints = text.trim();

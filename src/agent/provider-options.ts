@@ -14,9 +14,7 @@ function isThinkingEnabled(config: PqaConfig): boolean {
 }
 
 /** Derive OpenAI reasoning effort from token budget when `reasoningEffort` is unset. */
-function reasoningEffortFromBudget(
-  budgetTokens: number,
-): LlmReasoningEffort {
+function reasoningEffortFromBudget(budgetTokens: number): LlmReasoningEffort {
   if (budgetTokens <= 2_000) return "minimal";
   if (budgetTokens <= 5_000) return "low";
   if (budgetTokens <= 10_000) return "medium";
@@ -24,9 +22,7 @@ function reasoningEffortFromBudget(
   return "xhigh";
 }
 
-function resolveOpenAIReasoningEffort(
-  config: PqaConfig,
-): LlmReasoningEffort {
+function resolveOpenAIReasoningEffort(config: PqaConfig): LlmReasoningEffort {
   const explicit = config.llm.thinking?.reasoningEffort;
   if (explicit != null) return explicit;
   return reasoningEffortFromBudget(thinkingBudget(config));
@@ -65,7 +61,9 @@ function anthropicEffort(
  * Provider-specific options for extended thinking / reasoning.
  * Honors `config.llm.thinking.enabled` across Anthropic, OpenAI, Fireworks, Google, and Ollama.
  */
-export function buildProviderOptions(config: PqaConfig): ProviderOptions | undefined {
+export function buildProviderOptions(
+  config: PqaConfig,
+): ProviderOptions | undefined {
   if (!isThinkingEnabled(config)) {
     if (config.llm.provider === "anthropic") {
       return { anthropic: { disableParallelToolUse: true } };
