@@ -12,7 +12,8 @@ const config = {
         | "openai"
         | "fireworks"
         | "ollama"
-        | "google") ??
+        | "google"
+        | "openrouter") ??
       "anthropic",
     model:
       process.env.PQA_LLM_MODEL ??

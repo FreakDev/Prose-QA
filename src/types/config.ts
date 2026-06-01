@@ -40,12 +40,18 @@ export interface PqaConfig {
   /** Env var names whose values are redacted from transcripts, verdicts, reports and verbose logs */
   sensitiveEnvVars?: string[];
   llm: {
-    provider: "anthropic" | "openai" | "fireworks" | "ollama" | "google";
+    provider:
+      | "anthropic"
+      | "openai"
+      | "fireworks"
+      | "ollama"
+      | "google"
+      | "openrouter";
     model: string;
     /**
      * Extended thinking / reasoning (opt-in).
-     * `budgetTokens`: Anthropic, Fireworks & Google thinking budget.
-     * `reasoningEffort`: OpenAI reasoning effort; Anthropic effort; Google thinking level (mapped).
+     * `budgetTokens`: Anthropic, Fireworks, Google & OpenRouter reasoning budget.
+     * `reasoningEffort`: OpenAI reasoning effort; Anthropic effort; Google thinking level (mapped); OpenRouter reasoning effort.
      * Ollama: `think` only (other fields ignored).
      */
     thinking?: {

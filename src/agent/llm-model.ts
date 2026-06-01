@@ -2,6 +2,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { fireworks } from "@ai-sdk/fireworks";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
+import { openrouter } from "@openrouter/ai-sdk-provider";
 import { ollama } from "ollama-ai-provider-v2";
 import type { LanguageModel } from "ai";
 import type { PqaConfig } from "../types/config.js";
@@ -20,6 +21,8 @@ export function createLlmModel(config: PqaConfig): LanguageModel {
       return ollama(model);
     case "google":
       return google(model);
+    case "openrouter":
+      return openrouter(model);
     default: {
       const unsupported: never = provider;
       throw new Error(`Unsupported llm.provider: ${unsupported}`);

@@ -19,4 +19,13 @@ describe("createLlmModel", () => {
     assert.ok(model);
     assert.equal(typeof model, "object");
   });
+
+  it("returns a model for openrouter provider", () => {
+    const model = createLlmModel({
+      ...base,
+      llm: { provider: "openrouter", model: "anthropic/claude-sonnet-4" },
+    } as PqaConfig);
+    assert.ok(model);
+    assert.equal(typeof model, "object");
+  });
 });

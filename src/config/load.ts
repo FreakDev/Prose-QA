@@ -196,6 +196,7 @@ export const LLM_API_KEY_ENV: Partial<
   openai: "OPENAI_API_KEY",
   fireworks: "FIREWORKS_API_KEY",
   google: "GOOGLE_GENERATIVE_AI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
 };
 
 export function resolveSensitiveEnvVars(config: PqaConfig): string[] {

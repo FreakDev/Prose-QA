@@ -18,7 +18,7 @@ npm install prose-qa
 npx pqa --help
 ```
 
-Requires Node.js 20+ and an LLM API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, or `FIREWORKS_API_KEY` depending on config).
+Requires Node.js 20+ and an LLM API key (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `FIREWORKS_API_KEY`, `OPENROUTER_API_KEY`, etc. depending on config).
 
 On first install, `agent-browser` downloads its browser binary via `postinstall`. In CI, run:
 
@@ -136,6 +136,7 @@ Unknown keys are rejected; only properties that exist in the bundled reference c
 | `OPENAI_API_KEY` | Required when `llm.provider` is `openai` |
 | `FIREWORKS_API_KEY` | Required when `llm.provider` is `fireworks` |
 | `GOOGLE_GENERATIVE_AI_API_KEY` | Required when `llm.provider` is `google` |
+| `OPENROUTER_API_KEY` | Required when `llm.provider` is `openrouter` |
 | `PQA_LLM_PROVIDER` | Overrides bundled default `llm.provider` (dev / CI shortcut) |
 | `PQA_LLM_MODEL` | Overrides bundled default `llm.model` |
 
@@ -183,7 +184,7 @@ LLM provider and model used for test runs, recording generation, and analysis.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `provider` | `"anthropic"` \| `"openai"` \| `"fireworks"` \| `"ollama"` \| `"google"` | `"anthropic"` | LLM backend |
+| `provider` | `"anthropic"` \| `"openai"` \| `"fireworks"` \| `"ollama"` \| `"google"` \| `"openrouter"` | `"anthropic"` | LLM backend |
 | `model` | string | `"claude-sonnet-4-20250514"` | Model identifier for the chosen provider |
 
 ##### `llm.thinking` (object, optional)
@@ -193,8 +194,8 @@ Extended thinking / reasoning. Provider support varies.
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `enabled` | boolean | `true` | Enable extended thinking |
-| `budgetTokens` | number | `10000` | Thinking token budget (Anthropic, Fireworks, Google) |
-| `reasoningEffort` | `"none"` \| `"minimal"` \| `"low"` \| `"medium"` \| `"high"` \| `"xhigh"` | — | OpenAI reasoning effort; mapped to Anthropic effort and Google thinking level. Ollama uses `think` mode only (other fields ignored) |
+| `budgetTokens` | number | `10000` | Thinking token budget (Anthropic, Fireworks, Google, OpenRouter) |
+| `reasoningEffort` | `"none"` \| `"minimal"` \| `"low"` \| `"medium"` \| `"high"` \| `"xhigh"` | — | OpenAI reasoning effort; mapped to Anthropic effort, Google thinking level, and OpenRouter reasoning effort. Ollama uses `think` mode only (other fields ignored) |
 
 ---
 

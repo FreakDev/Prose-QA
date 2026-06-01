@@ -59,7 +59,7 @@ function anthropicEffort(
 
 /**
  * Provider-specific options for extended thinking / reasoning.
- * Honors `config.llm.thinking.enabled` across Anthropic, OpenAI, Fireworks, Google, and Ollama.
+ * Honors `config.llm.thinking.enabled` across Anthropic, OpenAI, Fireworks, Google, OpenRouter, and Ollama.
  */
 export function buildProviderOptions(
   config: PqaConfig,
@@ -110,6 +110,14 @@ export function buildProviderOptions(
     case "ollama":
       return {
         ollama: { think: true },
+      };
+    case "openrouter":
+      return {
+        openrouter: {
+          reasoning: reasoningEffort
+            ? { effort: reasoningEffort }
+            : { max_tokens: budget },
+        },
       };
     default:
       return undefined;
