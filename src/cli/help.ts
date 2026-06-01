@@ -172,17 +172,25 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
   },
   {
     name: "analyze",
-    summary: "Analyze a run and review scenario fixes interactively",
-    usage: "pqa analyze [runPathOrId] [options]",
+    summary: "Analyze run(s) and review scenario fixes interactively",
+    usage: "pqa analyze [runPathOrId...] [options]",
     description:
-      "Run heuristic classification and LLM analysis on failed scenarios, then open an interactive REPL: heuristic summary (press any key), then review each diff hunk patch-by-patch ([y/n/e/s/q/?]).",
+      "Single run: heuristic classification and LLM analysis on failed scenarios, then interactive patch review ([y/n/e/s/q/?]). Multiple runs or --last N: detect flaky scenarios with inconsistent verdicts, compare pass vs fail transcripts, and propose stabilizing edits.",
     arguments: [
       {
-        name: "runPathOrId",
-        description: "Run directory or id under .pqa/runs/ (default: latest run)",
+        name: "runPathOrId...",
+        description:
+          "One or more run directories or ids under .pqa/runs/ (default: latest run; 2+ ids or --last N enables multi-run flaky analysis)",
       },
     ],
-    options: [{ flags: "--config <path>", description: "Path to pqa.config file" }],
+    options: [
+      { flags: "--config <path>", description: "Path to pqa.config file" },
+      {
+        flags: "--last <n>",
+        description:
+          "Compare the N most recent runs for flaky scenarios (requires n ≥ 2)",
+      },
+    ],
   },
   {
     name: "record",

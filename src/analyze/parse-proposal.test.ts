@@ -21,4 +21,22 @@ describe("extractScenarioFixProposal", () => {
   it("returns null for invalid payload", () => {
     assert.equal(extractScenarioFixProposal("not json"), null);
   });
+
+  it("parses optional flakeDiagnosis", () => {
+    const text = `\`\`\`json
+{
+  "shouldEditScenario": false,
+  "rationale": "Product bug.",
+  "changes": [],
+  "flakeDiagnosis": {
+    "type": "false_negative",
+    "confidence": "high",
+    "explanation": "Then checked too late."
+  }
+}
+\`\`\``;
+    const proposal = extractScenarioFixProposal(text);
+    assert.ok(proposal?.flakeDiagnosis);
+    assert.equal(proposal!.flakeDiagnosis!.type, "false_negative");
+  });
 });

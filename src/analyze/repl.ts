@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import chalk from "chalk";
 import type { AnalyzeFinding, AnalyzeReport } from "./index.js";
+import type { FlakyAnalyzeReport } from "./compare-runs.js";
 import {
   canSplitHunk,
   computeDiffHunks,
@@ -31,6 +32,7 @@ export interface LlmReplEntry {
 
 export interface AnalyzeReplOptions {
   heuristicReport: AnalyzeReport;
+  flakyReport?: FlakyAnalyzeReport;
   llmEntries: LlmReplEntry[];
   cwd: string;
   ask?: (prompt: string) => Promise<string>;
@@ -214,7 +216,11 @@ export async function runAnalyzeRepl(
 
   console.log("");
   console.log(chalk.bold("Heuristic analysis"));
-  console.log(formatHeuristicSummary(options.heuristicReport));
+  if (options.flakyReport) {
+    console.log(formatFlakySummary(options.flakyReport));
+  } else {
+    console.log(formatHeuristicSummary(options.heuristicReport));
+  }
   await waitForAnyKey(
     chalk.dim("\nPress any key to continue to LLM proposals… "),
     options.waitForKey,
@@ -251,6 +257,16 @@ export async function runAnalyzeRepl(
       }
 
       console.log("");
+      if (entry.proposal.flakeDiagnosis) {
+        const d = entry.proposal.flakeDiagnosis;
+        console.log(
+          chalk.magenta(
+            `Flake diagnosis: ${d.type} [${d.confidence}] — ${d.explanation}`,
+          ),
+        );
+        console.log("");
+      }
+
       console.log(entry.proposal.rationale);
 
       if (
@@ -355,6 +371,52 @@ export function formatHeuristicSummary(report: AnalyzeReport): string {
     for (const s of f.suggestions.slice(0, 3)) {
       lines.push(chalk.dim(`  - ${s}`));
     }
+  }
+
+  return lines.join("\n");
+}
+
+export function formatFlakySummary(report: FlakyAnalyzeReport): string {
+  if (report.findings.length === 0) {
+    return chalk.green(
+      `No flaky scenarios across ${report.runIds.length} run(s).`,
+    );
+  }
+
+  const lines: string[] = [
+    chalk.bold(
+      `Flaky scenarios across ${report.runIds.length} run(s):`,
+    ),
+    chalk.dim(`Runs: ${report.runIds.join(", ")}`),
+    "",
+  ];
+
+  for (const f of report.findings) {
+    lines.push(
+      `  ${chalk.bold(f.scenario)}  ${f.passCount} pass / ${f.failCount} fail / ${f.errorCount} error`,
+    );
+    for (const cp of f.inconsistentCheckpoints.slice(0, 3)) {
+      lines.push(
+        chalk.dim(
+          `    checkpoint flip: "${cp.assertion}" (pass: ${cp.passedIn.length}, fail: ${cp.failedIn.length})`,
+        ),
+      );
+    }
+    const assessment = f.heuristicAssessment;
+    const hints: string[] = [];
+    if (assessment.likelyFalseNegative) hints.push("likely false negative");
+    if (assessment.likelyFalsePositive) hints.push("likely false positive");
+    if (hints.length > 0) {
+      lines.push(
+        chalk.dim(
+          `    diagnosis hint: ${hints.join(", ")} [${assessment.dominantKind}]`,
+        ),
+      );
+    }
+    for (const w of f.filePathWarnings) {
+      lines.push(chalk.yellow(`    warning: ${w}`));
+    }
+    lines.push("");
   }
 
   return lines.join("\n");

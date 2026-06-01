@@ -23,23 +23,27 @@ export interface AnalyzeReport {
   findings: AnalyzeFinding[];
 }
 
-export function resolveRunDir(cwd: string, runPathOrId?: string): string {
+export function listRunDirs(cwd: string): string[] {
   const runsRoot = path.join(cwd, ".pqa", "runs");
+  if (!existsSync(runsRoot)) {
+    throw new Error(`No runs directory at ${runsRoot}`);
+  }
+  const dirs = readdirSync(runsRoot)
+    .map((name) => path.join(runsRoot, name))
+    .filter((p) => statSync(p).isDirectory())
+    .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
+  if (dirs.length === 0) {
+    throw new Error(`No runs found under ${runsRoot}`);
+  }
+  return dirs;
+}
 
+export function resolveRunDir(cwd: string, runPathOrId?: string): string {
   if (!runPathOrId) {
-    if (!existsSync(runsRoot)) {
-      throw new Error(`No runs directory at ${runsRoot}`);
-    }
-    const dirs = readdirSync(runsRoot)
-      .map((name) => path.join(runsRoot, name))
-      .filter((p) => statSync(p).isDirectory())
-      .sort((a, b) => statSync(b).mtimeMs - statSync(a).mtimeMs);
-    if (dirs.length === 0) {
-      throw new Error(`No runs found under ${runsRoot}`);
-    }
-    return dirs[0]!;
+    return listRunDirs(cwd)[0]!;
   }
 
+  const runsRoot = path.join(cwd, ".pqa", "runs");
   const resolved = path.isAbsolute(runPathOrId)
     ? runPathOrId
     : path.resolve(cwd, runPathOrId);
@@ -54,6 +58,31 @@ export function resolveRunDir(cwd: string, runPathOrId?: string): string {
   }
 
   throw new Error(`Run directory not found: ${runPathOrId}`);
+}
+
+export function resolveRunDirs(
+  cwd: string,
+  runIds: string[],
+  lastN?: number,
+): string[] {
+  if (runIds.length > 0) {
+    return runIds.map((id) => resolveRunDir(cwd, id));
+  }
+
+  if (lastN !== undefined) {
+    if (lastN < 2) {
+      throw new Error("--last requires at least 2 runs for multi-run analysis");
+    }
+    const dirs = listRunDirs(cwd);
+    if (dirs.length < 2) {
+      throw new Error(
+        `Multi-run analysis requires at least 2 runs; found ${dirs.length}`,
+      );
+    }
+    return dirs.slice(0, lastN);
+  }
+
+  return [resolveRunDir(cwd)];
 }
 
 export function loadRunReport(runDir: string): RunReport {

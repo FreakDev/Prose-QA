@@ -260,7 +260,18 @@ Conservative self-healing: in-run recovery and transient-only scenario retries. 
 
 Default `transientPatterns`: `timeout`, `timed out`, `not found`, `waiting for`, `navigation`, `net::`, `target closed`, `detached`, `stale`, `interrupted`.
 
-CLI equivalents: `--no-healing`, `--retries N`, `--retries-policy transient|always`.
+CLI equivalents: `--no-healing`, `--retries N`, `--retries-policy transient|always`, `--no-cache`.
+
+---
+
+#### `cache` (object, optional)
+
+Scenario replay cache settings. See [Scenario replay cache](#scenario-replay-cache).
+
+| Key | Type | Default | Description |
+| --- | --- | --- | --- |
+| `dir` | string | `".pqa/cache"` | Directory for per-scenario replay scripts |
+| `enabled` | boolean | `true` | Master switch (opt-out via `--no-cache`) |
 
 ---
 
@@ -333,6 +344,10 @@ Settings for `pqa record`. See [Recording scenarios](#recording-scenarios).
     "bridgePort": 17321,
     "outputDir": ".pqa/recordings",
     "defaultTags": ["recorded"]
+  },
+  "cache": {
+    "dir": ".pqa/cache",
+    "enabled": true
   }
 }
 ```
@@ -343,6 +358,7 @@ Settings for `pqa record`. See [Recording scenarios](#recording-scenarios).
 | --- | --- |
 | `pqa config <key> <value>` | Set a value in `pqa.config.json` |
 | `pqa run [globs]` | Run scenarios (headless by default) |
+| `pqa clear-cache [scenario]` | Clear scenario replay cache |
 | `pqa debug [globs]` | Verbose debug run (headed by default, supports `--tags`) |
 | `pqa skills list` | List discovered skills |
 | `pqa skills show <name>` | Print skill body |
@@ -350,7 +366,7 @@ Settings for `pqa record`. See [Recording scenarios](#recording-scenarios).
 | `pqa auth list` | List cached auth profiles in the auth store |
 | `pqa auth clear [profile]` | Clear cached auth state |
 | `pqa auth save <name>` | Run the configured auth scenario and save state |
-| `pqa analyze [run]` | Heuristic + LLM analysis, interactive patch review (REPL) |
+| `pqa analyze [run...]` | Heuristic + LLM analysis, interactive patch review (REPL); multi-run flaky detection with `--last N` |
 | `pqa record start` | Start headed recording session (browser + event bridge) |
 | `pqa record note <text>` | Add a comment to the active recording |
 | `pqa record checkpoint <text>` | Add a Then-section hint |
@@ -358,6 +374,38 @@ Settings for `pqa record`. See [Recording scenarios](#recording-scenarios).
 | `pqa record generate <dir>` | Regenerate scenario markdown from a saved recording |
 
 Use `--auth-refresh` on `run` / `debug` to re-run auth scenarios and refresh the store.
+
+## Scenario replay cache
+
+After a scenario passes via the LLM agent, PQA can generate a deterministic bash replay script under `.pqa/cache/<scenario>/`. Subsequent runs execute `replay.sh` (Steps + Then validations) without calling the agent — much faster.
+
+```bash
+# First run: agent executes, cache is generated on pass
+pqa run scenarios/lapresse/homepage-smoke.md
+
+# Second run: cache replay (if valid)
+pqa run scenarios/lapresse/homepage-smoke.md
+
+# Skip cache read/write
+pqa run scenarios/**/*.md --no-cache
+
+# Clear one or all caches
+pqa clear-cache lapresse-homepage-smoke
+pqa clear-cache
+```
+
+Cache is invalidated when the scenario markdown changes, when replay fails (automatic fallback to the agent), or when `--auth-refresh` clears caches for affected auth profiles.
+
+Config (optional):
+
+```json
+{
+  "cache": {
+    "dir": ".pqa/cache",
+    "enabled": true
+  }
+}
+```
 
 ## Recording scenarios
 
@@ -427,6 +475,9 @@ pqa run scenarios/**/*.md --retries 1 --retries-policy transient
 
 # Analyze the latest run (interactive REPL)
 pqa analyze
+
+# Compare the 10 most recent runs for flaky scenarios
+pqa analyze --last 10
 ```
 
 All healing options: see [`healing`](#healing-object-optional) in Configuration.
@@ -436,7 +487,8 @@ All healing options: see [`healing`](#healing-object-optional) in Configuration.
 Runs write artifacts to `.pqa/runs/<runId>/`:
 
 - `report.json` / `report.html` — summary
-- `analyze.json` / `analyze-llm.json` — written by `pqa analyze`
+- `analyze.json` / `analyze-llm.json` — written by `pqa analyze` (single run)
+- `.pqa/analyze/<timestamp>/analyze-flaky.json` / `analyze-llm.json` — multi-run flaky analysis
 - `<scenario>/transcript.json` — bash commands + agent messages
 - `<scenario>/verdict.json` — structured pass/fail
 

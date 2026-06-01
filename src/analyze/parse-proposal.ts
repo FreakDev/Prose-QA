@@ -1,12 +1,26 @@
 import { z } from "zod";
 
+export const FlakeDiagnosisSchema = z.object({
+  type: z.enum([
+    "false_negative",
+    "false_positive",
+    "timing_flake",
+    "agent_drift",
+    "product",
+  ]),
+  confidence: z.enum(["high", "medium", "low"]),
+  explanation: z.string(),
+});
+
 export const ScenarioFixProposalSchema = z.object({
   shouldEditScenario: z.boolean(),
   rationale: z.string(),
   changes: z.array(z.string()),
   revisedMarkdown: z.string().nullable().optional(),
+  flakeDiagnosis: FlakeDiagnosisSchema.optional(),
 });
 
+export type FlakeDiagnosis = z.infer<typeof FlakeDiagnosisSchema>;
 export type ScenarioFixProposal = z.infer<typeof ScenarioFixProposalSchema>;
 
 export function extractScenarioFixProposal(text: string): ScenarioFixProposal | null {

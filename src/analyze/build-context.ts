@@ -2,6 +2,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { parseScenarioFile } from "../scenarios/parser.js";
 import type { AnalyzeFinding } from "./index.js";
+import type {
+  FlakyScenarioFinding,
+  RunOccurrence,
+} from "./compare-runs.js";
+import { selectRepresentativeRuns } from "./compare-runs.js";
+import { loadRunReport } from "./index.js";
 import type { ScenarioResult, TranscriptEntry } from "../types/verdict.js";
 
 const MAX_TRANSCRIPT_ENTRIES = 28;
@@ -23,21 +29,43 @@ export interface ScenarioIntentContext {
   then: string[];
 }
 
+export interface TruncatedScenarioResult {
+  scenario: string;
+  filePath: string;
+  status: string;
+  error?: string;
+  durationMs?: number;
+  verdict: ScenarioResult["verdict"];
+  transcript: {
+    entries: TranscriptEntry[];
+  };
+  healing?: ScenarioResult["healing"];
+}
+
 export interface LlmAnalyzeContext {
   heuristicFinding: AnalyzeFinding;
   scenarioIntent: ScenarioIntentContext | null;
-  scenarioResult: {
-    scenario: string;
-    filePath: string;
-    status: string;
-    error?: string;
-    verdict: ScenarioResult["verdict"];
-    transcript: {
-      entries: TranscriptEntry[];
-    };
-    healing?: ScenarioResult["healing"];
-  };
+  scenarioResult: TruncatedScenarioResult;
   scenarioMarkdown: string;
+}
+
+export interface FlakyLlmAnalyzeContext extends LlmAnalyzeContext {
+  runComparison: {
+    runIds: string[];
+    stats: { pass: number; fail: number; error: number };
+    inconsistentCheckpoints: FlakyScenarioFinding["inconsistentCheckpoints"];
+    filePathWarnings: string[];
+    representativeRuns: {
+      pass?: TruncatedScenarioResult;
+      fail?: TruncatedScenarioResult;
+    };
+    otherRuns: Array<{
+      runId: string;
+      status: RunOccurrence["status"];
+      verdictSummary?: string;
+      failedCheckpoints: string[];
+    }>;
+  };
 }
 
 export function buildScenarioIntent(
@@ -59,18 +87,9 @@ export function buildScenarioIntent(
   }
 }
 
-export function buildLlmAnalyzeContext(
-  finding: AnalyzeFinding,
+export function truncateScenarioResult(
   result: ScenarioResult,
-  cwd: string,
-): LlmAnalyzeContext {
-  const scenarioPath = path.isAbsolute(result.filePath)
-    ? result.filePath
-    : path.resolve(cwd, result.filePath);
-
-  const scenarioMarkdown = readFileSync(scenarioPath, "utf-8");
-  const scenarioIntent = buildScenarioIntent(scenarioPath);
-
+): TruncatedScenarioResult {
   const entries = result.transcript.entries
     .slice(-MAX_TRANSCRIPT_ENTRIES)
     .map((entry): TranscriptEntry => {
@@ -95,17 +114,118 @@ export function buildLlmAnalyzeContext(
     });
 
   return {
+    scenario: result.scenario,
+    filePath: result.filePath,
+    status: result.status,
+    error: result.error,
+    durationMs: result.durationMs,
+    verdict: result.verdict,
+    transcript: { entries },
+    healing: result.healing,
+  };
+}
+
+export function buildLlmAnalyzeContext(
+  finding: AnalyzeFinding,
+  result: ScenarioResult,
+  cwd: string,
+): LlmAnalyzeContext {
+  const scenarioPath = path.isAbsolute(result.filePath)
+    ? result.filePath
+    : path.resolve(cwd, result.filePath);
+
+  const scenarioMarkdown = readFileSync(scenarioPath, "utf-8");
+  const scenarioIntent = buildScenarioIntent(scenarioPath);
+
+  return {
     heuristicFinding: finding,
     scenarioIntent,
-    scenarioResult: {
-      scenario: result.scenario,
-      filePath: result.filePath,
-      status: result.status,
-      error: result.error,
-      verdict: result.verdict,
-      transcript: { entries },
-      healing: result.healing,
-    },
+    scenarioResult: truncateScenarioResult(result),
     scenarioMarkdown,
   };
+}
+
+function syntheticFindingFromFlaky(
+  finding: FlakyScenarioFinding,
+): AnalyzeFinding {
+  const assessment = finding.heuristicAssessment;
+  return {
+    scenario: finding.scenario,
+    filePath: finding.filePath,
+    status: finding.failCount > 0 ? "fail" : "error",
+    failureKind: assessment.dominantKind,
+    confidence: assessment.likelyFalseNegative ? "high" : "medium",
+    suggestions: assessment.suggestions,
+    signals: finding.runs.flatMap((r) => r.signals ?? []).slice(0, 6),
+  };
+}
+
+export function buildFlakyAnalyzeContext(
+  finding: FlakyScenarioFinding,
+  runDirs: string[],
+  cwd: string,
+): FlakyLlmAnalyzeContext {
+  const reports = runDirs.map((runDir) => ({
+    runDir,
+    report: loadRunReport(runDir),
+  }));
+
+  const entries = reports.flatMap(({ report }) =>
+    report.results
+      .filter((r) => (r.scenario || r.filePath) === finding.scenario)
+      .map((result) => ({ runId: report.runId, result })),
+  );
+
+  const { pass: passEntry, fail: failEntry } = selectRepresentativeRuns(entries);
+  const representativeRunIds = new Set(
+    [passEntry?.runId, failEntry?.runId].filter(Boolean),
+  );
+
+  const otherRuns = entries
+    .filter(({ runId }) => !representativeRunIds.has(runId))
+    .map(({ runId, result }) => ({
+      runId,
+      status: result.status,
+      verdictSummary: result.verdict?.summary,
+      failedCheckpoints:
+        result.verdict?.checkpoints
+          .filter((c) => !c.pass)
+          .map((c) => c.assertion) ?? [],
+    }));
+
+  const baseResult = failEntry?.result ?? passEntry?.result ?? entries[0]!.result;
+  const base = buildLlmAnalyzeContext(
+    syntheticFindingFromFlaky(finding),
+    baseResult,
+    cwd,
+  );
+
+  return {
+    ...base,
+    runComparison: {
+      runIds: finding.runs.map((r) => r.runId),
+      stats: {
+        pass: finding.passCount,
+        fail: finding.failCount,
+        error: finding.errorCount,
+      },
+      inconsistentCheckpoints: finding.inconsistentCheckpoints,
+      filePathWarnings: finding.filePathWarnings,
+      representativeRuns: {
+        ...(passEntry
+          ? { pass: truncateScenarioResult(passEntry.result) }
+          : {}),
+        ...(failEntry
+          ? { fail: truncateScenarioResult(failEntry.result) }
+          : {}),
+      },
+      otherRuns,
+    },
+  };
+}
+
+export function flakyFindingToAnalyzeFinding(
+  finding: FlakyScenarioFinding,
+): AnalyzeFinding {
+  return syntheticFindingFromFlaky(finding);
 }

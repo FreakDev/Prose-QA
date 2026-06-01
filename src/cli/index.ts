@@ -365,12 +365,19 @@ program
   });
 
 program
-  .command("analyze [runPathOrId]")
-  .description("Analyze a run (heuristics + LLM) and review fixes interactively")
+  .command("analyze")
+  .description("Analyze run(s) (heuristics + LLM) and review fixes interactively")
+  .argument("[runPathOrId...]", "Run directory or id under .pqa/runs/")
   .option("--config <path>", "Path to pqa.config file")
-  .action(async (runPathOrId: string | undefined, opts) => {
-    const code = await executeAnalyze(runPathOrId, {
+  .option(
+    "--last <n>",
+    "Compare the N most recent runs for flaky scenarios",
+    (v: string) => parseInt(v, 10),
+  )
+  .action(async (runPathOrIds: string[], opts) => {
+    const code = await executeAnalyze(runPathOrIds, {
       configPath: opts.config,
+      last: opts.last,
     });
     process.exit(code);
   });
