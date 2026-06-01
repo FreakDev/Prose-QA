@@ -1,9 +1,46 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { RunOptions } from "../types/config.js";
 import type { ScenarioResult } from "../types/verdict.js";
 import { scenarioArtifactDir } from "../reporter/index.js";
+
+const activeWorkers = new Set<ChildProcess>();
+let shutdownHandlersInstalled = false;
+
+function installParallelShutdownHandlers(): void {
+  if (shutdownHandlersInstalled) return;
+  shutdownHandlersInstalled = true;
+
+  const onSignal = (signal: NodeJS.Signals) => {
+    killAllScenarioWorkers(signal);
+    process.exit(signal === "SIGINT" ? 130 : 128 + 15);
+  };
+
+  process.once("SIGINT", () => onSignal("SIGINT"));
+  process.once("SIGTERM", () => onSignal("SIGTERM"));
+}
+
+export function trackScenarioWorker(child: ChildProcess): void {
+  activeWorkers.add(child);
+  const untrack = () => activeWorkers.delete(child);
+  child.once("close", untrack);
+  child.once("error", untrack);
+}
+
+/** Terminate all scenario worker subprocesses (parallel mode). */
+export function killAllScenarioWorkers(
+  signal: NodeJS.Signals = "SIGTERM",
+): void {
+  for (const child of activeWorkers) {
+    if (child.killed || child.exitCode !== null) continue;
+    try {
+      child.kill(signal);
+    } catch {
+      /* already stopped */
+    }
+  }
+}
 
 export function resolveCliInvocation(): {
   command: string;
@@ -96,12 +133,16 @@ export async function spawnScenarioWorker(
   const args = buildWorkerArgs(request);
   const name = request.scenarioName;
 
+  installParallelShutdownHandlers();
+
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: request.cwd,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
     });
+
+    trackScenarioWorker(child);
 
     child.stdout?.on("data", (chunk: Buffer) => {
       for (const line of chunk.toString().split("\n")) {

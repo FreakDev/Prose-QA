@@ -1,6 +1,52 @@
 import assert from "node:assert/strict";
+import { spawn, type ChildProcess } from "node:child_process";
 import { describe, it } from "node:test";
-import { resolveCliInvocation } from "./subprocess.js";
+import {
+  killAllScenarioWorkers,
+  resolveCliInvocation,
+  trackScenarioWorker,
+} from "./subprocess.js";
+
+describe("killAllScenarioWorkers", () => {
+  it("sends the signal to tracked workers", () => {
+    const signals: NodeJS.Signals[] = [];
+    let killed = false;
+    const child = {
+      get killed() {
+        return killed;
+      },
+      exitCode: null,
+      once() {
+        return child;
+      },
+      kill(signal: NodeJS.Signals) {
+        signals.push(signal);
+        killed = true;
+      },
+    } as unknown as ChildProcess;
+
+    trackScenarioWorker(child);
+    killAllScenarioWorkers("SIGINT");
+    assert.deepEqual(signals, ["SIGINT"]);
+  });
+
+  it("terminates a real child process", async () => {
+    const child = spawn(process.execPath, [
+      "-e",
+      "setInterval(() => {}, 1_000_000)",
+    ]);
+    trackScenarioWorker(child);
+    killAllScenarioWorkers("SIGTERM");
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("child did not exit")), 5000);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  });
+});
 
 describe("resolveCliInvocation", () => {
   it("returns node + script path for compiled CLI", () => {

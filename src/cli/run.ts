@@ -174,6 +174,47 @@ function buildAuthStateMap(
   return map;
 }
 
+/** Parallel worker subprocess: close browser before exit on interrupt. */
+function installScenarioWorkerShutdownHandlers(options: {
+  cwd: string;
+  config: PqaConfig;
+  scenarioName: string;
+  headed: boolean;
+  keepBrowser: boolean;
+  verbose?: boolean;
+}): void {
+  let shuttingDown = false;
+
+  const shutdown = async (signal: NodeJS.Signals) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+
+    if (!options.keepBrowser) {
+      const sessionName = resolveScenarioSessionName(
+        options.config,
+        options.scenarioName,
+        true,
+      );
+      try {
+        await closeBrowserSession({
+          cwd: options.cwd,
+          timeoutMs: options.config.agent.bashTimeoutMs,
+          sessionName,
+          headed: options.headed,
+          verbose: options.verbose,
+        });
+      } catch {
+        /* best effort */
+      }
+    }
+
+    process.exit(signal === "SIGINT" ? 130 : 128 + 15);
+  };
+
+  process.once("SIGTERM", () => void shutdown("SIGTERM"));
+  process.once("SIGINT", () => void shutdown("SIGINT"));
+}
+
 async function runOneScenario(
   scenario: Scenario,
   ctx: ScenarioRunContext,
@@ -586,6 +627,15 @@ export async function executeScenarioWorker(
   const authStateByProfile = authProfile
     ? buildAuthStateMap(config, cwd, [authProfile])
     : new Map<string, string>();
+
+  installScenarioWorkerShutdownHandlers({
+    cwd,
+    config,
+    scenarioName: scenario.frontmatter.name,
+    headed: options.headed ?? config.browser.headed,
+    keepBrowser: options.keepBrowser ?? false,
+    verbose: options.verbose,
+  });
 
   const scenarioCtx: ScenarioRunContext = {
     config,
