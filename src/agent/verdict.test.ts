@@ -103,7 +103,7 @@ describe("appendFinalTextToTranscript", () => {
   it("skips append only when the last assistant message exactly matches finalText", () => {
     const transcript = {
       entries: [
-        { type: "message" as const, role: "assistant", content: "The test passed successfully" },
+        { type: "message" as const, role: "assistant", content: "The test passed successfully", at: "2026-01-01T00:00:00.000Z" },
       ],
     };
 
@@ -117,7 +117,7 @@ describe("appendFinalTextToTranscript", () => {
 
   it("does not append duplicate when finalText equals the last assistant message", () => {
     const transcript = {
-      entries: [{ type: "message" as const, role: "assistant", content: "Done." }],
+      entries: [{ type: "message" as const, role: "assistant", content: "Done.", at: "2026-01-01T00:00:00.000Z" }],
     };
 
     appendFinalTextToTranscript(transcript, "Done.");
@@ -150,8 +150,29 @@ describe("appendStepToTranscript", () => {
     assert.equal(first.type, "message");
     assert.equal(first.role, "assistant");
     assert.match(first.content, /agent-browser open/);
+    assert.ok(first.at);
     assert.equal(second.type, "message");
     assert.equal(second.content, "Done.");
+    assert.ok(second.at);
+  });
+
+  it("records timestamps and LLM step duration on assistant messages", () => {
+    const transcript: AgentTranscript = { entries: [] };
+    const at = new Date("2026-01-01T00:00:05.000Z");
+
+    appendStepToTranscript(
+      transcript,
+      { text: "Checking.", toolCalls: [] },
+      [],
+      undefined,
+      { at, durationMs: 4200 },
+    );
+
+    assert.equal(transcript.entries.length, 1);
+    const message = transcript.entries[0]!;
+    assert.equal(message.type, "message");
+    assert.equal(message.at, "2026-01-01T00:00:05.000Z");
+    assert.equal(message.durationMs, 4200);
   });
 
   it("writes the assistant message before bash results for a step", () => {
@@ -182,6 +203,7 @@ describe("appendStepToTranscript", () => {
     assert.equal(bash.type, "bash");
     assert.match(message.content, /Opening the app/);
     assert.equal(message.thinking, "Need to load the page first.");
+    assert.equal(message.at, bash.at);
     assert.equal(bash.command, "agent-browser open /");
   });
 });

@@ -98,9 +98,11 @@ export function truncateScenarioResult(
           type: "message",
           role: entry.role,
           content: truncate(entry.content, MAX_MESSAGE_CHARS),
+          at: entry.at,
           ...(entry.thinking
             ? { thinking: truncate(entry.thinking, MAX_MESSAGE_CHARS) }
             : {}),
+          ...(entry.durationMs !== undefined ? { durationMs: entry.durationMs } : {}),
         };
       }
       return {
@@ -110,6 +112,7 @@ export function truncateScenarioResult(
         stdout: truncate(entry.stdout, MAX_STDOUT_CHARS),
         stderr: truncate(entry.stderr, 500),
         durationMs: entry.durationMs,
+        at: entry.at,
       };
     });
 

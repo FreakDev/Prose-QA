@@ -82,10 +82,12 @@ export function createEnvRedactor(
             type: "message" as const,
             role: entry.role,
             content: redact(entry.content),
+            at: entry.at,
             ...(entry.thinking ? { thinking: redact(entry.thinking) } : {}),
+            ...(entry.durationMs !== undefined ? { durationMs: entry.durationMs } : {}),
           };
         }
-        return { type: "bash" as const, ...redactBashEntry(entry) };
+        return { type: "bash" as const, ...redactBashEntry(entry), at: entry.at };
       }),
     };
   }

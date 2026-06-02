@@ -40,10 +40,16 @@ export interface TranscriptMessageEntry {
   /** Extended thinking / reasoning from the LLM, when available. */
   thinking?: string;
   content: string;
+  /** ISO-8601 timestamp when this entry was recorded. */
+  at: string;
+  /** Wall-clock duration of the LLM step (ms), for assistant messages only. */
+  durationMs?: number;
 }
 
 export interface TranscriptBashEntry extends BashEntry {
   type: "bash";
+  /** ISO-8601 timestamp when this entry was recorded. */
+  at: string;
 }
 
 export type TranscriptEntry = TranscriptMessageEntry | TranscriptBashEntry;

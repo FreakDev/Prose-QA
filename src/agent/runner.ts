@@ -100,6 +100,7 @@ async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
     toolCalls: Array<{ toolName: string; input: unknown }>;
   }) => Promise<void>;
   finalText: string;
+  stepTiming: { startMs: number };
 }): Promise<{
   result: GenerateTextResult<TOOLS, TextGenerateOutput>;
   finalText: string;
@@ -114,6 +115,7 @@ async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
     removeLastAssistantMessage(options.transcript);
     persistTranscript(options.runOptions, options.transcript);
 
+    options.stepTiming.startMs = Date.now();
     result = await generateText({
       model: createLlmModel(options.config),
       system: options.system,
@@ -132,7 +134,9 @@ async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
       options.runOptions.redactor
         ? options.runOptions.redactor.redact(finalText)
         : finalText,
+      { durationMs: Date.now() - options.stepTiming.startMs },
     );
+    options.stepTiming.startMs = Date.now();
     persistTranscript(options.runOptions, options.transcript);
   }
 
@@ -177,6 +181,7 @@ export async function runScenario(
 
   let finalText = "";
   let turn = 0;
+  const stepTiming = { startMs: Date.now() };
   const pendingBashEntries: BashEntry[] = [];
 
   const tools = {
@@ -233,6 +238,9 @@ export async function runScenario(
     toolCalls: Array<{ toolName: string; input: unknown }>;
   }) => {
     turn += 1;
+    const recordedAt = new Date();
+    const durationMs = recordedAt.getTime() - stepTiming.startMs;
+    stepTiming.startMs = recordedAt.getTime();
     const bashEntries = pendingBashEntries.splice(0);
     const stepInput = {
       text: step.text,
@@ -255,6 +263,7 @@ export async function runScenario(
       stepInput,
       bashEntries,
       safeFormatted,
+      { at: recordedAt, durationMs },
     );
     if (changed) {
       persistTranscript(options, transcript);
@@ -266,6 +275,7 @@ export async function runScenario(
   try {
     const providerOptions = buildProviderOptions(options.config);
 
+    stepTiming.startMs = Date.now();
     let result = await generateText({
       model: createLlmModel(options.config),
       system,
@@ -280,7 +290,9 @@ export async function runScenario(
     appendFinalTextToTranscript(
       transcript,
       options.redactor ? options.redactor.redact(finalText) : finalText,
+      { durationMs: Date.now() - stepTiming.startMs },
     );
+    stepTiming.startMs = Date.now();
     persistTranscript(options, transcript);
 
     ({ result, finalText } = await retryVerdictCompletion({
@@ -293,6 +305,7 @@ export async function runScenario(
       runOptions: options,
       onStepFinish,
       finalText,
+      stepTiming,
     }));
 
     let verdict = extractVerdict(finalText);
@@ -343,6 +356,7 @@ export async function runScenario(
             { role: "user", content: recoveryPrompt },
           ];
 
+          stepTiming.startMs = Date.now();
           result = await generateText({
             model: createLlmModel(options.config),
             system,
@@ -357,7 +371,9 @@ export async function runScenario(
           appendFinalTextToTranscript(
             transcript,
             options.redactor ? options.redactor.redact(finalText) : finalText,
+            { durationMs: Date.now() - stepTiming.startMs },
           );
+          stepTiming.startMs = Date.now();
           persistTranscript(options, transcript);
 
           ({ result, finalText } = await retryVerdictCompletion({
@@ -370,6 +386,7 @@ export async function runScenario(
             runOptions: options,
             onStepFinish,
             finalText,
+            stepTiming,
           }));
           verdict = extractVerdict(finalText);
 

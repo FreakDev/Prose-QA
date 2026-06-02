@@ -103,7 +103,7 @@ describe("createEnvRedactor", () => {
       ["PQA_TEST_PASSWORD"],
     );
     const transcript = {
-      entries: [{ type: "message" as const, role: "assistant", content: "hunter2" }],
+      entries: [{ type: "message" as const, role: "assistant", content: "hunter2", at: "2026-01-01T00:00:00.000Z" }],
     };
     const redacted = redactor.redactTranscript(transcript);
     assert.equal(

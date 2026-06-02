@@ -51,7 +51,7 @@ describe("writeTranscript", () => {
       artifactDir,
       {
         entries: [
-          { type: "message", role: "assistant", content: "used sk-live-secret here" },
+          { type: "message", role: "assistant", content: "used sk-live-secret here", at: "2026-01-01T00:00:00.000Z" },
           {
             type: "bash",
             command: "curl -H 'Authorization: sk-live-secret'",
@@ -59,6 +59,7 @@ describe("writeTranscript", () => {
             stderr: "",
             exitCode: 0,
             durationMs: 1,
+            at: "2026-01-01T00:00:01.000Z",
           },
         ],
       },

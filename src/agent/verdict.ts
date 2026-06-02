@@ -84,32 +84,51 @@ function getLastAssistantMessageEntry(
   return undefined;
 }
 
+export interface TranscriptEntryTiming {
+  at?: Date;
+  durationMs?: number;
+}
+
 export function appendTranscriptMessage(
   transcript: AgentTranscript,
   role: string,
   content: string,
   thinking?: string,
+  timing?: TranscriptEntryTiming,
 ): void {
-  const entry: TranscriptMessageEntry = { type: "message", role, thinking, content };
+  const entry: TranscriptMessageEntry = {
+    type: "message",
+    role,
+    thinking,
+    content,
+    at: (timing?.at ?? new Date()).toISOString(),
+    ...(timing?.durationMs !== undefined ? { durationMs: timing.durationMs } : {}),
+  };
   transcript.entries.push(entry);
 }
 
 export function appendTranscriptBash(
   transcript: AgentTranscript,
   entry: BashEntry,
+  timing?: Pick<TranscriptEntryTiming, "at">,
 ): void {
-  transcript.entries.push({ type: "bash", ...entry });
+  transcript.entries.push({
+    type: "bash",
+    ...entry,
+    at: (timing?.at ?? new Date()).toISOString(),
+  });
 }
 
 /** Append final model text when it is not already the last assistant message. */
 export function appendFinalTextToTranscript(
   transcript: AgentTranscript,
   finalText: string,
+  timing?: TranscriptEntryTiming,
 ): void {
   if (!finalText) return;
   const last = getLastAssistantMessageEntry(transcript);
   if (last?.content === finalText) return;
-  appendTranscriptMessage(transcript, "assistant", finalText);
+  appendTranscriptMessage(transcript, "assistant", finalText, undefined, timing);
 }
 
 export interface StepTranscriptInput {
@@ -149,20 +168,23 @@ export function appendStepToTranscript(
   step: StepTranscriptInput,
   bashEntries: BashEntry[] = [],
   formattedOverride?: StepTranscriptFormatted,
+  timing?: TranscriptEntryTiming,
 ): boolean {
   let changed = false;
   const formatted = formattedOverride ?? formatStepForTranscript(step);
+  const recordedAt = timing?.at ?? new Date();
   if (formatted.content || formatted.thinking) {
     appendTranscriptMessage(
       transcript,
       "assistant",
       formatted.content ?? "",
       formatted.thinking,
+      { at: recordedAt, durationMs: timing?.durationMs },
     );
     changed = true;
   }
   for (const entry of bashEntries) {
-    appendTranscriptBash(transcript, entry);
+    appendTranscriptBash(transcript, entry, { at: recordedAt });
     changed = true;
   }
   return changed;
