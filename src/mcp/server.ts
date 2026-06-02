@@ -159,7 +159,9 @@ export function createPqaMcpServer(cwd: string): McpServer {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         return {
-          content: [{ type: "text" as const, text: `Invalid scenario: ${message}` }],
+          content: [
+            { type: "text" as const, text: `Invalid scenario: ${message}` },
+          ],
           isError: true,
         };
       }
@@ -171,7 +173,8 @@ export function createPqaMcpServer(cwd: string): McpServer {
         workerOptions(args),
       );
 
-      const status = exitCode === 0 ? "pass" : exitCode === 2 ? "error" : "fail";
+      const status =
+        exitCode === 0 ? "pass" : exitCode === 2 ? "error" : "fail";
       const payload = {
         status,
         exitCode,
@@ -206,9 +209,7 @@ export function createPqaMcpServer(cwd: string): McpServer {
     },
     async ({ goal }) => {
       const skill = loadCreatePqaScenarioSkill(cwd);
-      const goalLine = goal
-        ? `The user wants a scenario for: ${goal}\n\n`
-        : "";
+      const goalLine = goal ? `The user wants a scenario for: ${goal}\n\n` : "";
       return {
         messages: [
           {
@@ -230,4 +231,18 @@ export async function startPqaMcpServer(cwd: string): Promise<void> {
   const server = createPqaMcpServer(cwd);
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+  console.error(
+    "Prose-QA MCP server listening on stdio (create-pqa-scenario skill, run_scenario, validate_scenario).",
+  );
+
+  await new Promise<void>((resolve) => {
+    const previousOnClose = transport.onclose;
+    transport.onclose = () => {
+      previousOnClose?.();
+      resolve();
+    };
+  });
+
+  await server.close();
 }
