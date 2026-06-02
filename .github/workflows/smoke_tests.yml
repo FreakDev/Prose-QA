@@ -1,4 +1,4 @@
-name: CI
+name: smoke_tests
 
 on:
   push:
@@ -14,7 +14,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies
@@ -37,15 +37,15 @@ jobs:
           if (msg) { console.error(msg); process.exit(1); }
           "
 
-  e2e:
+  smoke:
     runs-on: ubuntu-latest
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push')
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
 
       - name: Install dependencies
@@ -60,24 +60,26 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Start static server
+      - name: Start Hello World smoke server
         run: |
-          npx --yes serve -l 8080 . &
+          node scripts/smoke-hello-server.mjs &
           for i in $(seq 1 30); do
-            curl -sf http://127.0.0.1:8080/ >/dev/null && break
+            curl -sf http://127.0.0.1:8080/ | grep -q "Hello World" && break
             sleep 1
           done
+          curl -sf http://127.0.0.1:8080/ | grep -q "Hello World"
 
-      - name: Run example smoke scenario
+      - name: Run Hello World smoke scenario
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          PQA_LLM_PROVIDER: anthropic
+          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          PQA_LLM_PROVIDER: fireworks
+          PQA_LLM_MODEL: accounts/fireworks/models/deepseek-v4-flash
         run: |
-          if [ -z "$ANTHROPIC_API_KEY" ]; then
-            echo "Skipping E2E — ANTHROPIC_API_KEY secret not configured"
+          if [ -z "$FIREWORKS_API_KEY" ]; then
+            echo "Skipping smoke PQA — FIREWORKS_API_KEY secret not configured"
             exit 0
           fi
-          node dist/cli/index.js run scenarios/example-smoke.md
+          node dist/cli/index.js run scenarios/hello-world-smoke.md
 
       - name: Upload artifacts
         if: failure()

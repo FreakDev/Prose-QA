@@ -9,6 +9,7 @@ dist/
 
 scenarios/*
 !scenarios/example-smoke.md
+!scenarios/hello-world-smoke.md
 !scenarios/example-authenticated.md
 !scenarios/auth/
 !scenarios/auth/login-admin.md

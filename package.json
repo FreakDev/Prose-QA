@@ -21,11 +21,12 @@
     "mcp": "tsx src/cli/index.ts mcp",
     "postinstall": "agent-browser install",
     "skills:sync": "tsx scripts/sync-skills.ts",
+    "smoke:server": "node scripts/smoke-hello-server.mjs",
     "prepublishOnly": "npm run build",
     "prepare": "husky"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=24"
   },
   "repository": {
     "type": "git",

@@ -547,7 +547,7 @@ Runs write artifacts to `.pqa/runs/<runId>/`:
 
 ## CI
 
-See [.github/workflows/regression.yml](.github/workflows/regression.yml). Unit tests run on every push. Optional E2E runs require `ANTHROPIC_API_KEY` (or configure another provider via env).
+See [.github/workflows/smoke_tests.yml](.github/workflows/smoke_tests.yml). Unit tests run on every push. Optional smoke PQA runs require `ANTHROPIC_API_KEY` (or configure another provider via env).
 
 ## Security
 
