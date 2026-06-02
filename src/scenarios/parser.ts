@@ -5,6 +5,7 @@ import type {
   ParsedCheckpoint,
   Scenario,
   ScenarioFrontmatter,
+  ScenarioSummary,
   ScenarioTagFilterExpression,
 } from "../types/scenario.js";
 
@@ -154,7 +155,50 @@ export function expandScenarioLinks(
   });
 }
 
-export function isRunnableScenario(scenario: Scenario): boolean {
+export function parseScenarioFrontmatter(filePath: string): ScenarioSummary {
+  const resolvedPath = path.resolve(filePath);
+  const raw = stripScenarioComments(readFileSync(resolvedPath, "utf-8"));
+  const { data } = matter(raw);
+  const frontmatter = data as ScenarioFrontmatter;
+
+  if (!frontmatter.name) {
+    throw new Error(`Scenario ${resolvedPath} missing 'name' in frontmatter`);
+  }
+
+  return { filePath: resolvedPath, frontmatter };
+}
+
+export function tryParseScenarioFrontmatter(
+  filePath: string,
+): ScenarioSummary | undefined {
+  try {
+    return parseScenarioFrontmatter(filePath);
+  } catch {
+    return undefined;
+  }
+}
+
+export function findScenarioSummariesByNames(
+  filePaths: Iterable<string>,
+  names: Set<string>,
+): ScenarioSummary[] {
+  if (names.size === 0) return [];
+
+  const found = new Map<string, ScenarioSummary>();
+  for (const filePath of filePaths) {
+    if (found.size === names.size) break;
+    const summary = tryParseScenarioFrontmatter(filePath);
+    if (summary && names.has(summary.frontmatter.name)) {
+      found.set(summary.frontmatter.name, summary);
+    }
+  }
+
+  return [...found.values()];
+}
+
+export function isRunnableScenario(
+  scenario: Pick<Scenario, "frontmatter">,
+): boolean {
   return !scenario.frontmatter.partial;
 }
 
@@ -254,7 +298,7 @@ function matchesTagTerm(scenarioTags: Set<string>, term: string): boolean {
 }
 
 export function matchesTags(
-  scenario: Scenario,
+  scenario: Pick<Scenario, "frontmatter">,
   filters: ScenarioTagFilterExpression | string[] | undefined,
 ): boolean {
   if (!filters || filters.length === 0) return true;
@@ -272,4 +316,17 @@ export function matchesTags(
   return filterGroups.some((group) =>
     group.every((term) => matchesTagTerm(scenarioTags, term)),
   );
+}
+
+export function selectRunnableScenarioSummaries(
+  summaries: ScenarioSummary[],
+  runFiles: Set<string>,
+  filters: ScenarioTagFilterExpression | string[] | undefined,
+  authScenarioNames: Set<string>,
+): ScenarioSummary[] {
+  return summaries
+    .filter((s) => runFiles.has(s.filePath))
+    .filter((s) => isRunnableScenario(s))
+    .filter((s) => matchesTags(s, filters))
+    .filter((s) => !authScenarioNames.has(s.frontmatter.name));
 }

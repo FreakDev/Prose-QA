@@ -17,6 +17,7 @@ import {
 } from "../auth/resolve.js";
 import {
   clear as clearAuthStore,
+  getAuthEntry,
   getAuthScenarioNames,
   list as listAuthStore,
   resolveProfilePath,
@@ -38,8 +39,10 @@ import {
 import { verifyLockDrift } from "../skills/registry.js";
 import {
   parseScenarioFile,
-  matchesTags,
-  isRunnableScenario,
+  parseScenarioFrontmatter,
+  findScenarioSummariesByNames,
+  selectRunnableScenarioSummaries,
+  tryParseScenarioFrontmatter,
 } from "../scenarios/parser.js";
 import { resolveRunGlobs } from "../scenarios/globs.js";
 import { applyArtifactsPolicy } from "../artifacts/policy.js";
@@ -427,19 +430,53 @@ export async function executeRun(
     return 2;
   }
 
-  const allScenarios = (await fg([discoveryGlob], { cwd, absolute: true }))
-    .map(parseScenarioFile);
+  const allFiles = await fg([discoveryGlob], { cwd, absolute: true });
+  const summaries = [...runFiles]
+    .map(tryParseScenarioFrontmatter)
+    .filter((summary): summary is NonNullable<typeof summary> =>
+      summary !== undefined,
+    );
   const authScenarioNames = getAuthScenarioNames(config);
-  const scenarios = allScenarios
-    .filter((s) => runFiles.has(s.filePath))
-    .filter((s) => isRunnableScenario(s))
-    .filter((s) => matchesTags(s, options.tags))
-    .filter((s) => !authScenarioNames.has(s.frontmatter.name));
+  const selectedSummaries = selectRunnableScenarioSummaries(
+    summaries,
+    runFiles,
+    options.tags,
+    authScenarioNames,
+  );
 
-  if (scenarios.length === 0) {
+  if (selectedSummaries.length === 0) {
     console.error(chalk.red("No runnable scenarios matched the given patterns and filters"));
     return 2;
   }
+
+  const authNamesNeeded = [
+    ...new Set(
+      selectedSummaries
+        .map((s) => s.frontmatter.auth)
+        .filter((profile): profile is string => Boolean(profile))
+        .map((profile) => getAuthEntry(config, profile)?.scenario)
+        .filter((name): name is string => Boolean(name)),
+    ),
+  ];
+  const authSummaries = findScenarioSummariesByNames(
+    allFiles,
+    new Set(authNamesNeeded),
+  );
+  const pathsToParse = new Set(
+    selectedSummaries.map((s) => s.filePath),
+  );
+  for (const summary of authSummaries) {
+    pathsToParse.add(summary.filePath);
+  }
+
+  const parsedByPath = new Map(
+    [...pathsToParse].map((filePath) => [
+      filePath,
+      parseScenarioFile(filePath),
+    ]),
+  );
+  const scenarios = selectedSummaries.map((s) => parsedByPath.get(s.filePath)!);
+  const authScenarios = [...parsedByPath.values()];
 
   if (options.pause && options.parallel !== undefined) {
     console.error(
@@ -478,7 +515,7 @@ export async function executeRun(
           runDir,
           headed,
           verbose: options.verbose,
-          allScenarios,
+          allScenarios: authScenarios,
           authRefresh: options.authRefresh,
           keepBrowser: options.keepBrowser ?? false,
           artifacts,
@@ -738,7 +775,18 @@ export async function executeAuthSave(
 
   const { discoveryGlob } = resolveRunGlobs(config, [], cwd);
   const files = await fg([discoveryGlob], { cwd, absolute: true });
-  const allScenarios = files.map(parseScenarioFile);
+  const authSummaries = findScenarioSummariesByNames(
+    files,
+    new Set([authEntry.scenario]),
+  );
+  const authSummary = authSummaries[0];
+  if (!authSummary) {
+    console.error(
+      chalk.red(`Auth scenario "${authEntry.scenario}" not found`),
+    );
+    return 2;
+  }
+  const authScenarios = [parseScenarioFile(authSummary.filePath)];
 
   const statePath =
     authEntry.statePath ?? path.join(".pqa", "auth", `${authName}.json`);
@@ -759,7 +807,7 @@ export async function executeAuthSave(
         runDir,
         headed: true,
         verbose: options.verbose,
-        allScenarios,
+        allScenarios: authScenarios,
         authRefresh: true,
         keepBrowser: options.keepBrowser ?? false,
         artifacts: options.artifacts ?? "never",

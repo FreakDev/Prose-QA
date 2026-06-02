@@ -9,6 +9,12 @@ export interface ScenarioFrontmatter {
   partial?: boolean;
 }
 
+/** Frontmatter-only view used to filter scenarios before full parse. */
+export interface ScenarioSummary {
+  filePath: string;
+  frontmatter: ScenarioFrontmatter;
+}
+
 export interface Scenario {
   filePath: string;
   frontmatter: ScenarioFrontmatter;

@@ -8,6 +8,10 @@ import {
   isRunnableScenario,
   matchesTags,
   parseScenarioFile,
+  parseScenarioFrontmatter,
+  findScenarioSummariesByNames,
+  selectRunnableScenarioSummaries,
+  tryParseScenarioFrontmatter,
   stripScenarioComments,
 } from "./parser.js";
 import type { Scenario } from "../types/scenario.js";
@@ -87,6 +91,110 @@ url: "https://example.com#section" # trailing note
     const stripped = stripScenarioComments(raw);
     assert.match(stripped, /https:\/\/example\.com#section/);
     assert.doesNotMatch(stripped, /trailing note/);
+  });
+});
+
+describe("parseScenarioFrontmatter", () => {
+  it("reads frontmatter without expanding scenario links", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "pqa-parser-"));
+    const mainPath = path.join(dir, "main.md");
+
+    writeFileSync(
+      mainPath,
+      `---
+name: main-scenario
+tags: [smoke, lapresse]
+partial: false
+---
+
+# Steps
+
+1. [broken link](./missing.md)
+`,
+    );
+
+    const summary = parseScenarioFrontmatter(mainPath);
+    assert.equal(summary.frontmatter.name, "main-scenario");
+    assert.deepEqual(summary.frontmatter.tags, ["smoke", "lapresse"]);
+  });
+});
+
+describe("tryParseScenarioFrontmatter", () => {
+  it("returns undefined for partial files without frontmatter", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "pqa-parser-"));
+    const partialPath = path.join(dir, "partial.md");
+    writeFileSync(partialPath, "shared steps only\n");
+
+    assert.equal(tryParseScenarioFrontmatter(partialPath), undefined);
+  });
+});
+
+describe("findScenarioSummariesByNames", () => {
+  it("finds scenarios by name without parsing unrelated files", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "pqa-parser-"));
+    const targetPath = path.join(dir, "target.md");
+    const brokenPath = path.join(dir, "broken-partial.md");
+
+    writeFileSync(
+      targetPath,
+      `---
+name: target-scenario
+tags: [lapresse, test2]
+---
+
+# Steps
+
+1. Do thing
+`,
+    );
+    writeFileSync(brokenPath, "[link](./missing.md)\n");
+
+    const found = findScenarioSummariesByNames(
+      [brokenPath, targetPath],
+      new Set(["target-scenario"]),
+    );
+
+    assert.deepEqual(
+      found.map((s) => s.frontmatter.name),
+      ["target-scenario"],
+    );
+  });
+});
+
+describe("selectRunnableScenarioSummaries", () => {
+  it("filters by run files, tags, partial, and auth scenario names", () => {
+    const summaries = [
+      {
+        filePath: "/tmp/run.md",
+        frontmatter: { name: "run", tags: ["lapresse", "test2"] },
+      },
+      {
+        filePath: "/tmp/skip-tags.md",
+        frontmatter: { name: "skip-tags", tags: ["lapresse", "test3"] },
+      },
+      {
+        filePath: "/tmp/partial.md",
+        frontmatter: { name: "partial", partial: true, tags: ["lapresse", "test2"] },
+      },
+      {
+        filePath: "/tmp/auth.md",
+        frontmatter: { name: "login-admin", tags: ["auth"] },
+      },
+    ];
+    const runFiles = new Set(summaries.map((s) => s.filePath));
+    const authScenarioNames = new Set(["login-admin"]);
+
+    const selected = selectRunnableScenarioSummaries(
+      summaries,
+      runFiles,
+      [["lapresse", "test2"]],
+      authScenarioNames,
+    );
+
+    assert.deepEqual(
+      selected.map((s) => s.frontmatter.name),
+      ["run"],
+    );
   });
 });
 
