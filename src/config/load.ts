@@ -66,7 +66,10 @@ async function importConfigModule(resolved: string): Promise<Partial<PqaConfig>>
   if (resolved.endsWith(".ts")) {
     const { createJiti } = await import("jiti");
     const jiti = createJiti(import.meta.url, { interopDefault: true });
-    return jiti(resolved) as Partial<PqaConfig>;
+    const mod = jiti(resolved) as Partial<PqaConfig> & {
+      default?: Partial<PqaConfig>;
+    };
+    return mod.default ?? mod;
   }
   const mod = await import(pathToFileURL(resolved).href);
   return (mod.default ?? mod) as Partial<PqaConfig>;

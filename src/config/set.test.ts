@@ -112,4 +112,15 @@ describe("setConfigValue", () => {
       /Unknown config key "browser.unknown"/,
     );
   });
+
+  it("accepts scenariosDir", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-set-"));
+    await setConfigValue("scenariosDir", "test", cwd);
+
+    const content = readFileSync(path.join(cwd, LOCAL_CONFIG_FILENAME), "utf-8");
+    assert.match(content, /"scenariosDir": "test"/);
+
+    const config = await loadConfig(path.join(cwd, LOCAL_CONFIG_FILENAME), cwd);
+    assert.equal(config.scenariosDir, "test");
+  });
 });

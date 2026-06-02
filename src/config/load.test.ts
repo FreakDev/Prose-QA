@@ -19,6 +19,7 @@ describe("loadConfig", () => {
     assert.deepEqual(config.envVars, []);
     assert.equal(config.auth.admin?.scenario, "login-admin");
     assert.equal(config.recorder?.bridgePort, 17_321);
+    assert.equal(config.scenariosDir, "scenarios");
   });
 
   it("resolves bundled config from the package root", async () => {

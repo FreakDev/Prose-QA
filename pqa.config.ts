@@ -4,7 +4,7 @@
  * Override locally by adding pqa.config.json (or .mjs / .ts / .js) in your project root.
  */
 const config = {
-  // scenariosDir: "scenarios",
+  scenariosDir: "scenarios",
   llm: {
     provider:
       (process.env.PQA_LLM_PROVIDER as
