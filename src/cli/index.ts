@@ -138,7 +138,10 @@ program
 program
   .command("run")
   .description("Run E2E scenarios (CI mode)")
-  .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
+  .argument(
+    "[patterns...]",
+    "Scenario glob patterns (default: all markdown under scenariosDir from config)",
+  )
   .option("-c, --config <path>", "Config file path")
   .option(
     "--tags <tags>",
@@ -189,7 +192,10 @@ program
 program
   .command("debug")
   .description("Run scenarios with verbose output (local debug)")
-  .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
+  .argument(
+    "[patterns...]",
+    "Scenario glob patterns (default: all markdown under scenariosDir from config)",
+  )
   .option("-c, --config <path>", "Config file path")
   .option(
     "--tags <tags>",

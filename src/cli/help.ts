@@ -31,7 +31,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       {
         name: "patterns",
         description: "Glob patterns for scenario markdown files",
-        defaultValue: "scenarios/**/*.md",
+        defaultValue: "<scenariosDir>/**/*.md from pqa.config when omitted",
       },
     ],
     options: [
@@ -107,7 +107,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       {
         name: "patterns",
         description: "Glob patterns for scenario markdown files",
-        defaultValue: "scenarios/**/*.md",
+        defaultValue: "<scenariosDir>/**/*.md from pqa.config when omitted",
       },
     ],
     options: [

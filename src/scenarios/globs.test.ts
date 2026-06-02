@@ -60,4 +60,12 @@ describe("resolveRunGlobs", () => {
     assert.deepEqual(runGlobs, ["pqa/**/*.md"]);
     assert.deepEqual(searchGlobs, runGlobs);
   });
+
+  it("uses config.scenariosDir when no patterns are provided", () => {
+    const config = { scenariosDir: "scenarios_test" } as PqaConfig;
+    const { discoveryGlob, runGlobs, searchGlobs } = resolveRunGlobs(config, []);
+    assert.equal(discoveryGlob, "scenarios_test/**/*.md");
+    assert.deepEqual(runGlobs, ["scenarios_test/**/*.md"]);
+    assert.deepEqual(searchGlobs, runGlobs);
+  });
 });

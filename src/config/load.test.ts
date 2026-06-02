@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
@@ -20,6 +20,16 @@ describe("loadConfig", () => {
     assert.equal(config.auth.admin?.scenario, "login-admin");
     assert.equal(config.recorder?.bridgePort, 17_321);
     assert.equal(config.scenariosDir, "scenarios");
+  });
+
+  it("merges local pqa.config.json overrides", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
+    writeFileSync(
+      path.join(cwd, "pqa.config.json"),
+      JSON.stringify({ scenariosDir: "custom-scenarios" }),
+    );
+    const config = await loadConfig(undefined, cwd);
+    assert.equal(config.scenariosDir, "custom-scenarios");
   });
 
   it("resolves bundled config from the package root", async () => {
