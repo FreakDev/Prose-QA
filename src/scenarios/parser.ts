@@ -228,10 +228,10 @@ function extractSections(body: string): Record<SectionName, string> {
   return sections;
 }
 
-export function parseScenarioFile(filePath: string): Scenario {
+export function parseScenarioContent(raw: string, filePath: string): Scenario {
   const resolvedPath = path.resolve(filePath);
-  const raw = stripScenarioComments(readFileSync(resolvedPath, "utf-8"));
-  const { data, content } = matter(raw);
+  const stripped = stripScenarioComments(raw);
+  const { data, content } = matter(stripped);
   const frontmatter = data as ScenarioFrontmatter;
 
   if (!frontmatter.name) {
@@ -264,6 +264,12 @@ export function parseScenarioFile(filePath: string): Scenario {
     rawCheckpoints: thenLines,
     checkpoints,
   };
+}
+
+export function parseScenarioFile(filePath: string): Scenario {
+  const resolvedPath = path.resolve(filePath);
+  const raw = readFileSync(resolvedPath, "utf-8");
+  return parseScenarioContent(raw, resolvedPath);
 }
 
 export function formatScenarioForPrompt(scenario: Scenario): string {

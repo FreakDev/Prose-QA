@@ -69,6 +69,39 @@ npm run dev -- debug scenarios/example-smoke.md --verbose
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidelines.
 
+## MCP server (Cursor, Claude Desktop, …)
+
+Start the Prose-QA MCP server over stdio so clients can read the **create-pqa-scenario** skill and run scenarios from inline markdown (same format as `scenarios/*.md`):
+
+```bash
+pqa mcp
+# or from this repo:
+npm run mcp
+```
+
+**Cursor** (`.cursor/mcp.json` in your app repo — `cwd` must be the project with `pqa.config` and env vars):
+
+```json
+{
+  "mcpServers": {
+    "prose-qa": {
+      "command": "npx",
+      "args": ["-y", "prose-qa", "mcp"]
+    }
+  }
+}
+```
+
+After `npm run build` in this repo, use `"command": "node"` and `"args": ["dist/cli/index.js", "mcp"]` with `cwd` set to the Prose-QA repo root.
+
+| Surface | Purpose |
+| -------- | -------- |
+| Resource `pqa://skill/create-pqa-scenario` | Full create-pqa-scenario `SKILL.md` |
+| Tool `get_create_pqa_scenario_skill` | Same skill as text |
+| Tool `validate_scenario` | Parse `content` without running the browser |
+| Tool `run_scenario` | Execute `content` (requires LLM + browser env) |
+| Prompt `author_pqa_scenario` | Template that includes the skill |
+
 ## Scenario format
 
 See [prompt/references/scenario-format.md](prompt/references/scenario-format.md).

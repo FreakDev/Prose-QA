@@ -11,12 +11,14 @@
     "prompt",
     "skills",
     "skills.lock.json",
-    "pqa.config.ts"
+    "pqa.config.ts",
+    ".agents/skills/create-pqa-scenario"
   ],
   "scripts": {
     "build": "tsc",
     "test": "node --import tsx --test src/**/*.test.ts",
     "dev": "tsx src/cli/index.ts",
+    "mcp": "tsx src/cli/index.ts mcp",
     "postinstall": "agent-browser install",
     "skills:sync": "tsx scripts/sync-skills.ts",
     "prepublishOnly": "npm run build",
@@ -49,6 +51,7 @@
     "@ai-sdk/fireworks": "^2.0.53",
     "@ai-sdk/google": "^2.0.74",
     "@ai-sdk/openai": "^2.0.0",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "agent-browser": "0.27.0",
     "ai": "^6.0.193",

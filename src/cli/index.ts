@@ -24,6 +24,7 @@ import type { RunOptions } from "../types/config.js";
 import type { ScenarioTagFilterExpression } from "../types/scenario.js";
 import { executeHelp } from "./help.js";
 import { executeConfig } from "./config.js";
+import { executeMcpServe } from "./mcp.js";
 import { collectAllTags, collectAnyTag, mergeTagFilters } from "./tags.js";
 
 loadEnv();
@@ -425,6 +426,15 @@ program
   .description("Show help for commands and options")
   .action((command: string[]) => {
     process.exit(executeHelp(command));
+  });
+
+program
+  .command("mcp")
+  .description(
+    "Start MCP server (stdio): create-pqa-scenario skill, validate/run inline scenario markdown",
+  )
+  .action(async () => {
+    process.exit(await executeMcpServe());
   });
 
 program.parse();

@@ -8,6 +8,7 @@ import {
   isRunnableScenario,
   matchesTags,
   parseScenarioFile,
+  parseScenarioContent,
   parseScenarioFrontmatter,
   findScenarioSummariesByNames,
   selectRunnableScenarioSummaries,
@@ -116,6 +117,36 @@ partial: false
     const summary = parseScenarioFrontmatter(mainPath);
     assert.equal(summary.frontmatter.name, "main-scenario");
     assert.deepEqual(summary.frontmatter.tags, ["smoke", "lapresse"]);
+  });
+});
+
+describe("parseScenarioContent", () => {
+  it("parses inline markdown the same as a file", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "pqa-parser-"));
+    const filePath = path.join(dir, "inline.md");
+    const raw = `---
+name: inline-smoke
+tags: [smoke]
+---
+
+# Goal
+
+Smoke test.
+
+# Steps
+
+1. Open home.
+
+# Then
+
+- url contains "/"
+`;
+    writeFileSync(filePath, raw);
+    const fromFile = parseScenarioFile(filePath);
+    const fromContent = parseScenarioContent(raw, filePath);
+    assert.equal(fromContent.frontmatter.name, fromFile.frontmatter.name);
+    assert.equal(fromContent.goal, fromFile.goal);
+    assert.deepEqual(fromContent.checkpoints, fromFile.checkpoints);
   });
 });
 

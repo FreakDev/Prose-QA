@@ -36,6 +36,7 @@ describe("printTopLevelHelp", () => {
     assert.match(text, /skills/);
     assert.match(text, /auth/);
     assert.match(text, /config/);
+    assert.match(text, /mcp/);
     assert.match(text, /help/);
     assert.match(text, /--version/);
   });

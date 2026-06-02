@@ -379,6 +379,13 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
     ],
   },
   {
+    name: "mcp",
+    summary: "Start MCP server (stdio)",
+    usage: "pqa mcp",
+    description:
+      "Expose the create-pqa-scenario skill and tools to validate or run inline scenario markdown for Cursor and other MCP clients. Uses stdio transport; configure the client to spawn this command in your project directory (where pqa.config and env vars live).",
+  },
+  {
     name: "help",
     summary: "Show help for commands and options",
     usage: "pqa help [command]",
