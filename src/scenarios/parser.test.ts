@@ -397,27 +397,13 @@ describe("isRunnableScenario", () => {
   it("excludes partial scenarios from batch runs", () => {
     assert.equal(
       isRunnableScenario({
-        filePath: "/tmp/x.md",
         frontmatter: { name: "x", partial: true },
-        skills: [],
-        goal: "",
-        steps: "",
-        then: [],
-        rawCheckpoints: [],
-        checkpoints: [],
       }),
       false,
     );
     assert.equal(
       isRunnableScenario({
-        filePath: "/tmp/y.md",
         frontmatter: { name: "y" },
-        skills: [],
-        goal: "",
-        steps: "",
-        then: [],
-        rawCheckpoints: [],
-        checkpoints: [],
       }),
       true,
     );
