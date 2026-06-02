@@ -86,6 +86,21 @@ function isScenarioFailure(result: ScenarioResult): boolean {
   return result.status === "fail" || result.status === "error";
 }
 
+function scenarioFailureReason(result: ScenarioResult): string | undefined {
+  if (result.status === "fail" && result.verdict?.summary) {
+    return result.verdict.summary;
+  }
+  return result.error;
+}
+
+function logScenarioFailureReason(result: ScenarioResult): void {
+  const reason = scenarioFailureReason(result);
+  if (!reason) return;
+  for (const line of reason.split("\n")) {
+    console.log(chalk.red(`  ${line}`));
+  }
+}
+
 function logRunSummary(report: {
   results: ScenarioResult[];
   summary: {
@@ -346,22 +361,12 @@ async function runOneScenario(
       result!.status === "pass" &&
       isCacheEnabled(ctx.config, ctx.noCache)
     ) {
-      const cacheSpinner = ora(`Caching hints for ${name}`).start();
-      const cacheResult = await generateOrMergeScenarioCacheHints(
+      await generateOrMergeScenarioCacheHints(
         ctx.config,
         ctx.cwd,
         scenario,
         result!,
       );
-      if (cacheResult.ok) {
-        cacheSpinner.succeed(chalk.green(`Cached hints for ${name}`));
-      } else {
-        cacheSpinner.warn(
-          chalk.yellow(
-            `Could not cache hints for ${name}: ${cacheResult.error ?? "unknown"}`,
-          ),
-        );
-      }
     }
 
     return result!;
@@ -590,7 +595,7 @@ export async function executeRun(
           console.log(chalk.green(`[${name}] passed`));
         } else {
           console.log(chalk.red(`[${name}] ${result.status}`));
-          if (result.error) console.error(chalk.red(`[${name}] ${result.error}`));
+          logScenarioFailureReason(result);
         }
         return result;
       },
@@ -648,7 +653,7 @@ export async function executeRun(
         spinner.fail(
           chalk.red(`${summary.frontmatter.name} ${result.status}`),
         );
-        if (result.error) console.error(chalk.red(result.error));
+        logScenarioFailureReason(result);
       }
       results.push(result);
 
