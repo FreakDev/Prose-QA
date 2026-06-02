@@ -320,13 +320,24 @@ export function matchesTags(
 
 export function selectRunnableScenarioSummaries(
   summaries: ScenarioSummary[],
-  runFiles: Set<string>,
   filters: ScenarioTagFilterExpression | string[] | undefined,
   authScenarioNames: Set<string>,
 ): ScenarioSummary[] {
   return summaries
-    .filter((s) => runFiles.has(s.filePath))
     .filter((s) => isRunnableScenario(s))
     .filter((s) => matchesTags(s, filters))
     .filter((s) => !authScenarioNames.has(s.frontmatter.name));
+}
+
+export function scenarioSummaryToStub(summary: ScenarioSummary): Scenario {
+  return {
+    filePath: summary.filePath,
+    frontmatter: summary.frontmatter,
+    skills: [],
+    goal: "",
+    steps: "",
+    then: [],
+    rawCheckpoints: [],
+    checkpoints: [],
+  };
 }

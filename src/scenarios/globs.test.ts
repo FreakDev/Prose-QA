@@ -55,8 +55,9 @@ describe("resolveRunGlobs", () => {
   it("uses discovery glob for auth lookup and expanded patterns for filtering", () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "pqa-globs-"));
     mkdirSync(path.join(cwd, "pqa"));
-    const { discoveryGlob, runGlobs } = resolveRunGlobs(baseConfig, ["pqa/"], cwd);
+    const { discoveryGlob, runGlobs, searchGlobs } = resolveRunGlobs(baseConfig, ["pqa/"], cwd);
     assert.equal(discoveryGlob, scenarioDiscoveryGlob("pqa"));
     assert.deepEqual(runGlobs, ["pqa/**/*.md"]);
+    assert.deepEqual(searchGlobs, runGlobs);
   });
 });

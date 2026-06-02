@@ -39,9 +39,9 @@ import {
 import { verifyLockDrift } from "../skills/registry.js";
 import {
   parseScenarioFile,
-  parseScenarioFrontmatter,
   findScenarioSummariesByNames,
   selectRunnableScenarioSummaries,
+  scenarioSummaryToStub,
   tryParseScenarioFrontmatter,
 } from "../scenarios/parser.js";
 import { resolveRunGlobs } from "../scenarios/globs.js";
@@ -421,7 +421,7 @@ export async function executeRun(
   const baseSkillNames = config.skills.preloads;
   requireSkills(allSkills, baseSkillNames);
 
-  const { discoveryGlob, runGlobs } = resolveRunGlobs(config, patterns, cwd);
+  const { searchGlobs, runGlobs } = resolveRunGlobs(config, patterns, cwd);
   const runFiles = new Set(
     await fg(runGlobs, { cwd, absolute: true }),
   );
@@ -430,7 +430,7 @@ export async function executeRun(
     return 2;
   }
 
-  const allFiles = await fg([discoveryGlob], { cwd, absolute: true });
+  const searchFiles = await fg(searchGlobs, { cwd, absolute: true });
   const summaries = [...runFiles]
     .map(tryParseScenarioFrontmatter)
     .filter((summary): summary is NonNullable<typeof summary> =>
@@ -439,7 +439,6 @@ export async function executeRun(
   const authScenarioNames = getAuthScenarioNames(config);
   const selectedSummaries = selectRunnableScenarioSummaries(
     summaries,
-    runFiles,
     options.tags,
     authScenarioNames,
   );
@@ -459,24 +458,13 @@ export async function executeRun(
     ),
   ];
   const authSummaries = findScenarioSummariesByNames(
-    allFiles,
+    searchFiles,
     new Set(authNamesNeeded),
   );
-  const pathsToParse = new Set(
-    selectedSummaries.map((s) => s.filePath),
+  const authScenarios = authSummaries.map((summary) =>
+    parseScenarioFile(summary.filePath),
   );
-  for (const summary of authSummaries) {
-    pathsToParse.add(summary.filePath);
-  }
-
-  const parsedByPath = new Map(
-    [...pathsToParse].map((filePath) => [
-      filePath,
-      parseScenarioFile(filePath),
-    ]),
-  );
-  const scenarios = selectedSummaries.map((s) => parsedByPath.get(s.filePath)!);
-  const authScenarios = [...parsedByPath.values()];
+  const scenarioStubs = selectedSummaries.map(scenarioSummaryToStub);
 
   if (options.pause && options.parallel !== undefined) {
     console.error(
@@ -496,7 +484,7 @@ export async function executeRun(
 
   const requiredProfiles = [
     ...new Set(
-      scenarios
+      selectedSummaries
         .map((s) => s.frontmatter.auth)
         .filter((profile): profile is string => Boolean(profile)),
     ),
@@ -558,7 +546,7 @@ export async function executeRun(
   };
 
   console.log(chalk.bold(`PQA run ${runId}`));
-  console.log(`Scenarios: ${scenarios.length}`);
+  console.log(`Scenarios: ${selectedSummaries.length}`);
   if (parallel !== undefined) {
     const limitLabel = Number.isFinite(parallel)
       ? `max ${parallel}`
@@ -586,13 +574,13 @@ export async function executeRun(
     };
 
     const partial = await mapWithConcurrency(
-      scenarios,
+      selectedSummaries,
       parallel,
-      async (scenario) => {
-        const name = scenario.frontmatter.name;
+      async (summary) => {
+        const name = summary.frontmatter.name;
         console.log(`[${name}] running...`);
         const result = await spawnScenarioWorker({
-          scenarioFilePath: scenario.filePath,
+          scenarioFilePath: summary.filePath,
           scenarioName: name,
           runDir,
           cwd,
@@ -611,14 +599,37 @@ export async function executeRun(
         isFailure: isScenarioFailure,
       },
     );
-    results = alignScenarioResults(scenarios, partial);
+    results = alignScenarioResults(scenarioStubs, partial);
   } else {
     results = [];
-    for (const scenario of scenarios) {
-      const spinner = ora(`Running ${scenario.frontmatter.name}`).start();
+    for (const summary of selectedSummaries) {
+      const spinner = ora(`Running ${summary.frontmatter.name}`).start();
+      let scenario: Scenario;
+      try {
+        scenario = parseScenarioFile(summary.filePath);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        spinner.fail(chalk.red(`${summary.frontmatter.name} error`));
+        console.error(chalk.red(message));
+        results.push({
+          scenario: summary.frontmatter.name,
+          filePath: summary.filePath,
+          status: "error",
+          durationMs: 0,
+          verdict: null,
+          transcript: emptyTranscript(),
+          error: message,
+        });
+        if (failFast) {
+          results = alignScenarioResults(scenarioStubs, results);
+          break;
+        }
+        continue;
+      }
+
       const result = await runOneScenario(scenario, scenarioCtx, {
         onRetry: (attempt) => {
-          spinner.text = `Retry ${attempt}/${retries} ${scenario.frontmatter.name}`;
+          spinner.text = `Retry ${attempt}/${retries} ${summary.frontmatter.name}`;
         },
         onTurn: options.pause
           ? async () => {
@@ -632,10 +643,10 @@ export async function executeRun(
       });
 
       if (result.status === "pass") {
-        spinner.succeed(chalk.green(`${scenario.frontmatter.name} passed`));
+        spinner.succeed(chalk.green(`${summary.frontmatter.name} passed`));
       } else {
         spinner.fail(
-          chalk.red(`${scenario.frontmatter.name} ${result.status}`),
+          chalk.red(`${summary.frontmatter.name} ${result.status}`),
         );
         if (result.error) console.error(chalk.red(result.error));
       }
@@ -645,8 +656,8 @@ export async function executeRun(
         break;
       }
     }
-    if (failFast && results.length < scenarios.length) {
-      results = alignScenarioResults(scenarios, results);
+    if (failFast && results.length < selectedSummaries.length) {
+      results = alignScenarioResults(scenarioStubs, results);
     }
   }
 
@@ -773,8 +784,8 @@ export async function executeAuthSave(
   const baseSkillNames = config.skills.preloads;
   requireSkills(allSkills, baseSkillNames);
 
-  const { discoveryGlob } = resolveRunGlobs(config, [], cwd);
-  const files = await fg([discoveryGlob], { cwd, absolute: true });
+  const { searchGlobs } = resolveRunGlobs(config, [], cwd);
+  const files = await fg(searchGlobs, { cwd, absolute: true });
   const authSummaries = findScenarioSummariesByNames(
     files,
     new Set([authEntry.scenario]),

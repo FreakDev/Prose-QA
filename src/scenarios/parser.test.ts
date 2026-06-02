@@ -162,7 +162,7 @@ tags: [lapresse, test2]
 });
 
 describe("selectRunnableScenarioSummaries", () => {
-  it("filters by run files, tags, partial, and auth scenario names", () => {
+  it("filters by tags, partial, and auth scenario names", () => {
     const summaries = [
       {
         filePath: "/tmp/run.md",
@@ -181,12 +181,10 @@ describe("selectRunnableScenarioSummaries", () => {
         frontmatter: { name: "login-admin", tags: ["auth"] },
       },
     ];
-    const runFiles = new Set(summaries.map((s) => s.filePath));
     const authScenarioNames = new Set(["login-admin"]);
 
     const selected = selectRunnableScenarioSummaries(
       summaries,
-      runFiles,
       [["lapresse", "test2"]],
       authScenarioNames,
     );

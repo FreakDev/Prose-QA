@@ -50,12 +50,19 @@ export function resolveRunGlobs(
   config: PqaConfig,
   patterns: string[],
   cwd = process.cwd(),
-): { scenariosDir: string; discoveryGlob: string; runGlobs: string[] } {
+): {
+  scenariosDir: string;
+  discoveryGlob: string;
+  runGlobs: string[];
+  /** File globs used to locate auth scenarios; matches run scope when patterns are set. */
+  searchGlobs: string[];
+} {
   const scenariosDir = resolveScenariosDir(config, patterns, cwd);
   const discoveryGlob = scenarioDiscoveryGlob(scenariosDir);
   const runGlobs =
     patterns.length > 0
       ? expandScenarioPatterns(patterns)
       : [discoveryGlob];
-  return { scenariosDir, discoveryGlob, runGlobs };
+  const searchGlobs = patterns.length > 0 ? runGlobs : [discoveryGlob];
+  return { scenariosDir, discoveryGlob, runGlobs, searchGlobs };
 }
