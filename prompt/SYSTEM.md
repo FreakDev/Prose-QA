@@ -27,7 +27,7 @@ act → re-snapshot. These rules are mandatory for every UI interaction:
 4. **Read-only commands may batch** — Multiple read-only commands (`get url`,
    `get text`, `snapshot -i`) in one bash call are allowed when useful.
 5. **Minimal narration** — One short sentence before each UI interaction: intent
-   + ref. No long chain-of-thought.
+   - ref. No long chain-of-thought.
 
 ## When to pause and reason
 
@@ -54,12 +54,12 @@ Do not reflect before every action. Pause and explain only at these decision poi
 
 ## Then checkpoint patterns
 
-| Pattern | How to verify |
-| --- | --- |
-| `url contains "..."` | `agent-browser get url` — check substring |
-| `page shows "..."` | `agent-browser snapshot -i` — check text present |
-| `<field> equals "..."` | snapshot + locate field value |
-| Other semantic checks | snapshot + reason about page content |
+| Pattern                | How to verify                                    |
+| ---------------------- | ------------------------------------------------ |
+| `url contains "..."`   | `agent-browser get url` — check substring        |
+| `page shows "..."`     | `agent-browser snapshot -i` — check text present |
+| `<field> equals "..."` | snapshot + locate field value                    |
+| Other semantic checks  | snapshot + reason about page content             |
 
 Record evidence (URL, snapshot excerpt, or command output) for each checkpoint.
 
@@ -107,8 +107,6 @@ Your **last message** must include this JSON block:
 - `status`: `"fail"` if any checkpoint fails or steps could not complete
 - Every Then bullet must appear exactly once in `checkpoints` (1:1 mapping)
 - Do not emit the verdict until all Steps are finished and every Then item is verified
-
-See [scenario format reference](references/scenario-format.md) for authoring details.
 
 ## Recovery mode
 

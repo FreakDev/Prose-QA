@@ -1,3 +1,5 @@
+import type { ScenarioTagFilterExpression } from "./scenario.js";
+
 export interface HealingConfig {
   /** Master switch. Default: true */
   enabled?: boolean;
@@ -90,7 +92,7 @@ export type ArtifactsMode = "on-failure" | "always" | "never";
 
 export interface RunOptions {
   configPath?: string;
-  tags?: string[];
+  tags?: ScenarioTagFilterExpression;
   retries?: number;
   artifacts: ArtifactsMode;
   headed?: boolean;

@@ -41,7 +41,12 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--tags <tags>",
-        description: "Comma-separated tags; only matching scenarios run",
+        description:
+          "Comma-separated tags matched with AND; repeat for OR; prefix ! to exclude",
+      },
+      {
+        flags: "--tag <tag>",
+        description: "Single tag matched with OR; repeat for OR; prefix ! to match absence",
       },
       {
         flags: "--skills-dir <dirs>",
@@ -112,7 +117,12 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--tags <tags>",
-        description: "Comma-separated tags; only matching scenarios run",
+        description:
+          "Comma-separated tags matched with AND; repeat for OR; prefix ! to exclude",
+      },
+      {
+        flags: "--tag <tag>",
+        description: "Single tag matched with OR; repeat for OR; prefix ! to match absence",
       },
       {
         flags: "--skills-dir <dirs>",

@@ -21,6 +21,15 @@ export interface Scenario {
   checkpoints: ParsedCheckpoint[];
 }
 
+/**
+ * Tag filters are stored as OR-of-AND groups.
+ * A leading ! marks a negative tag term.
+ *
+ * Example: [["p0", "!smoke"], ["auth"]] means
+ * (p0 AND NOT smoke) OR auth.
+ */
+export type ScenarioTagFilterExpression = string[][];
+
 export type CheckpointKind =
   | "url_contains"
   | "page_shows"

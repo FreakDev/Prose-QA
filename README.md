@@ -360,7 +360,7 @@ Settings for `pqa record`. See [Recording scenarios](#recording-scenarios).
 | `pqa config <key> <value>` | Set a value in `pqa.config.json` |
 | `pqa run [globs]` | Run scenarios (headless by default) |
 | `pqa clear-cache [scenario]` | Clear scenario replay cache |
-| `pqa debug [globs]` | Verbose debug run (headed by default, supports `--tags`) |
+| `pqa debug [globs]` | Verbose debug run (headed by default, supports `--tag` / `--tags`) |
 | `pqa skills list` | List discovered skills |
 | `pqa skills show <name>` | Print skill body |
 | `pqa skills sync` | Re-vendor agent-browser skill (dev repo only) |
@@ -373,6 +373,25 @@ Settings for `pqa record`. See [Recording scenarios](#recording-scenarios).
 | `pqa record checkpoint <text>` | Add a Then-section hint |
 | `pqa record stop` | Stop recording and generate `scenarios/recorded/*.md` via LLM |
 | `pqa record generate <dir>` | Regenerate scenario markdown from a saved recording |
+
+Tag filters on `run` and `debug` can express AND/OR/NOT combinations:
+
+```bash
+# AND: scenario must have both tags
+pqa run scenarios/**/*.md --tags smoke,checkout
+
+# AND with NOT: scenario must have p0 and must not have smoke
+pqa run scenarios/**/*.md --tags p0,!smoke
+
+# OR: scenario may have either tag
+pqa run scenarios/**/*.md --tag smoke --tag checkout
+
+# OR with NOT: scenario either lacks p0 or has smoke
+pqa run scenarios/**/*.md --tag !p0 --tag smoke
+
+# Combined: (smoke AND checkout) OR auth
+pqa run scenarios/**/*.md --tags smoke,checkout --tag auth
+```
 
 Use `--auth-refresh` on `run` / `debug` to re-run auth scenarios and refresh the store.
 

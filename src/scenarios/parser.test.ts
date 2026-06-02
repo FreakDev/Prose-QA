@@ -6,9 +6,24 @@ import { describe, it } from "node:test";
 import {
   expandScenarioLinks,
   isRunnableScenario,
+  matchesTags,
   parseScenarioFile,
   stripScenarioComments,
 } from "./parser.js";
+import type { Scenario } from "../types/scenario.js";
+
+function scenarioWithTags(tags: string[]): Scenario {
+  return {
+    filePath: "/tmp/x.md",
+    frontmatter: { name: "x", tags },
+    skills: [],
+    goal: "",
+    steps: "",
+    then: [],
+    rawCheckpoints: [],
+    checkpoints: [],
+  };
+}
 
 describe("stripScenarioComments", () => {
   it("removes YAML full-line and inline comments from frontmatter", () => {
@@ -300,5 +315,55 @@ describe("isRunnableScenario", () => {
       }),
       true,
     );
+  });
+});
+
+describe("matchesTags", () => {
+  it("matches everything when no tag filters are provided", () => {
+    assert.equal(matchesTags(scenarioWithTags(["smoke"]), undefined), true);
+    assert.equal(matchesTags(scenarioWithTags(["smoke"]), []), true);
+  });
+
+  it("requires every tag in a --tags group", () => {
+    const scenario = scenarioWithTags(["smoke", "checkout", "critical"]);
+
+    assert.equal(matchesTags(scenario, [["smoke", "checkout"]]), true);
+    assert.equal(matchesTags(scenario, [["smoke", "billing"]]), false);
+  });
+
+  it("matches any group across repeated --tag filters", () => {
+    const scenario = scenarioWithTags(["smoke", "checkout"]);
+
+    assert.equal(matchesTags(scenario, [["billing"], ["checkout"]]), true);
+    assert.equal(matchesTags(scenario, [["billing"], ["auth"]]), false);
+  });
+
+  it("combines --tags groups and --tag filters with OR semantics", () => {
+    const scenario = scenarioWithTags(["smoke", "checkout"]);
+
+    assert.equal(matchesTags(scenario, [["smoke", "admin"], ["checkout"]]), true);
+    assert.equal(matchesTags(scenario, [["smoke", "admin"], ["billing"]]), false);
+  });
+
+  it("supports negated tags inside --tags AND groups", () => {
+    assert.equal(matchesTags(scenarioWithTags(["p0"]), [["p0", "!smoke"]]), true);
+    assert.equal(matchesTags(scenarioWithTags(["p0", "smoke"]), [["p0", "!smoke"]]), false);
+    assert.equal(matchesTags(scenarioWithTags(["smoke"]), [["p0", "!smoke"]]), false);
+  });
+
+  it("supports negated tags across --tag OR groups", () => {
+    const filters = [["!p0"], ["smoke"]];
+
+    assert.equal(matchesTags(scenarioWithTags(["smoke"]), filters), true);
+    assert.equal(matchesTags(scenarioWithTags(["p0", "smoke"]), filters), true);
+    assert.equal(matchesTags(scenarioWithTags(["p0"]), filters), false);
+  });
+
+  it("keeps legacy flat tag lists as OR filters", () => {
+    const scenario = scenarioWithTags(["smoke"]);
+
+    assert.equal(matchesTags(scenario, ["auth", "smoke"]), true);
+    assert.equal(matchesTags(scenario, ["auth", "billing"]), false);
+    assert.equal(matchesTags(scenario, ["!p0"]), true);
   });
 });

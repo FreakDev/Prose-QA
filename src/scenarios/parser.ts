@@ -5,6 +5,7 @@ import type {
   ParsedCheckpoint,
   Scenario,
   ScenarioFrontmatter,
+  ScenarioTagFilterExpression,
 } from "../types/scenario.js";
 
 const SECTION_HEADERS = ["goal", "steps", "then"] as const;
@@ -243,11 +244,32 @@ ${scenario.steps || "(none)"}
 ${thenBlock}`;
 }
 
+function matchesTagTerm(scenarioTags: Set<string>, term: string): boolean {
+  const negated = term.startsWith("!");
+  const tag = negated ? term.slice(1) : term;
+  if (!tag) return false;
+
+  const hasTag = scenarioTags.has(tag);
+  return negated ? !hasTag : hasTag;
+}
+
 export function matchesTags(
   scenario: Scenario,
-  tags: string[] | undefined,
+  filters: ScenarioTagFilterExpression | string[] | undefined,
 ): boolean {
-  if (!tags || tags.length === 0) return true;
-  const scenarioTags = scenario.frontmatter.tags ?? [];
-  return tags.some((t) => scenarioTags.includes(t));
+  if (!filters || filters.length === 0) return true;
+
+  const filterGroups =
+    typeof filters[0] === "string"
+      ? (filters as string[]).filter(Boolean).map((tag) => [tag])
+      : (filters as ScenarioTagFilterExpression)
+          .map((group) => group.filter(Boolean))
+          .filter((group) => group.length > 0);
+
+  if (filterGroups.length === 0) return true;
+
+  const scenarioTags = new Set(scenario.frontmatter.tags ?? []);
+  return filterGroups.some((group) =>
+    group.every((term) => matchesTagTerm(scenarioTags, term)),
+  );
 }

@@ -21,8 +21,10 @@ import {
   executeRecordGenerate,
 } from "./record.js";
 import type { RunOptions } from "../types/config.js";
+import type { ScenarioTagFilterExpression } from "../types/scenario.js";
 import { executeHelp } from "./help.js";
 import { executeConfig } from "./config.js";
+import { collectAllTags, collectAnyTag, mergeTagFilters } from "./tags.js";
 
 loadEnv();
 
@@ -41,7 +43,8 @@ function parseParallel(value: string | true | undefined): number {
 
 function baseRunOptions(opts: {
   config?: string;
-  tags?: string[];
+  tags?: ScenarioTagFilterExpression;
+  tag?: ScenarioTagFilterExpression;
   skillsDir?: string[];
   verbose?: boolean;
   retries?: string;
@@ -62,7 +65,7 @@ function baseRunOptions(opts: {
       : undefined;
   return {
     configPath: opts.config,
-    tags: opts.tags,
+    tags: mergeTagFilters(opts.tags, opts.tag),
     skillsDirs: opts.skillsDir,
     verbose: opts.verbose,
     retries: opts.retries ? parseInt(opts.retries, 10) : 0,
@@ -137,8 +140,15 @@ program
   .description("Run E2E scenarios (CI mode)")
   .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
   .option("-c, --config <path>", "Config file path")
-  .option("--tags <tags>", "Comma-separated scenario tags", (v: string) =>
-    v.split(",").map((t) => t.trim()),
+  .option(
+    "--tags <tags>",
+    "Comma-separated scenario tags; repeat for OR groups; use !tag to exclude",
+    collectAllTags,
+  )
+  .option(
+    "--tag <tag>",
+    "Scenario tag; repeat for OR matching; use !tag to match absence",
+    collectAnyTag,
   )
   .option("--skills-dir <dirs>", "Extra skill dirs (comma-separated)", (v: string) =>
     v.split(",").map((d) => d.trim()),
@@ -181,8 +191,15 @@ program
   .description("Run scenarios with verbose output (local debug)")
   .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
   .option("-c, --config <path>", "Config file path")
-  .option("--tags <tags>", "Comma-separated scenario tags", (v: string) =>
-    v.split(",").map((t) => t.trim()),
+  .option(
+    "--tags <tags>",
+    "Comma-separated scenario tags; repeat for OR groups; use !tag to exclude",
+    collectAllTags,
+  )
+  .option(
+    "--tag <tag>",
+    "Scenario tag; repeat for OR matching; use !tag to match absence",
+    collectAnyTag,
   )
   .option("--skills-dir <dirs>", "Extra skill dirs (comma-separated)", (v: string) =>
     v.split(",").map((d) => d.trim()),
