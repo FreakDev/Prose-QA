@@ -9,6 +9,7 @@ import {
   loadConfig,
   missingDeclaredEnvVars,
   missingLlmApiKey,
+  resolveBrowserHeaded,
   resolveReportConfig,
   resolveSensitiveEnvVars,
 } from "../config/load.js";
@@ -489,7 +490,7 @@ export async function executeRun(
     reportZip: options.reportZip,
   });
   const { runDir, zipDestination } = resolveRunDirectory(cwd, runId, reportConfig);
-  const headed = options.headed ?? config.browser.headed;
+  const headed = resolveBrowserHeaded(config, options.headed);
   const startedAt = new Date();
   const retries = options.retries ?? 0;
   const parallel = options.parallel;
@@ -730,7 +731,7 @@ export async function executeScenarioWorker(
     cwd,
     config,
     scenarioName: scenario.frontmatter.name,
-    headed: options.headed ?? config.browser.headed,
+    headed: resolveBrowserHeaded(config, options.headed),
     keepBrowser: options.keepBrowser ?? false,
     verbose: options.verbose,
   });
@@ -741,7 +742,7 @@ export async function executeScenarioWorker(
     baseSkillNames,
     cwd,
     runDir,
-    headed: options.headed ?? config.browser.headed,
+    headed: resolveBrowserHeaded(config, options.headed),
     retries: options.retries ?? 0,
     verbose: options.verbose,
     isolatedSessions: true,
@@ -837,7 +838,7 @@ export async function executeAuthSave(
         baseSkillNames,
         cwd,
         runDir,
-        headed: true,
+        headed: resolveBrowserHeaded(config, true),
         verbose: options.verbose,
         allScenarios: authScenarios,
         authRefresh: true,

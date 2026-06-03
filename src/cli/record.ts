@@ -6,6 +6,7 @@ import ora from "ora";
 import {
   loadConfig,
   missingLlmApiKey,
+  resolveBrowserHeaded,
   resolveSensitiveEnvVars,
 } from "../config/load.js";
 import { buildBrowserEnv, runBash, closeBrowserSession } from "../agent/bash.js";
@@ -100,7 +101,7 @@ export async function executeRecordStart(
   const scriptPath = path.join(os.tmpdir(), `pqa-recorder-${id}.js`);
   writePageRecorderScript(bridge.url, scriptPath);
 
-  const headed = options.headed !== false;
+  const headed = resolveBrowserHeaded(config, options.headed !== false);
   const bashEnv = buildBrowserEnv({
     headed,
     sessionName,

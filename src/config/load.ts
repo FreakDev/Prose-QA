@@ -173,6 +173,15 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
   };
 }
 
+/** Lightpanda is headless-only; headed CLI/config flags are ignored. */
+export function resolveBrowserHeaded(
+  config: PqaConfig,
+  headed?: boolean,
+): boolean {
+  if (config.browser.engine === "lightpanda") return false;
+  return headed ?? config.browser.headed;
+}
+
 export function resolveCacheConfig(config: PqaConfig): Required<CacheConfig> {
   const cache = config.cache ?? {};
   return {

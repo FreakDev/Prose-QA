@@ -4,7 +4,38 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { getPackageRoot } from "../paths.js";
-import { loadConfig } from "./load.js";
+import type { PqaConfig } from "../types/config.js";
+import { loadConfig, resolveBrowserHeaded } from "./load.js";
+
+const minimalConfig = (engine: PqaConfig["browser"]["engine"]): PqaConfig => ({
+  llm: { provider: "anthropic", model: "x" },
+  browser: {
+    headed: true,
+    sessionName: "pqa",
+    defaultTimeout: 25_000,
+    engine,
+  },
+  skills: { dirs: [], preloads: [] },
+  agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
+  auth: {},
+});
+
+describe("resolveBrowserHeaded", () => {
+  it("forces headless when engine is lightpanda", () => {
+    assert.equal(resolveBrowserHeaded(minimalConfig("lightpanda")), false);
+    assert.equal(resolveBrowserHeaded(minimalConfig("lightpanda"), true), false);
+    assert.equal(
+      resolveBrowserHeaded(minimalConfig("lightpanda"), false),
+      false,
+    );
+  });
+
+  it("honors headed flag and config default for chrome", () => {
+    assert.equal(resolveBrowserHeaded(minimalConfig("chrome")), true);
+    assert.equal(resolveBrowserHeaded(minimalConfig("chrome"), false), false);
+    assert.equal(resolveBrowserHeaded(minimalConfig("chrome"), true), true);
+  });
+});
 
 describe("loadConfig", () => {
   it("loads bundled pqa.config.ts when no local config exists", async () => {

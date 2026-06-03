@@ -24,6 +24,7 @@ const config = {
     headed: false,
     sessionName: "pqa",
     defaultTimeout: 25_000,
+    engine: "chrome",
   },
   systemPromptPath: "prompt/SYSTEM.md",
   envVars: [],
