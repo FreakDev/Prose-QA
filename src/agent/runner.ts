@@ -29,6 +29,7 @@ import {
 import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
 import { buildBrowserEnv, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
+import { buildVerdictRetryPrompt } from "./verdict-retry-prompt.js";
 import { writeTranscript } from "../reporter/index.js";
 import {
   appendFinalTextToTranscript,
@@ -86,12 +87,11 @@ export interface RunScenarioOptions {
   scenarioCacheHints?: string;
 }
 
-async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
+async function retryVerdictCompletion(options: {
   config: PqaConfig;
   system: string;
-  tools: TOOLS;
   providerOptions: ReturnType<typeof buildProviderOptions>;
-  result: GenerateTextResult<TOOLS, TextGenerateOutput>;
+  result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   transcript: AgentTranscript;
   runOptions: RunScenarioOptions;
   onStepFinish: (step: {
@@ -102,7 +102,7 @@ async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
   finalText: string;
   stepTiming: { startMs: number };
 }): Promise<{
-  result: GenerateTextResult<TOOLS, TextGenerateOutput>;
+  result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   finalText: string;
 }> {
   let { result, finalText } = options;
@@ -113,16 +113,21 @@ async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
     attempt++
   ) {
     removeLastAssistantMessage(options.transcript);
+
+    const retryPrompt = buildVerdictRetryPrompt(options.runOptions.scenario);
+    appendTranscriptMessage(options.transcript, "user", retryPrompt);
     persistTranscript(options.runOptions, options.transcript);
+
+    const retryMessages: ModelMessage[] = [
+      ...stripLastAssistantTurn(result.response.messages as ModelMessage[]),
+      { role: "user", content: retryPrompt },
+    ];
 
     options.stepTiming.startMs = Date.now();
     result = await generateText({
       model: createLlmModel(options.config),
       system: options.system,
-      messages: stripLastAssistantTurn(
-        result.response.messages as ModelMessage[],
-      ),
-      tools: options.tools,
+      messages: retryMessages,
       providerOptions: options.providerOptions,
       stopWhen: stepCountIs(VERDICT_RETRY_MAX_STEPS),
       onStepFinish: options.onStepFinish,
@@ -265,7 +270,7 @@ export async function runScenario(
     const providerOptions = buildProviderOptions(options.config);
 
     stepTiming.startMs = Date.now();
-    let result = await generateText({
+    let result = (await generateText({
       model: createLlmModel(options.config),
       system,
       prompt: initialPrompt,
@@ -273,7 +278,7 @@ export async function runScenario(
       providerOptions,
       stopWhen: stepCountIs(options.config.agent.maxTurns),
       onStepFinish,
-    });
+    })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
 
     finalText = result.text || finalText;
     appendFinalTextToTranscript(
@@ -287,7 +292,6 @@ export async function runScenario(
     ({ result, finalText } = await retryVerdictCompletion({
       config: options.config,
       system,
-      tools,
       providerOptions,
       result,
       transcript,
@@ -346,7 +350,7 @@ export async function runScenario(
           ];
 
           stepTiming.startMs = Date.now();
-          result = await generateText({
+          result = (await generateText({
             model: createLlmModel(options.config),
             system,
             messages: recoveryMessages,
@@ -354,7 +358,7 @@ export async function runScenario(
             providerOptions,
             stopWhen: stepCountIs(options.config.agent.maxTurns),
             onStepFinish,
-          });
+          })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
 
           finalText = result.text || finalText;
           appendFinalTextToTranscript(
@@ -368,7 +372,6 @@ export async function runScenario(
           ({ result, finalText } = await retryVerdictCompletion({
             config: options.config,
             system,
-            tools,
             providerOptions,
             result,
             transcript,

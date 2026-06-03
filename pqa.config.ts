@@ -13,11 +13,8 @@ const config = {
         | "fireworks"
         | "ollama"
         | "google"
-        | "openrouter") ??
-      "anthropic",
-    model:
-      process.env.PQA_LLM_MODEL ??
-      "claude-sonnet-4-20250514",
+        | "openrouter") ?? "anthropic",
+    model: process.env.PQA_LLM_MODEL ?? "claude-sonnet-4-20250514",
     thinking: {
       enabled: true,
       budgetTokens: 10_000,
@@ -36,7 +33,7 @@ const config = {
     preloads: ["core"],
   },
   agent: {
-    maxTurns: 200,
+    maxTurns: 300,
     bashTimeoutMs: 120_000,
   },
   auth: {
