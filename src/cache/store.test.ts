@@ -16,7 +16,7 @@ import {
 
 const baseConfig: PqaConfig = {
   llm: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-  browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000 },
+  browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 100, bashTimeoutMs: 120_000 },
   auth: {},

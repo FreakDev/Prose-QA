@@ -4,7 +4,7 @@ import type { PqaConfig } from "../types/config.js";
 import { buildProviderOptions } from "./provider-options.js";
 
 const base = {
-  browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000 },
+  browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 10, bashTimeoutMs: 60_000 },
   auth: {},

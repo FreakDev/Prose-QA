@@ -14,7 +14,7 @@ const repoRoot = path.resolve(
 
 const baseConfig: PqaConfig = {
   llm: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
-  browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000 },
+  browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
   systemPromptPath: path.join(repoRoot, "prompt/SYSTEM.md"),
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 100, bashTimeoutMs: 120_000 },

@@ -29,12 +29,14 @@ export async function captureInteractiveSnapshot(options: {
   recordingDir: string;
   sessionName: string;
   headed: boolean;
+  engine: PqaConfig["browser"]["engine"];
   timeoutMs: number;
   eventTs: number;
 }): Promise<{ parsed: ReturnType<typeof parseSnapshotJson>; path?: string }> {
   const env = buildBrowserEnv({
     headed: options.headed,
     sessionName: options.sessionName,
+    engine: options.engine,
     artifactDir: options.recordingDir,
   });
 
@@ -89,6 +91,7 @@ export async function enrichRecordEvent(options: {
     recordingDir: options.recordingDir,
     sessionName: meta.sessionName,
     headed: true,
+    engine: options.config.browser.engine,
     timeoutMs: options.config.agent.bashTimeoutMs,
     eventTs: options.event.ts,
   });

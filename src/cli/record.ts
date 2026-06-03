@@ -104,6 +104,7 @@ export async function executeRecordStart(
   const bashEnv = buildBrowserEnv({
     headed,
     sessionName,
+    engine: config.browser.engine,
     artifactDir: dir,
   });
 
@@ -260,6 +261,7 @@ export async function executeRecordStop(
     timeoutMs: config.agent.bashTimeoutMs,
     sessionName,
     headed,
+    engine: config.browser.engine,
     verbose: options.verbose,
   });
 

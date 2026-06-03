@@ -227,6 +227,7 @@ function installScenarioWorkerShutdownHandlers(options: {
           timeoutMs: options.config.agent.bashTimeoutMs,
           sessionName,
           headed: options.headed,
+          engine: options.config.browser.engine,
           verbose: options.verbose,
         });
       } catch {
@@ -277,6 +278,7 @@ async function runOneScenario(
         timeoutMs: ctx.config.agent.bashTimeoutMs,
         sessionName,
         headed: ctx.headed,
+        engine: ctx.config.browser.engine,
         verbose: ctx.verbose,
       });
     };
@@ -304,6 +306,7 @@ async function runOneScenario(
             timeoutMs: ctx.config.agent.bashTimeoutMs,
             sessionName,
             headed: ctx.headed,
+            engine: ctx.config.browser.engine,
             profilePath,
             startUrl: scenario.frontmatter.url,
             verbose: ctx.verbose,
@@ -529,6 +532,7 @@ export async function executeRun(
         cwd,
         timeoutMs: config.agent.bashTimeoutMs,
         headed,
+        engine: config.browser.engine,
         verbose: options.verbose,
       });
     } catch (err) {

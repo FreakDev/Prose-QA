@@ -1,5 +1,6 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
+import type { BrowserEngine } from "../types/config.js";
 import type { BashEntry } from "../types/verdict.js";
 
 const execAsync = promisify(exec);
@@ -50,11 +51,13 @@ export async function closeBrowserSession(options: {
   timeoutMs: number;
   sessionName: string;
   headed: boolean;
+  engine: BrowserEngine;
   verbose?: boolean;
 }): Promise<void> {
   const env = buildBrowserEnv({
     headed: options.headed,
     sessionName: options.sessionName,
+    engine: options.engine,
     artifactDir: options.cwd,
   });
   const entry = await runBash("agent-browser close 2>/dev/null || true", {
@@ -71,11 +74,13 @@ export async function closeAllBrowserSessions(options: {
   cwd: string;
   timeoutMs: number;
   headed: boolean;
+  engine: BrowserEngine;
   verbose?: boolean;
 }): Promise<void> {
   const env = buildBrowserEnv({
     headed: options.headed,
     sessionName: "pqa",
+    engine: options.engine,
     artifactDir: options.cwd,
   });
   const entry = await runBash("agent-browser close --all 2>/dev/null || true", {
@@ -91,8 +96,7 @@ export async function closeAllBrowserSessions(options: {
 function stateWasIgnored(entry: BashEntry): boolean {
   const msg = `${entry.stderr}\n${entry.stdout}`;
   return (
-    msg.includes("--state ignored") ||
-    msg.includes("daemon already running")
+    msg.includes("--state ignored") || msg.includes("daemon already running")
   );
 }
 
@@ -107,6 +111,7 @@ export async function prepareBrowserSession(options: {
   timeoutMs: number;
   sessionName: string;
   headed: boolean;
+  engine: BrowserEngine;
   profilePath: string;
   startUrl?: string;
   verbose?: boolean;
@@ -114,6 +119,7 @@ export async function prepareBrowserSession(options: {
   const env = buildBrowserEnv({
     headed: options.headed,
     sessionName: options.sessionName,
+    engine: options.engine,
     profilePath: options.profilePath,
     artifactDir: options.cwd,
   });
@@ -190,6 +196,7 @@ export async function prepareBrowserSession(options: {
 export function buildBrowserEnv(config: {
   headed: boolean;
   sessionName: string;
+  engine?: BrowserEngine;
   authStatePath?: string;
   authSavePath?: string;
   profilePath?: string;
@@ -199,6 +206,7 @@ export function buildBrowserEnv(config: {
     PQA_ARTIFACT_DIR: config.artifactDir,
     AGENT_BROWSER_SESSION_NAME: config.sessionName,
     AGENT_BROWSER_SESSION: config.sessionName,
+    AGENT_BROWSER_ENGINE: config.engine ?? "chrome",
   };
   if (config.profilePath) {
     env.AGENT_BROWSER_PROFILE = config.profilePath;

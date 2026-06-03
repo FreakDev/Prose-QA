@@ -32,6 +32,7 @@ const MINIMAL_FALLBACK_CONFIG: PqaConfig = {
     headed: false,
     sessionName: "pqa",
     defaultTimeout: 25_000,
+    engine: "chrome",
   },
   skills: {
     dirs: ["skills", ".agents/skills"],

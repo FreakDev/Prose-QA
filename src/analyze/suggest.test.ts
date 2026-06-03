@@ -45,7 +45,7 @@ describe("suggestScenarioFixes", () => {
   it("suggests moving page_shows checkpoint before navigation", () => {
     const classified = classifyFailure(failResult, scenario, {
       llm: { provider: "anthropic", model: "x" },
-      browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000 },
+      browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
       skills: { dirs: [], preloads: [] },
       agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
       auth: {},

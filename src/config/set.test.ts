@@ -30,7 +30,7 @@ describe("parseConfigValue", () => {
 
 describe("keyExistsInReference", () => {
   const reference = {
-    browser: { headed: false, sessionName: "pqa" },
+    browser: { headed: false, sessionName: "pqa", engine: "chrome" },
     llm: { provider: "anthropic", thinking: { enabled: true } },
     auth: { admin: { scenario: "login-admin" } },
   };
@@ -65,7 +65,7 @@ describe("deepSet", () => {
 describe("formatConfigFile", () => {
   it("serializes nested objects as JSON", () => {
     const output = formatConfigFile({
-      browser: { headed: true, sessionName: "pqa", defaultTimeout: 25_000 },
+      browser: { headed: true, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
     });
     assert.doesNotThrow(() => JSON.parse(output));
     assert.match(output, /"headed": true/);
@@ -94,7 +94,9 @@ describe("setConfigValue", () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-set-"));
     writeFileSync(
       path.join(cwd, LOCAL_CONFIG_FILENAME),
-      formatConfigFile({ browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000 } }),
+      formatConfigFile({
+        browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
+      }),
     );
 
     await setConfigValue("browser.headed", "true", cwd);

@@ -35,6 +35,9 @@ export interface ReportConfig {
   zip?: boolean;
 }
 
+/** Local browser engine for agent-browser (AGENT_BROWSER_ENGINE). */
+export type BrowserEngine = "chrome" | "lightpanda";
+
 /** Reasoning intensity; applied only on providers that support it (e.g. OpenAI, Anthropic, Google). */
 export type LlmReasoningEffort =
   | "none"
@@ -77,6 +80,8 @@ export interface PqaConfig {
     headed: boolean;
     sessionName: string;
     defaultTimeout: number;
+    /** agent-browser engine: chrome (default) or lightpanda */
+    engine: BrowserEngine;
   };
   skills: {
     dirs: string[];

@@ -75,6 +75,7 @@ async function saveBrowserState(
   const bashEnv = buildBrowserEnv({
     headed: ctx.headed,
     sessionName: `pqa-auth-${profile}`,
+    engine: ctx.config.browser.engine,
     profilePath: resolveProfilePath(ctx.cwd, profile),
     artifactDir: ctx.cwd,
   });
@@ -201,6 +202,7 @@ export async function ensureAuthProfile(
         timeoutMs: ctx.config.agent.bashTimeoutMs,
         sessionName,
         headed: ctx.headed,
+        engine: ctx.config.browser.engine,
         verbose: ctx.verbose,
       });
     }

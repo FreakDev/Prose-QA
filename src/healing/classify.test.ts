@@ -10,7 +10,12 @@ import {
 
 const baseConfig = {
   llm: { provider: "anthropic" as const, model: "x" },
-  browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000 },
+  browser: {
+    headed: false,
+    sessionName: "pqa",
+    defaultTimeout: 25_000,
+    engine: "chrome" as const,
+  },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
   auth: {},
