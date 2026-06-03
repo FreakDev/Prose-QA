@@ -95,6 +95,15 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         flags: "--fail-fast",
         description: "Stop on first failure instead of running all scenarios",
       },
+      {
+        flags: "--report-output <path>",
+        description:
+          "Report output path; trailing / creates a runId-named folder or zip inside, otherwise uses the full path",
+      },
+      {
+        flags: "--report-zip",
+        description: "Emit the report as a zip archive instead of a directory",
+      },
     ],
   },
   {
@@ -168,6 +177,15 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       {
         flags: "--no-headed",
         description: "Run the browser headless instead of the debug default (headed)",
+      },
+      {
+        flags: "--report-output <path>",
+        description:
+          "Report output path; trailing / creates a runId-named folder or zip inside, otherwise uses the full path",
+      },
+      {
+        flags: "--report-zip",
+        description: "Emit the report as a zip archive instead of a directory",
       },
     ],
   },

@@ -59,6 +59,8 @@ function baseRunOptions(opts: {
   noHealing?: boolean;
   noCache?: boolean;
   retriesPolicy?: string;
+  reportOutput?: string;
+  reportZip?: boolean;
 }): RunOptions {
   const retriesPolicy =
     opts.retriesPolicy === "always" || opts.retriesPolicy === "transient"
@@ -80,6 +82,8 @@ function baseRunOptions(opts: {
     noHealing: opts.noHealing,
     noCache: opts.noCache,
     retriesPolicy,
+    reportOutputPath: opts.reportOutput,
+    reportZip: opts.reportZip,
   };
 }
 
@@ -185,6 +189,11 @@ program
     "--fail-fast",
     "Stop remaining scenarios on first failure (default: run all)",
   )
+  .option(
+    "--report-output <path>",
+    "Report output path (trailing / creates runId inside; otherwise full path)",
+  )
+  .option("--report-zip", "Emit report as zip instead of a directory")
   .action(async (patterns: string[], opts) => {
     const code = await executeRun(patterns, baseRunOptions(opts));
     process.exit(code);
@@ -235,6 +244,11 @@ program
     "Stop remaining scenarios on first failure (default: run all)",
   )
   .option("--no-headed", "Run browser headless")
+  .option(
+    "--report-output <path>",
+    "Report output path (trailing / creates runId inside; otherwise full path)",
+  )
+  .option("--report-zip", "Emit report as zip instead of a directory")
   .action(async (patterns: string[], opts) => {
     if (opts.pause && opts.parallel !== undefined) {
       console.error("--pause and --parallel cannot be used together");

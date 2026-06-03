@@ -1,7 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { CacheConfig, HealingConfig, PqaConfig } from "../types/config.js";
+import type { CacheConfig, HealingConfig, PqaConfig, ReportConfig } from "../types/config.js";
 import { loadEnv } from "./env.js";
 import { resolveStatePath } from "../auth/store.js";
 import { getPackageRoot, resolveBundledPath } from "../paths.js";
@@ -166,6 +166,9 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
       ? { ...base.recorder, ...override.recorder }
       : base.recorder,
     cache: override.cache ? { ...base.cache, ...override.cache } : base.cache,
+    report: override.report
+      ? { ...base.report, ...override.report }
+      : base.report,
   };
 }
 
@@ -174,6 +177,18 @@ export function resolveCacheConfig(config: PqaConfig): Required<CacheConfig> {
   return {
     dir: cache.dir ?? ".pqa/cache",
     enabled: cache.enabled ?? true,
+  };
+}
+
+export function resolveReportConfig(
+  config: PqaConfig,
+  options?: { reportOutputPath?: string; reportZip?: boolean },
+): Required<Pick<ReportConfig, "zip">> & Pick<ReportConfig, "outputPath"> {
+  const report = config.report ?? {};
+  const outputPath = options?.reportOutputPath ?? report.outputPath;
+  return {
+    outputPath: outputPath?.trim() ? outputPath : undefined,
+    zip: options?.reportZip ?? report.zip ?? false,
   };
 }
 

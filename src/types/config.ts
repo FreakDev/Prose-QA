@@ -24,6 +24,17 @@ export interface CacheConfig {
   enabled?: boolean;
 }
 
+export interface ReportConfig {
+  /**
+   * Directory or file path for the execution report.
+   * Trailing slash: create a runId-named folder or zip inside that directory.
+   * Otherwise: use the full path as the output directory or zip file name.
+   */
+  outputPath?: string;
+  /** Emit the report as a zip archive instead of a directory. Default: false */
+  zip?: boolean;
+}
+
 /** Reasoning intensity; applied only on providers that support it (e.g. OpenAI, Anthropic, Google). */
 export type LlmReasoningEffort =
   | "none"
@@ -79,6 +90,7 @@ export interface PqaConfig {
   healing?: HealingConfig;
   recorder?: RecorderConfig;
   cache?: CacheConfig;
+  report?: ReportConfig;
 }
 
 export interface AuthProfileConfig {
@@ -111,4 +123,8 @@ export interface RunOptions {
   retriesPolicy?: "transient" | "always";
   /** Skip reading and writing scenario replay hints cache */
   noCache?: boolean;
+  /** Override report.outputPath — directory or file path for the execution report */
+  reportOutputPath?: string;
+  /** Override report.zip — emit report as zip instead of a directory */
+  reportZip?: boolean;
 }

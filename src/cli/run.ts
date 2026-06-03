@@ -9,6 +9,7 @@ import {
   loadConfig,
   missingDeclaredEnvVars,
   missingLlmApiKey,
+  resolveReportConfig,
   resolveSensitiveEnvVars,
 } from "../config/load.js";
 import {
@@ -69,6 +70,10 @@ import {
   writeReport,
   writeScenarioTranscript,
 } from "../reporter/index.js";
+import {
+  finalizeRunReport,
+  resolveRunDirectory,
+} from "../reporter/export.js";
 import {
   createEnvRedactor,
   type EnvRedactor,
@@ -476,7 +481,11 @@ export async function executeRun(
   }
 
   const runId = createRunId();
-  const runDir = ensureRunDir(cwd, runId);
+  const reportConfig = resolveReportConfig(config, {
+    reportOutputPath: options.reportOutputPath,
+    reportZip: options.reportZip,
+  });
+  const { runDir, zipDestination } = resolveRunDirectory(cwd, runId, reportConfig);
   const headed = options.headed ?? config.browser.headed;
   const startedAt = new Date();
   const retries = options.retries ?? 0;
@@ -668,7 +677,8 @@ export async function executeRun(
 
   logRunSummary(report);
 
-  console.log(`\nReport: ${path.join(runDir, "report.html")}`);
+  const reportPath = finalizeRunReport(runDir, zipDestination);
+  console.log(`\nReport: ${reportPath}`);
 
   const failed = results.some(
     (r) => r.status === "fail" || r.status === "error",

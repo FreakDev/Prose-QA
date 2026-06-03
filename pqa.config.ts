@@ -70,6 +70,10 @@ const config = {
     dir: ".pqa/cache",
     enabled: true,
   },
+  report: {
+    outputPath: "",
+    zip: false,
+  },
 };
 
 export default config;
