@@ -29,4 +29,34 @@ describe("buildBrowserEnv", () => {
     });
     assert.equal(env.AGENT_BROWSER_ENGINE, "chrome");
   });
+
+  it("applies lightpanda config when engine is lightpanda", () => {
+    const cwd = "/project";
+    const env = buildBrowserEnv({
+      cwd,
+      headed: false,
+      sessionName: "pqa",
+      engine: "lightpanda",
+      lightpanda: {
+        executablePath: "/opt/lightpanda",
+        telemetry: false,
+      },
+      artifactDir: "/tmp/artifacts",
+    });
+    assert.equal(env.AGENT_BROWSER_ENGINE, "lightpanda");
+    assert.equal(env.AGENT_BROWSER_EXECUTABLE_PATH, "/opt/lightpanda");
+    assert.equal(env.LIGHTPANDA_DISABLE_TELEMETRY, "true");
+  });
+
+  it("does not set lightpanda env for chrome engine", () => {
+    const env = buildBrowserEnv({
+      cwd: "/project",
+      headed: false,
+      sessionName: "pqa",
+      engine: "chrome",
+      lightpanda: { telemetry: false },
+      artifactDir: "/tmp/artifacts",
+    });
+    assert.equal(env.LIGHTPANDA_DISABLE_TELEMETRY, undefined);
+  });
 });

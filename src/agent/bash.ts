@@ -1,6 +1,7 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import type { BrowserEngine } from "../types/config.js";
+import { lightpandaBrowserEnv } from "../config/lightpanda.js";
+import type { BrowserEngine, LightpandaBrowserConfig } from "../types/config.js";
 import type { BashEntry } from "../types/verdict.js";
 
 const execAsync = promisify(exec);
@@ -52,12 +53,15 @@ export async function closeBrowserSession(options: {
   sessionName: string;
   headed: boolean;
   engine: BrowserEngine;
+  lightpanda?: LightpandaBrowserConfig;
   verbose?: boolean;
 }): Promise<void> {
   const env = buildBrowserEnv({
+    cwd: options.cwd,
     headed: options.headed,
     sessionName: options.sessionName,
     engine: options.engine,
+    lightpanda: options.lightpanda,
     artifactDir: options.cwd,
   });
   const entry = await runBash("agent-browser close 2>/dev/null || true", {
@@ -75,12 +79,15 @@ export async function closeAllBrowserSessions(options: {
   timeoutMs: number;
   headed: boolean;
   engine: BrowserEngine;
+  lightpanda?: LightpandaBrowserConfig;
   verbose?: boolean;
 }): Promise<void> {
   const env = buildBrowserEnv({
+    cwd: options.cwd,
     headed: options.headed,
     sessionName: "pqa",
     engine: options.engine,
+    lightpanda: options.lightpanda,
     artifactDir: options.cwd,
   });
   const entry = await runBash("agent-browser close --all 2>/dev/null || true", {
@@ -112,14 +119,17 @@ export async function prepareBrowserSession(options: {
   sessionName: string;
   headed: boolean;
   engine: BrowserEngine;
+  lightpanda?: LightpandaBrowserConfig;
   profilePath: string;
   startUrl?: string;
   verbose?: boolean;
 }): Promise<{ startUrl: string }> {
   const env = buildBrowserEnv({
+    cwd: options.cwd,
     headed: options.headed,
     sessionName: options.sessionName,
     engine: options.engine,
+    lightpanda: options.lightpanda,
     profilePath: options.profilePath,
     artifactDir: options.cwd,
   });
@@ -194,19 +204,23 @@ export async function prepareBrowserSession(options: {
 }
 
 export function buildBrowserEnv(config: {
+  cwd?: string;
   headed: boolean;
   sessionName: string;
   engine?: BrowserEngine;
+  lightpanda?: LightpandaBrowserConfig;
   authStatePath?: string;
   authSavePath?: string;
   profilePath?: string;
   artifactDir: string;
 }): NodeJS.ProcessEnv {
+  const engine = config.engine ?? "chrome";
   const env: NodeJS.ProcessEnv = {
     PQA_ARTIFACT_DIR: config.artifactDir,
     AGENT_BROWSER_SESSION_NAME: config.sessionName,
     AGENT_BROWSER_SESSION: config.sessionName,
-    AGENT_BROWSER_ENGINE: config.engine ?? "chrome",
+    AGENT_BROWSER_ENGINE: engine,
+    ...lightpandaBrowserEnv(config.cwd ?? config.artifactDir, engine, config.lightpanda),
   };
   if (config.profilePath) {
     env.AGENT_BROWSER_PROFILE = config.profilePath;

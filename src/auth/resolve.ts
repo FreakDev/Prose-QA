@@ -73,9 +73,11 @@ async function saveBrowserState(
   mkdirSync(path.dirname(statePath), { recursive: true });
   mkdirSync(resolveProfilePath(ctx.cwd, profile), { recursive: true });
   const bashEnv = buildBrowserEnv({
+    cwd: ctx.cwd,
     headed: ctx.headed,
     sessionName: `pqa-auth-${profile}`,
     engine: ctx.config.browser.engine,
+    lightpanda: ctx.config.browser.lightpanda,
     profilePath: resolveProfilePath(ctx.cwd, profile),
     artifactDir: ctx.cwd,
   });
@@ -203,6 +205,7 @@ export async function ensureAuthProfile(
         sessionName,
         headed: ctx.headed,
         engine: ctx.config.browser.engine,
+        lightpanda: ctx.config.browser.lightpanda,
         verbose: ctx.verbose,
       });
     }

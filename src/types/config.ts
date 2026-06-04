@@ -38,6 +38,17 @@ export interface ReportConfig {
 /** Local browser engine for agent-browser (AGENT_BROWSER_ENGINE). */
 export type BrowserEngine = "chrome" | "lightpanda";
 
+/** Options when browser.engine is lightpanda (AGENT_BROWSER_EXECUTABLE_PATH, telemetry). */
+export interface LightpandaBrowserConfig {
+  /**
+   * Path to the lightpanda binary, or a directory containing it (e.g. ".bin").
+   * Relative paths resolve from the project cwd. Maps to AGENT_BROWSER_EXECUTABLE_PATH.
+   */
+  executablePath?: string;
+  /** When false, sets LIGHTPANDA_DISABLE_TELEMETRY=true. Default: Lightpanda sends telemetry. */
+  telemetry?: boolean;
+}
+
 /** Reasoning intensity; applied only on providers that support it (e.g. OpenAI, Anthropic, Google). */
 export type LlmReasoningEffort =
   | "none"
@@ -82,6 +93,7 @@ export interface PqaConfig {
     defaultTimeout: number;
     /** agent-browser engine: chrome (default) or lightpanda */
     engine: BrowserEngine;
+    lightpanda?: LightpandaBrowserConfig;
   };
   skills: {
     dirs: string[];

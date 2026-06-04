@@ -30,13 +30,16 @@ export async function captureInteractiveSnapshot(options: {
   sessionName: string;
   headed: boolean;
   engine: PqaConfig["browser"]["engine"];
+  lightpanda?: PqaConfig["browser"]["lightpanda"];
   timeoutMs: number;
   eventTs: number;
 }): Promise<{ parsed: ReturnType<typeof parseSnapshotJson>; path?: string }> {
   const env = buildBrowserEnv({
+    cwd: options.cwd,
     headed: options.headed,
     sessionName: options.sessionName,
     engine: options.engine,
+    lightpanda: options.lightpanda,
     artifactDir: options.recordingDir,
   });
 
@@ -92,6 +95,7 @@ export async function enrichRecordEvent(options: {
     sessionName: meta.sessionName,
     headed: true,
     engine: options.config.browser.engine,
+    lightpanda: options.config.browser.lightpanda,
     timeoutMs: options.config.agent.bashTimeoutMs,
     eventTs: options.event.ts,
   });

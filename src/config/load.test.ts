@@ -63,6 +63,19 @@ describe("loadConfig", () => {
     assert.equal(config.scenariosDir, "custom-scenarios");
   });
 
+  it("deep-merges browser.lightpanda overrides", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
+    writeFileSync(
+      path.join(cwd, "pqa.config.json"),
+      JSON.stringify({
+        browser: { lightpanda: { executablePath: ".bin/custom" } },
+      }),
+    );
+    const config = await loadConfig(undefined, cwd);
+    assert.equal(config.browser.lightpanda?.executablePath, ".bin/custom");
+    assert.equal(config.browser.lightpanda?.telemetry, false);
+  });
+
   it("resolves bundled config from the package root", async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
     const config = await loadConfig(undefined, cwd);

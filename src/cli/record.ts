@@ -103,9 +103,11 @@ export async function executeRecordStart(
 
   const headed = resolveBrowserHeaded(config, options.headed !== false);
   const bashEnv = buildBrowserEnv({
+    cwd,
     headed,
     sessionName,
     engine: config.browser.engine,
+    lightpanda: config.browser.lightpanda,
     artifactDir: dir,
   });
 
@@ -263,6 +265,7 @@ export async function executeRecordStop(
     sessionName,
     headed,
     engine: config.browser.engine,
+    lightpanda: config.browser.lightpanda,
     verbose: options.verbose,
   });
 

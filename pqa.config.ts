@@ -25,6 +25,10 @@ const config = {
     sessionName: "pqa",
     defaultTimeout: 25_000,
     engine: "chrome",
+    lightpanda: {
+      executablePath: "./bin",
+      telemetry: false,
+    },
   },
   systemPromptPath: "prompt/SYSTEM.md",
   envVars: [],

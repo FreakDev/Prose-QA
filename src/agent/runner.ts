@@ -159,9 +159,11 @@ export async function runScenario(
     ? resolveStatePath(options.cwd, options.authProfile, options.config)
     : undefined;
   const bashEnv = buildBrowserEnv({
+    cwd: options.cwd,
     headed: options.headed,
     sessionName,
     engine: options.config.browser.engine,
+    lightpanda: options.config.browser.lightpanda,
     profilePath: options.profilePath,
     authStatePath: options.profilePath ? undefined : options.authStatePath,
     authSavePath,

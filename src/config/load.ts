@@ -153,7 +153,13 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
     envVars: override.envVars ?? base.envVars,
     sensitiveEnvVars: override.sensitiveEnvVars ?? base.sensitiveEnvVars,
     llm: { ...base.llm, ...override.llm },
-    browser: { ...base.browser, ...override.browser },
+    browser: {
+      ...base.browser,
+      ...override.browser,
+      lightpanda: override.browser?.lightpanda
+        ? { ...base.browser.lightpanda, ...override.browser.lightpanda }
+        : base.browser.lightpanda,
+    },
     skills: { ...base.skills, ...override.skills },
     agent: { ...base.agent, ...override.agent },
     auth: { ...base.auth, ...override.auth },
