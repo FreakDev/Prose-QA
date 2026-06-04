@@ -8,6 +8,9 @@ dist/
 .env.*
 !.env.example
 
+
+skills/agent-browser/SKILL.md
+
 scenarios/*
 !scenarios/0_hello-world.md
 !scenarios/1_example-authenticated.md
