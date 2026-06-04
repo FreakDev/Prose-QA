@@ -1,20 +1,20 @@
-# Prose-QA — Guide pas à pas
+# Prose-QA — Step-by-step guide
 
-Ce guide présente les fonctionnalités essentielles de **Prose-QA** (PQA) dans un ordre progressif : du format de scénario jusqu’à l’analyse post-run. Chaque section s’appuie sur la précédente.
+This guide introduces the essential **Prose-QA** (PQA) features in a progressive order: from scenario format through post-run analysis. Each section builds on the previous one.
 
-**Prérequis communs**
+**Common prerequisites**
 
-- Node.js 24+ (voir `engines` dans `package.json`)
-- Une clé API LLM (`ANTHROPIC_API_KEY`, `FIREWORKS_API_KEY`, etc.)
-- Installation du package et du navigateur :
+- Node.js 24+ (see `engines` in `package.json`)
+- An LLM API key (`ANTHROPIC_API_KEY`, `FIREWORKS_API_KEY`, etc.)
+- Package and browser installation:
 
 ```bash
 npm ci && npm run build
 npx agent-browser install
-export ANTHROPIC_API_KEY=...   # ou autre provider
+export ANTHROPIC_API_KEY=...   # or another provider
 ```
 
-**Fil rouge** : le scénario [`scenarios/hello-world-smoke.md`](../scenarios/hello-world-smoke.md) et le serveur local :
+**Thread scenario**: [`scenarios/hello-world-smoke.md`](../scenarios/hello-world-smoke.md) and the local server:
 
 ```bash
 npm run smoke:server   # http://127.0.0.1:8080/ → "Hello World"
@@ -22,30 +22,30 @@ npm run smoke:server   # http://127.0.0.1:8080/ → "Hello World"
 
 ---
 
-## 1. Format scénario (Goal / Steps / Then + frontmatter)
+## 1. Scenario format (Goal / Steps / Then + frontmatter)
 
-Un scénario PQA est un fichier Markdown avec **trois sections obligatoires** et un bloc YAML en tête de fichier.
+A PQA scenario is a Markdown file with **three required sections** and a YAML block at the top.
 
 ### Frontmatter
 
-| Champ     | Requis | Rôle |
-| --------- | ------ | ---- |
-| `name`    | oui    | Identifiant stable (kebab-case) |
-| `tags`    | non    | Filtre les runs (`smoke`, `checkout`, …) |
-| `url`     | non    | URL ouverte avant les Steps |
-| `auth`    | non    | Profil de session (`admin`, …) — voir §7 |
-| `skills`  | non    | Skills Agent supplémentaires |
-| `partial` | non    | `true` = fragment inclusible, jamais exécuté seul |
+| Field     | Required | Role |
+| --------- | -------- | ---- |
+| `name`    | yes      | Stable identifier (kebab-case) |
+| `tags`    | no       | Filter runs (`smoke`, `checkout`, …) |
+| `url`     | no       | URL opened before Steps |
+| `auth`    | no       | Session profile (`admin`, …) — see §7 |
+| `skills`  | no       | Extra Agent Skills |
+| `partial` | no       | `true` = includable fragment, never run alone |
 
 ### Sections
 
-Les titres doivent être exactement : `# Goal`, `# Steps`, `# Then` (casse indifférente).
+Headings must be exactly: `# Goal`, `# Steps`, `# Then` (case-insensitive).
 
-- **Goal** — une phrase : qui agit, quoi faire, critère de succès.
-- **Steps** — liste numérotée ; une action observable par ligne (cliquer, remplir, naviguer).
-- **Then** — **chaque checkpoint est une puce commençant par `-`**. Les lignes sans `-` ne sont pas parsées.
+- **Goal** — one sentence: who is acting, what to do, success criteria.
+- **Steps** — numbered list; one observable action per line (click, fill, navigate).
+- **Then** — **each checkpoint is a bullet starting with `-`**. Lines without `-` are not parsed.
 
-### Exemple minimal
+### Minimal example
 
 ```markdown
 ---
@@ -68,55 +68,55 @@ Verify the smoke test server serves a page that displays Hello World.
 - page shows "Hello World"
 ```
 
-### Patterns Then recommandés
+### Recommended Then patterns
 
-| Pattern | Exemple |
-| ------- | ------- |
-| URL | `- url contains "/projects"` |
-| Texte visible | `- page shows "Thank you"` |
-| Champ | `- cart count equals "3"` |
+| Pattern       | Example |
+| ------------- | ------- |
+| URL           | `- url contains "/projects"` |
+| Visible text  | `- page shows "Thank you"` |
+| Field value   | `- cart count equals "3"` |
 
-Évitez les formulations vagues (« le formulaire devrait marcher ») ; préférez des assertions observables.
+Avoid vague wording (“the form should work”); prefer observable assertions.
 
-### Checklist auteur
+### Author checklist
 
-- [ ] `name` unique
-- [ ] Les trois sections présentes
-- [ ] Toutes les lignes **Then** commencent par `-`
-- [ ] Pas de secrets dans le fichier (mots de passe, clés API)
+- [ ] Unique `name`
+- [ ] All three sections present
+- [ ] Every **Then** line starts with `-`
+- [ ] No secrets in the file (passwords, API keys)
 
-Référence détaillée : skill [create-pqa-scenario](../.agents/skills/create-pqa-scenario/SKILL.md).
+Detailed reference: [create-pqa-scenario](../.agents/skills/create-pqa-scenario/SKILL.md) skill.
 
 ---
 
-## 2. Agent + agent-browser (snapshots, checkpoints vérifiables)
+## 2. Agent + agent-browser (snapshots, verifiable checkpoints)
 
-PQA ne pilote pas le navigateur en TypeScript : un **agent LLM** exécute des commandes **`agent-browser`** en bash (skill `core` vendu dans `skills/agent-browser/`).
+PQA does not drive the browser from TypeScript: an **LLM agent** runs **`agent-browser`** commands via bash (the `core` skill shipped in `skills/agent-browser/`).
 
-### Boucle Observe → Act → Verify
+### Observe → Act → Verify loop
 
-1. **Snapshot** avant toute interaction UI (`agent-browser snapshot -i`).
-2. **Action** sur une ref (`@eN`) ou un sélecteur sémantique — **une seule commande UI par appel bash**.
-3. **Re-snapshot** après navigation, submit ou changement DOM.
+1. **Snapshot** before any UI interaction (`agent-browser snapshot -i`).
+2. **Action** on a ref (`@eN`) or semantic locator — **one UI command per bash call**.
+3. **Re-snapshot** after navigation, submit, or DOM change.
 
-Le prompt système ([`prompt/SYSTEM.md`](../prompt/SYSTEM.md)) impose cette boucle et interdit `curl`/`wget` pour tester l’UI.
+The system prompt ([`prompt/SYSTEM.md`](../prompt/SYSTEM.md)) enforces this loop and forbids `curl`/`wget` for UI testing.
 
-### Vérification des Then
+### Then verification
 
-Après les Steps, l’agent vérifie **chaque** checkpoint Then avec la CLI :
+After Steps, the agent verifies **every** Then checkpoint with the CLI:
 
-| Checkpoint | Commande typique |
-| ---------- | ---------------- |
+| Checkpoint         | Typical command |
+| ------------------ | --------------- |
 | `url contains "…"` | `agent-browser get url` |
-| `page shows "…"` | `agent-browser snapshot -i` (texte présent) |
+| `page shows "…"`   | `agent-browser snapshot -i` (text present) |
 
-En cas d’échec, des artefacts sont écrits dans `$PQA_ARTIFACT_DIR` (screenshot + snapshot JSON).
+On failure, artifacts are written to `$PQA_ARTIFACT_DIR` (screenshot + snapshot JSON).
 
-### Verdict final
+### Final verdict
 
-L’agent termine par un bloc JSON structuré (pass/fail par checkpoint). Le harness parse ce verdict pour le rapport.
+The agent ends with a structured JSON block (pass/fail per checkpoint). The harness parses this verdict for the report.
 
-**À retenir** : les scénarios décrivent l’**intention** ; l’agent choisit les refs et commandes concrètes à partir des snapshots.
+**Takeaway**: scenarios describe **intent**; the agent picks concrete refs and commands from snapshots.
 
 ---
 
@@ -124,19 +124,19 @@ L’agent termine par un bloc JSON structuré (pass/fail par checkpoint). Le har
 
 | | `pqa debug` | `pqa run` |
 | --- | --- | --- |
-| Usage | Développement, investigation | CI, régression batch |
-| Navigateur | Headed par défaut | Headless par défaut |
-| Verbosité | `--verbose` recommandé | Sortie concise |
-| Un scénario | Oui | Oui ou plusieurs globs |
+| Use case | Development, investigation | CI, batch regression |
+| Browser | Headed by default | Headless by default |
+| Verbosity | `--verbose` recommended | Concise output |
+| Scenarios | One | One or multiple globs |
 
-### Debug (un scénario, visible)
+### Debug (single scenario, visible)
 
 ```bash
 npm run smoke:server &
 npm run dev -- debug scenarios/hello-world-smoke.md --verbose
 ```
 
-Options utiles : `--headed` / `--no-headed`, `--tag` / `--tags`.
+Useful options: `--headed` / `--no-headed`, `--tag` / `--tags`.
 
 ### Run (batch, CI)
 
@@ -144,97 +144,97 @@ Options utiles : `--headed` / `--no-headed`, `--tag` / `--tags`.
 npm run dev -- run scenarios/**/*.md --tags smoke
 ```
 
-Codes de sortie : `0` = succès · `1` = échec scénario · `2` = erreur config/harness.
+Exit codes: `0` = success · `1` = scenario failure · `2` = config/harness error.
 
-Configuration navigateur par défaut : [`pqa.config.ts`](../pqa.config.ts) → `browser.headed`, `defaultTimeout`, etc.
+Default browser settings: [`pqa.config.ts`](../pqa.config.ts) → `browser.headed`, `defaultTimeout`, etc.
 
 ---
 
-## 4. Tags et batch
+## 4. Tags and batch
 
-Les tags dans le frontmatter permettent de **sélectionner** les scénarios sans lister chaque fichier.
+Tags in frontmatter let you **select** scenarios without listing every file.
 
 ```bash
-# Tous les scénarios tagués smoke
+# All scenarios tagged smoke
 pqa run scenarios/**/*.md --tags smoke
 
-# AND : smoke ET checkout
+# AND: smoke AND checkout
 pqa run scenarios/**/*.md --tags smoke,checkout
 
-# NOT : p0 mais pas smoke
+# NOT: p0 but not smoke
 pqa run scenarios/**/*.md --tags p0,!smoke
 
-# OR : plusieurs --tag
+# OR: multiple --tag
 pqa run scenarios/**/*.md --tag smoke --tag checkout
 ```
 
-Les scénarios **auth** (`tags: [auth]`) et les **partials** (`partial: true`) ne sont en général pas lancés en batch : l’auth est déclenchée à la demande (§7).
+**Auth** scenarios (`tags: [auth]`) and **partials** (`partial: true`) are usually not run in batch; auth is triggered on demand (§7).
 
 ---
 
-## 5. Rapports
+## 5. Reports
 
-Chaque run écrit des artefacts sous **`.pqa/runs/<runId>/`** :
+Each run writes artifacts under **`.pqa/runs/<runId>/`**:
 
-| Fichier | Contenu |
-| ------- | ------- |
-| `report.json` / `report.html` | Résumé du run |
-| `<scenario>/transcript.json` | Commandes bash + messages agent |
-| `<scenario>/verdict.json` | Pass/fail structuré par checkpoint |
+| File | Content |
+| ---- | ------- |
+| `report.json` / `report.html` | Run summary |
+| `<scenario>/transcript.json` | Bash commands + agent messages |
+| `<scenario>/verdict.json` | Structured pass/fail per checkpoint |
 
-En cas d’échec en debug, ouvrez `report.html` et le `transcript.json` du scénario pour suivre snapshot → action → vérification.
+On debug failure, open `report.html` and the scenario’s `transcript.json` to follow snapshot → action → verification.
 
-Les variables listées dans `envVars` / `sensitiveEnvVars` (config) sont **masquées** dans les rapports ; les valeurs de secrets ne doivent pas apparaître en clair.
+Variables listed in `envVars` / `sensitiveEnvVars` (config) are **redacted** in reports; secret values must not appear in plain text.
 
 ---
 
 ## 6. CI
 
-Intégrer PQA dans un pipeline revient à : installer le navigateur, démarrer l’app (ou un serveur smoke), lancer `pqa run`, publier les artefacts en cas d’échec.
+Integrating PQA in a pipeline means: install the browser, start the app (or smoke server), run `pqa run`, upload artifacts on failure.
 
-Exemple dans ce dépôt : [`.github/workflows/smoke_tests.yml`](../.github/workflows/smoke_tests.yml).
+Example in this repo: [`.github/workflows/smoke_tests.yml`](../.github/workflows/smoke_tests.yml).
 
 ```yaml
 - run: npx agent-browser install --with-deps
 - run: npm run build
 - run: |
     node scripts/smoke-hello-server.mjs &
-    # attendre que http://127.0.0.1:8080/ réponde
+    # wait until http://127.0.0.1:8080/ responds
 - run: node dist/cli/index.js run scenarios/hello-world-smoke.md
   env:
     FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
     PQA_LLM_PROVIDER: fireworks
 ```
 
-Bonnes pratiques :
+Best practices:
 
-- Secrets GitHub → `ANTHROPIC_API_KEY`, `PQA_TEST_EMAIL`, etc.
-- `envVars` dans `pqa.config.json` pour les creds de test
-- `--tags smoke` pour limiter la portée
-- Upload de `.pqa/runs/` sur échec (`actions/upload-artifact`)
+- GitHub Secrets → `ANTHROPIC_API_KEY`, `PQA_TEST_EMAIL`, etc.
+- `envVars` in `pqa.config.json` for test credentials
+- `--tags smoke` to limit scope
+- Upload `.pqa/runs/` on failure (`actions/upload-artifact`)
 
-Optionnel : `--retries 1 --retries-policy transient` (§11), pre-seed auth (§7).
+Optional: `--retries 1 --retries-policy transient` (§11), pre-seed auth (§7).
 
 ---
 
-## 7. Auth hybride
+## 7. Hybrid auth
 
-Pour les pages protégées, ne **pas** dupliquer le login dans chaque scénario. Utilisez un **profil auth** et un scénario de login dédié.
+For protected pages, do **not** duplicate login in every scenario. Use an **auth profile** and a dedicated login scenario.
 
-### Serveur de démo (ce dépôt)
+### Demo server (this repo)
 
-Le serveur smoke expose un login et une page protégée :
+The smoke server exposes login and a protected page:
 
 ```bash
 npm run smoke:server
-# Credentials : demo@pqa.local / demo-password (voir .env.example)
+# Credentials: demo@pqa.local / demo-password (see .env.example)
 ```
 
-Routes : `/` (Hello World) · `/login` · `/projects` (protégée, cookie de session).
+Routes: `/` (Hello World) · `/login` · `/projects` (protected, session cookie).
 
-### Scénario auth (on-demand)
+### Auth scenario (on-demand)
 
-[`scenarios/auth/login-admin.md`](../scenarios/auth/login-admin.md) :
+[`scenarios/auth/login-admin.md`](../scenarios/auth/login-admin.md):
 
 ```markdown
 ---
@@ -255,9 +255,9 @@ Authenticate as an admin test user.
 - url does not contain "/login"
 ```
 
-Le `name` doit correspondre à `auth.admin.scenario` dans la config.
+`name` must match `auth.admin.scenario` in config.
 
-### Scénario consommateur
+### Consumer scenario
 
 ```markdown
 ---
@@ -268,7 +268,7 @@ url: http://127.0.0.1:8080/projects
 ---
 ```
 
-Démo locale :
+Local demo:
 
 ```bash
 npm run smoke:server &
@@ -277,18 +277,18 @@ export PQA_TEST_PASSWORD=demo-password
 pqa debug scenarios/example-authenticated.md --verbose
 ```
 
-Le harness charge `.pqa/auth/admin.json` ou exécute `login-admin` une fois, sauvegarde l’état navigateur, puis ouvre l’URL avec `$AGENT_BROWSER_STATE`.
+The harness loads `.pqa/auth/admin.json` or runs `login-admin` once, saves browser state, then opens the URL with `$AGENT_BROWSER_STATE`.
 
-### CLI auth
+### Auth CLI
 
 ```bash
 pqa auth list
 pqa auth clear admin
-pqa auth save admin          # force un login + sauvegarde
-pqa run scenarios/**/*.md --auth-refresh   # invalide et refait l’auth
+pqa auth save admin          # force login + save state
+pqa run scenarios/**/*.md --auth-refresh   # invalidate and re-run auth
 ```
 
-Configurer dans `pqa.config.json` :
+Configure in `pqa.config.json`:
 
 ```json
 {
@@ -303,21 +303,21 @@ Configurer dans `pqa.config.json` :
 }
 ```
 
-**Ne jamais** mettre de mots de passe dans les fichiers scénario — uniquement `$PQA_TEST_*` dans les Steps auth.
+**Never** put passwords in scenario files — only `$PQA_TEST_*` in auth Steps.
 
 ---
 
-## 8. MCP + skill auteur
+## 8. MCP + author skill
 
-Pour **Cursor**, Claude Desktop, etc., le serveur MCP expose l’écriture et l’exécution de scénarios sans quitter l’IDE.
+For **Cursor**, Claude Desktop, etc., the MCP server exposes scenario authoring and execution without leaving the IDE.
 
 ```bash
 pqa mcp
-# ou depuis ce repo :
+# or from this repo:
 npm run mcp
 ```
 
-### Configuration Cursor (projet consommateur)
+### Cursor configuration (consumer project)
 
 ```json
 {
@@ -325,140 +325,140 @@ npm run mcp
     "prose-qa": {
       "command": "npx",
       "args": ["-y", "prose-qa", "mcp"],
-      "cwd": "/chemin/vers/votre-app-avec-pqa.config"
+      "cwd": "/path/to/your-app-with-pqa.config"
     }
   }
 }
 ```
 
-### Surfaces MCP
+### MCP surfaces
 
-| Surface | Rôle |
+| Surface | Role |
 | ------- | ---- |
-| Resource `pqa://skill/create-pqa-scenario` | Skill complet d’auteur de scénarios |
-| `get_create_pqa_scenario_skill` | Même contenu en texte |
-| `validate_scenario` | Parse le markdown **sans** lancer le navigateur |
-| `run_scenario` | Exécute un scénario inline (LLM + browser requis) |
-| Prompt `author_pqa_scenario` | Template guidé avec la skill |
+| Resource `pqa://skill/create-pqa-scenario` | Full scenario authoring skill |
+| `get_create_pqa_scenario_skill` | Same content as text |
+| `validate_scenario` | Parse markdown **without** launching the browser |
+| `run_scenario` | Execute inline scenario (LLM + browser required) |
+| Prompt `author_pqa_scenario` | Guided template with the skill |
 
-Workflow typique : demander à l’agent d’**author** un scénario → `validate_scenario` → `run_scenario` ou commit dans `scenarios/`.
+Typical workflow: ask the agent to **author** a scenario → `validate_scenario` → `run_scenario` or commit under `scenarios/`.
 
 ---
 
 ## 9. Record → markdown
 
-Enregistrer des actions dans le navigateur et produire un **brouillon** de scénario via LLM.
+Record browser actions and produce a scenario **draft** via LLM.
 
 ```bash
 pqa record start --url http://localhost:3000/projects
-pqa record note "contexte optionnel pour le LLM"
-# interagir dans le navigateur (session headed)
+pqa record note "optional context for the LLM"
+# interact in the browser (headed session)
 pqa record checkpoint 'page shows "Projects"'
 pqa record stop --name my-flow
 pqa debug scenarios/recorded/my-flow.md --verbose
 ```
 
-- Événements : `.pqa/recordings/<timestamp>/events.jsonl`
-- Snapshots : `.pqa/recordings/.../snapshots/`
-- Fichier généré : `scenarios/recorded/<name>.md` (tag par défaut `recorded`)
+- Events: `.pqa/recordings/<timestamp>/events.jsonl`
+- Snapshots: `.pqa/recordings/.../snapshots/`
+- Generated file: `scenarios/recorded/<name>.md` (default tag `recorded`)
 
-**Après génération**, éditer le fichier : condenser les Steps, ajouter `auth:`, `tags`, partials, checkpoints Then précis.
+**After generation**, edit the file: condense Steps, add `auth:`, `tags`, partials, precise Then checkpoints.
 
-Régénérer depuis un enregistrement sauvegardé :
+Regenerate from a saved recording:
 
 ```bash
 pqa record generate .pqa/recordings/<timestamp>
 ```
 
-Extension Chrome (WIP) : voir [`recorder-extension/README.md`](../recorder-extension/README.md).
+Chrome extension (WIP): see [`recorder-extension/README.md`](../recorder-extension/README.md).
 
 ---
 
-## 10. Cache replay
+## 10. Replay cache
 
-Après un **PASS**, PQA peut générer des **replay hints** (second passage LLM sur le transcript) dans `.pqa/cache/<scenario-name>/` (`hints.md` + `meta.json`). Au run suivant, ces hints sont injectés dans le prompt pour réutiliser des chemins `agent-browser` déjà validés.
+After a **PASS**, PQA can generate **replay hints** (second LLM pass on the transcript) in `.pqa/cache/<scenario-name>/` (`hints.md` + `meta.json`). On the next run, those hints are injected into the prompt to reuse proven `agent-browser` paths.
 
 ```bash
-# Premier run : exécution complète + génération des hints
+# First run: full execution + hint generation
 pqa run scenarios/hello-world-smoke.md
 
-# Deuxième run : hints utilisés si le contenu du scénario est inchangé
+# Second run: hints used if scenario content is unchanged
 pqa run scenarios/hello-world-smoke.md
 
-# Désactiver lecture/écriture
+# Disable read/write
 pqa run scenarios/**/*.md --no-cache
 
-# Invalider
+# Invalidate
 pqa clear-cache hello-world-smoke
 pqa clear-cache
 ```
 
-Le cache est **invalidé** si le hash du scénario change (Goal, Steps, Then, frontmatter, includes). Les runs en échec ne mettent pas à jour le cache.
+Cache is **invalidated** when the scenario hash changes (Goal, Steps, Then, frontmatter, includes). Failed runs do not update the cache.
 
-Config : `cache.dir`, `cache.enabled` dans `pqa.config.*`.
+Config: `cache.dir`, `cache.enabled` in `pqa.config.*`.
 
 ---
 
 ## 11. Healing / retries
 
-**Self-healing conservateur** (activé par défaut via `healing.enabled`) :
+**Conservative self-healing** (enabled by default via `healing.enabled`):
 
-1. **Recovery in-run** — après un verdict d’échec, re-vérification des checkpoints échoués uniquement (même session), pour erreurs **transitoires** (timeout, ref stale, navigation).
-2. **Retry scénario** — relance complète du scénario si l’échec est classé transitoire.
+1. **In-run recovery** — after a failed verdict, re-verify failed checkpoints only (same session), for **transient** errors (timeout, stale ref, navigation).
+2. **Scenario retry** — full scenario rerun when failure is classified transient.
 
-Les checkpoints **ne sont jamais assouplis** automatiquement.
+Checkpoints are **never** relaxed automatically.
 
 ```bash
-# CI : une retry pour les flakes
+# CI: one retry for flakes
 pqa run scenarios/**/*.md --retries 1 --retries-policy transient
 
-# Désactiver tout healing
+# Disable all healing
 pqa run scenarios/**/*.md --no-healing
 
-# Retry même sur échecs non classés transitoires
+# Retry even on non-transient failures
 pqa run scenarios/**/*.md --retries 2 --retries-policy always
 ```
 
-Les passes après recovery sont marquées `healing.used: true` dans les rapports.
+Passes after recovery are marked `healing.used: true` in reports.
 
 ---
 
 ## 12. Analyze
 
-Analyser les runs passés pour comprendre les échecs ou détecter la **flakiness**.
+Analyze past runs to understand failures or detect **flakiness**.
 
 ```bash
-# Dernier run — REPL interactif (suggestions de patch)
+# Latest run — interactive REPL (patch suggestions)
 pqa analyze
 
-# Comparer les N derniers runs
+# Compare the N most recent runs
 pqa analyze --last 10
 ```
 
-Sorties typiques :
+Typical outputs:
 
-- `.pqa/runs/<runId>/analyze.json` et `analyze-llm.json` (run unique)
-- `.pqa/analyze/<timestamp>/` pour l’analyse multi-run flaky
+- `.pqa/runs/<runId>/analyze.json` and `analyze-llm.json` (single run)
+- `.pqa/analyze/<timestamp>/` for multi-run flaky analysis
 
-Prompts associés : [`prompt/ANALYZE.md`](../prompt/ANALYZE.md), [`prompt/ANALYZE-FLAKY.md`](../prompt/ANALYZE-FLAKY.md).
-
----
-
-## Parcours rapide (30 min)
-
-| Minute | Section | Action |
-| ------ | ------- | ------ |
-| 0–10 | §1–2 | Lire `hello-world-smoke.md`, lancer `debug --verbose` |
-| 10–15 | §3–4 | `run` avec `--tags smoke` |
-| 15–20 | §5 | Ouvrir `report.html` du dernier run |
-| 20–30 | §6 | Parcourir `smoke_tests.yml` |
-
-Sections §7–12 : atelier séparé sur une vraie application ou en approfondissement.
+Related prompts: [`prompt/ANALYZE.md`](../prompt/ANALYZE.md), [`prompt/ANALYZE-FLAKY.md`](../prompt/ANALYZE-FLAKY.md).
 
 ---
 
-## Voir aussi
+## Quick path (30 min)
 
-- [README.md](../README.md) — install, configuration complète, CLI
-- [CONTRIBUTING.md](../CONTRIBUTING.md) — contribution au dépôt
-- [SECURITY.md](../SECURITY.md) — secrets et artefacts
+| Minutes | Section | Action |
+| ------- | ------- | ------ |
+| 0–10 | §1–2 | Read `hello-world-smoke.md`, run `debug --verbose` |
+| 10–15 | §3–4 | `run` with `--tags smoke` |
+| 15–20 | §5 | Open latest `report.html` |
+| 20–30 | §6 | Review `smoke_tests.yml` |
+
+Sections §7–12: separate workshop on a real app or as follow-up depth.
+
+---
+
+## See also
+
+- [README.md](../README.md) — install, full configuration, CLI
+- [CONTRIBUTING.md](../CONTRIBUTING.md) — contributing to the repo
+- [SECURITY.md](../SECURITY.md) — secrets and artifacts
