@@ -4,6 +4,14 @@ on:
   release:
     types: [published]
   workflow_dispatch:
+    inputs:
+      dist-tag:
+        description: npm dist-tag
+        default: beta
+        type: choice
+        options:
+          - beta
+          - latest
 
 jobs:
   publish:
@@ -26,6 +34,6 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: npm publish --access public
+        run: npm publish --tag ${{ github.event_name == 'workflow_dispatch' && inputs.dist-tag || 'beta' }} --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
