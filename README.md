@@ -2,6 +2,10 @@
 
 Agent harness for **end-to-end regression testing** of web apps. Scenarios are written in natural language with explicit verification checkpoints. An LLM agent executes them using [Vercel `agent-browser`](https://github.com/vercel-labs/agent-browser) via bash — no browser wrapper in TypeScript.
 
+## How-to (step by step)
+
+See **[docs/HOWTO.md](docs/HOWTO.md)** for a progressive guide (scenario format → agent-browser → debug/run → CI → auth → MCP → record → cache → healing → analyze).
+
 ## Features
 
 - **Natural language scenarios** with `# Goal`, `# Steps`, and `# Then` checkpoints
@@ -64,7 +68,14 @@ npm run dev -- run scenarios/**/*.md --tags example
 
 # Debug single scenario
 npm run dev -- debug scenarios/example-smoke.md --verbose
+
+# Auth demo (smoke server with hardcoded demo credentials)
+npm run smoke:server
+export PQA_TEST_EMAIL=demo@pqa.local PQA_TEST_PASSWORD=demo-password
+npm run dev -- debug scenarios/example-authenticated.md --verbose
 ```
+
+The smoke server (`scripts/smoke-hello-server.mjs`) serves `/` (Hello World), `/login`, and protected `/projects`. Credentials match `.env.example`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidelines.
 

@@ -1,8 +1,8 @@
 ---
 name: example-authenticated
-tags: [smoke, example]
+tags: [smoke, example, auth-demo]
 auth: admin
-url: https://app.example.com/projects
+url: http://127.0.0.1:8080/projects
 ---
 
 # Goal
@@ -16,3 +16,4 @@ Verify that an authenticated user can load a protected page.
 # Then
 
 - url contains "/projects"
+- page shows "Welcome"

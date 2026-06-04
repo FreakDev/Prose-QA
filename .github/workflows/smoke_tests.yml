@@ -55,17 +55,20 @@ jobs:
           done
           curl -sf http://127.0.0.1:8080/ | grep -q "Hello World"
 
-      - name: Run Hello World smoke scenario
+      - name: Run smoke scenarios
         env:
           FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           PQA_LLM_PROVIDER: fireworks
           PQA_LLM_MODEL: accounts/fireworks/models/deepseek-v4-flash
+          PQA_TEST_EMAIL: demo@pqa.local
+          PQA_TEST_PASSWORD: demo-password
         run: |
           if [ -z "$FIREWORKS_API_KEY" ]; then
             echo "Skipping smoke PQA — FIREWORKS_API_KEY secret not configured"
             exit 0
           fi
           node dist/cli/index.js run scenarios/hello-world-smoke.md
+          node dist/cli/index.js run scenarios/example-authenticated.md
 
       - name: Upload artifacts
         if: failure()
