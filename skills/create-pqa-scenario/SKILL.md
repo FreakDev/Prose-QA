@@ -248,12 +248,12 @@ Chrome extension for a daily browser profile: `recorder-extension/` in the Prose
 
 ## Validate locally
 
-From the Prose-QA repo:
+From the Prose-QA repo (start `npm run demo:server` first — bundled examples use http://127.0.0.1:8080/):
 
 ```bash
 npm run dev -- debug scenarios/0_hello-world.md --verbose
 # or
-npm run dev -- run scenarios/**/*.md --tags smoke
+npm run dev -- run scenarios/**/*.md --tags example
 ```
 
 Parser errors (`missing 'name'`, `Circular scenario include`) mean fix frontmatter or links before debugging the UI.

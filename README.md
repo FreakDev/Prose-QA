@@ -63,19 +63,21 @@ npm run build
 
 export ANTHROPIC_API_KEY=...
 
+# Bundled scenarios target http://127.0.0.1:8080/ — start the demo server first (separate terminal or background)
+npm run demo:server
+
 # CI mode
 npm run dev -- run scenarios/**/*.md --tags example
 
 # Debug single scenario
 npm run dev -- debug scenarios/0_hello-world.md --verbose
 
-# Auth demo (smoke server with hardcoded demo credentials)
-npm run smoke:server
+# Auth demo (demo server with hardcoded credentials)
 export PQA_TEST_EMAIL=demo@pqa.local PQA_TEST_PASSWORD=demo-password
 npm run dev -- debug scenarios/1_example-authenticated.md --verbose
 ```
 
-The smoke server (`scripts/smoke-hello-server.mjs`) serves `/` (Hello World), `/login`, and protected `/projects`. Credentials match `.env.example`.
+The demo server (`npm run demo:server` → `scripts/demo-server.mjs`) serves `/` (Hello World), `/login`, and protected `/projects`. Credentials match `.env.example`.
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for pull request guidelines.
 

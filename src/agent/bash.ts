@@ -1,10 +1,28 @@
 import { exec } from "node:child_process";
+import path from "node:path";
 import { promisify } from "node:util";
 import { lightpandaBrowserEnv } from "../config/lightpanda.js";
+import { resolveAgentBrowserBinDirs } from "../paths.js";
 import type { BrowserEngine, LightpandaBrowserConfig } from "../types/config.js";
 import type { BashEntry } from "../types/verdict.js";
 
 const execAsync = promisify(exec);
+
+/** Prepend local agent-browser CLI dirs so bash works without a global install. */
+export function withAgentBrowserPath(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  const binDirs = resolveAgentBrowserBinDirs(cwd);
+  if (binDirs.length === 0) return env;
+
+  const existing = env.PATH ?? env.Path ?? process.env.PATH ?? "";
+  const nextPath = existing
+    ? `${binDirs.join(path.delimiter)}${path.delimiter}${existing}`
+    : binDirs.join(path.delimiter);
+
+  return { ...env, PATH: nextPath, Path: nextPath };
+}
 
 export async function runBash(
   command: string,
@@ -19,7 +37,10 @@ export async function runBash(
     const { stdout, stderr } = await execAsync(command, {
       cwd: options.cwd,
       timeout: options.timeoutMs,
-      env: { ...process.env, ...options.env },
+      env: withAgentBrowserPath(options.cwd, {
+        ...process.env,
+        ...options.env,
+      }),
       maxBuffer: 10 * 1024 * 1024,
       shell: "/bin/bash",
     });

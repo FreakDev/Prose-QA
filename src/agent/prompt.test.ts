@@ -82,7 +82,7 @@ describe("buildInitialPrompt", () => {
     );
     assert.match(prompt, /already open on http:\/\/127\.0\.0\.1:8080\//);
     assert.match(prompt, /harness opened this page via agent-browser/i);
-    assert.match(prompt, /reload/i);
+    assert.match(prompt, /Continue from Step 1 without running agent-browser close/i);
     assert.doesNotMatch(prompt, /auth state loaded/i);
   });
 
@@ -98,7 +98,8 @@ describe("buildInitialPrompt", () => {
       "http://127.0.0.1:8080/projects",
     );
     assert.match(prompt, /auth state loaded/i);
-    assert.match(prompt, /reload/i);
+    assert.match(prompt, /Continue from Step 1 without running agent-browser close/i);
+    assert.doesNotMatch(prompt, /harness opened this page via agent-browser/i);
   });
 });
 

@@ -1,6 +1,19 @@
 import assert from "node:assert/strict";
+import path from "node:path";
 import { describe, it } from "node:test";
-import { buildBrowserEnv } from "./bash.js";
+import { getPackageRoot } from "../paths.js";
+import { buildBrowserEnv, withAgentBrowserPath } from "./bash.js";
+
+describe("withAgentBrowserPath", () => {
+  it("prepends prose-qa node_modules/.bin when cwd has no local install", () => {
+    const pkgBin = path.join(getPackageRoot(), "node_modules/.bin");
+    const env = withAgentBrowserPath("/tmp/pqa-no-local-agent-browser", {
+      PATH: "/usr/bin",
+    });
+    assert.ok(env.PATH?.startsWith(`${pkgBin}:`));
+    assert.equal(env.PATH, env.Path);
+  });
+});
 
 describe("buildBrowserEnv", () => {
   it("sets AGENT_BROWSER_ENGINE from config", () => {

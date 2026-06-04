@@ -12,9 +12,11 @@ npm run build
 npm test
 ```
 
-Run the CLI locally:
+Run the CLI locally (bundled scenarios need the demo app on port 8080):
 
 ```bash
+npm run demo:server   # separate terminal; serves http://127.0.0.1:8080/
+
 export ANTHROPIC_API_KEY=...
 npm run dev -- run scenarios/0_hello-world.md --verbose
 ```

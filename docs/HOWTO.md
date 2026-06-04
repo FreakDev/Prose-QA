@@ -17,7 +17,7 @@ export ANTHROPIC_API_KEY=...   # or another provider
 **Thread scenario**: [`scenarios/0_hello-world.md`](../scenarios/0_hello-world.md) and the local server:
 
 ```bash
-npm run smoke:server   # http://127.0.0.1:8080/ → "Hello World"
+npm run demo:server   # http://127.0.0.1:8080/ → "Hello World" (keep running in another terminal)
 ```
 
 ---
@@ -132,7 +132,7 @@ The agent ends with a structured JSON block (pass/fail per checkpoint). The harn
 ### Debug (single scenario, visible)
 
 ```bash
-npm run smoke:server &
+npm run demo:server &
 npm run dev -- debug scenarios/0_hello-world.md --verbose
 ```
 
@@ -190,7 +190,7 @@ Variables listed in `envVars` / `sensitiveEnvVars` (config) are **redacted** in 
 
 ## 6. CI
 
-Integrating PQA in a pipeline means: install the browser, start the app (or smoke server), run `pqa run`, upload artifacts on failure.
+Integrating PQA in a pipeline means: install the browser, start the app (or demo server), run `pqa run`, upload artifacts on failure.
 
 Example in this repo: [`.github/workflows/smoke_tests.yml`](../.github/workflows/smoke_tests.yml).
 
@@ -198,8 +198,11 @@ Example in this repo: [`.github/workflows/smoke_tests.yml`](../.github/workflows
 - run: npx agent-browser install --with-deps
 - run: npm run build
 - run: |
-    node scripts/smoke-hello-server.mjs &
-    # wait until http://127.0.0.1:8080/ responds
+    npm run demo:server &
+    for i in $(seq 1 30); do
+      curl -sf http://127.0.0.1:8080/ | grep -q "Hello World" && break
+      sleep 1
+    done
 - run: node dist/cli/index.js run --tag example
   env:
     FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
@@ -223,10 +226,10 @@ For protected pages, do **not** duplicate login in every scenario. Use an **auth
 
 ### Demo server (this repo)
 
-The smoke server exposes login and a protected page:
+The demo server exposes login and a protected page:
 
 ```bash
-npm run smoke:server
+npm run demo:server
 # Credentials: demo@pqa.local / demo-password (see .env.example)
 ```
 
@@ -271,7 +274,7 @@ url: http://127.0.0.1:8080/projects
 Local demo:
 
 ```bash
-npm run smoke:server &
+npm run demo:server &
 export PQA_TEST_EMAIL=demo@pqa.local
 export PQA_TEST_PASSWORD=demo-password
 pqa debug scenarios/1_example-authenticated.md --verbose
@@ -448,7 +451,7 @@ Related prompts: [`prompt/ANALYZE.md`](../prompt/ANALYZE.md), [`prompt/ANALYZE-F
 
 | Minutes | Section | Action |
 | ------- | ------- | ------ |
-| 0–10 | §1–2 | Read `0_hello-world.md`, run `debug --verbose` |
+| 0–10 | §1–2 | `npm run demo:server`, read `0_hello-world.md`, run `debug --verbose` |
 | 10–15 | §3–4 | `run` with `--tag example` |
 | 15–20 | §5 | Open latest `report.html` |
 | 20–30 | §6 | Review `smoke_tests.yml` |

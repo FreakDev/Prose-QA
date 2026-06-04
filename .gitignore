@@ -9,7 +9,7 @@ dist/
 !.env.example
 
 
-skills/agent-browser/SKILL.md
+skills/agent-browser
 
 scenarios/*
 !scenarios/0_hello-world.md
