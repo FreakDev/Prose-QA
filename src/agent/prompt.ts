@@ -95,7 +95,6 @@ export function buildSystemPrompt(
     "",
     "Harness environment variables available in bash:",
     "- PQA_ARTIFACT_DIR",
-    "- AGENT_BROWSER_ENGINE",
     "- AGENT_BROWSER_SESSION_NAME",
     runtime.profilePath ? "- AGENT_BROWSER_PROFILE" : null,
     runtime.authStatePath && !runtime.profilePath
