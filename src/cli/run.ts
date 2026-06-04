@@ -9,6 +9,7 @@ import {
   loadConfig,
   missingDeclaredEnvVars,
   missingLlmApiKey,
+  resolveAgentParallel,
   resolveBrowserHeaded,
   resolveReportConfig,
   resolveSensitiveEnvVars,
@@ -480,7 +481,9 @@ export async function executeRun(
   );
   const scenarioStubs = selectedSummaries.map(scenarioSummaryToStub);
 
-  if (options.pause && options.parallel !== undefined) {
+  const parallel = resolveAgentParallel(config, options.parallel);
+
+  if (options.pause && parallel !== undefined) {
     console.error(
       chalk.red("--pause and --parallel cannot be used together"),
     );
@@ -496,7 +499,6 @@ export async function executeRun(
   const headed = resolveBrowserHeaded(config, options.headed);
   const startedAt = new Date();
   const retries = options.retries ?? 0;
-  const parallel = options.parallel;
   const failFast = options.failFast ?? false;
   const artifacts = options.artifacts ?? "on-failure";
 

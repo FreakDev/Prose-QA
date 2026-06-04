@@ -250,10 +250,6 @@ program
   )
   .option("--report-zip", "Emit report as zip instead of a directory")
   .action(async (patterns: string[], opts) => {
-    if (opts.pause && opts.parallel !== undefined) {
-      console.error("--pause and --parallel cannot be used together");
-      process.exit(2);
-    }
     const code = await executeRun(patterns, {
       ...baseRunOptions({
         ...opts,

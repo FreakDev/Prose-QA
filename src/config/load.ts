@@ -180,6 +180,18 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
 }
 
 /** Lightpanda is headless-only; headed CLI/config flags are ignored. */
+/** CLI --parallel wins when set; otherwise agent.parallel from config. */
+export function resolveAgentParallel(
+  config: PqaConfig,
+  cliParallel?: number,
+): number | undefined {
+  if (cliParallel !== undefined) return cliParallel;
+  const configured = config.agent.parallel;
+  if (configured === undefined || configured === 0) return undefined;
+  if (configured < 0) return Number.POSITIVE_INFINITY;
+  return configured;
+}
+
 export function resolveBrowserHeaded(
   config: PqaConfig,
   headed?: boolean,

@@ -102,6 +102,12 @@ export interface PqaConfig {
   agent: {
     maxTurns: number;
     bashTimeoutMs: number;
+    /**
+     * Max concurrent scenario subprocesses when --parallel is omitted.
+     * 0 = sequential (default). Positive n = limit; mirrors --parallel n.
+     * Use -1 for unlimited (same as --parallel with no n).
+     */
+    parallel?: number;
   };
   auth: Record<string, AuthProfileConfig>;
   healing?: HealingConfig;

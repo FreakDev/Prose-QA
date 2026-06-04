@@ -5,7 +5,11 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import { getPackageRoot } from "../paths.js";
 import type { PqaConfig } from "../types/config.js";
-import { loadConfig, resolveBrowserHeaded } from "./load.js";
+import {
+  loadConfig,
+  resolveAgentParallel,
+  resolveBrowserHeaded,
+} from "./load.js";
 
 const minimalConfig = (engine: PqaConfig["browser"]["engine"]): PqaConfig => ({
   llm: { provider: "anthropic", model: "x" },
@@ -18,6 +22,30 @@ const minimalConfig = (engine: PqaConfig["browser"]["engine"]): PqaConfig => ({
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
   auth: {},
+});
+
+describe("resolveAgentParallel", () => {
+  it("uses CLI --parallel when provided", () => {
+    const config = minimalConfig("chrome");
+    assert.equal(resolveAgentParallel(config, 4), 4);
+    assert.equal(
+      resolveAgentParallel(config, Number.POSITIVE_INFINITY),
+      Number.POSITIVE_INFINITY,
+    );
+  });
+
+  it("falls back to agent.parallel when CLI omits --parallel", () => {
+    const config = {
+      ...minimalConfig("chrome"),
+      agent: { ...minimalConfig("chrome").agent, parallel: 3 },
+    };
+    assert.equal(resolveAgentParallel(config), 3);
+    assert.equal(resolveAgentParallel({ ...config, agent: { ...config.agent, parallel: 0 } }), undefined);
+    assert.equal(
+      resolveAgentParallel({ ...config, agent: { ...config.agent, parallel: -1 } }),
+      Number.POSITIVE_INFINITY,
+    );
+  });
 });
 
 describe("resolveBrowserHeaded", () => {
@@ -51,6 +79,7 @@ describe("loadConfig", () => {
     assert.equal(config.auth.admin?.scenario, "login-admin");
     assert.equal(config.recorder?.bridgePort, 17_321);
     assert.equal(config.scenariosDir, "scenarios");
+    assert.equal(config.agent.parallel, 0);
   });
 
   it("merges local pqa.config.json overrides", async () => {
