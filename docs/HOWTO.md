@@ -85,7 +85,7 @@ Avoid vague wording (“the form should work”); prefer observable assertions.
 - [ ] Every **Then** line starts with `-`
 - [ ] No secrets in the file (passwords, API keys)
 
-Detailed reference: [create-pqa-scenario](../.agents/skills/create-pqa-scenario/SKILL.md) skill.
+Detailed reference: [create-pqa-scenario](../skills/create-pqa-scenario/SKILL.md) skill.
 
 ---
 

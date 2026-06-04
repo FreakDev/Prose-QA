@@ -1,4 +1,0 @@
-{
-  "envVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
-  "sensitiveEnvVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"]
-}

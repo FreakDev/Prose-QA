@@ -34,7 +34,7 @@ const config = {
   envVars: [],
   sensitiveEnvVars: [],
   skills: {
-    dirs: ["skills", ".agents/skills"],
+    dirs: ["skills"],
     preloads: ["core"],
   },
   agent: {

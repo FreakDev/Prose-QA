@@ -10,8 +10,7 @@
     "dist",
     "prompt",
     "skills",
-    "pqa.config.ts",
-    ".agents/skills/create-pqa-scenario"
+    "pqa.config.ts"
   ],
   "scripts": {
     "build": "tsc",

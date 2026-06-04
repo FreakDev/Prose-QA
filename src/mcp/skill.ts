@@ -2,27 +2,35 @@ import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { getPackageRoot, resolveBundledPath } from "../paths.js";
 
-const SKILL_RELATIVE = path.join(
-  ".agents",
-  "skills",
-  "create-pqa-scenario",
-  "SKILL.md",
-);
+const SKILL_CANDIDATES = [
+  path.join("skills", "create-pqa-scenario", "SKILL.md"),
+  path.join(".agents", "skills", "create-pqa-scenario", "SKILL.md"),
+];
+
+function resolveFirstExistingSkill(base: string): string | undefined {
+  for (const relative of SKILL_CANDIDATES) {
+    const resolved = path.resolve(base, relative);
+    if (existsSync(resolved)) {
+      return resolved;
+    }
+  }
+  return undefined;
+}
 
 const CREATE_PQA_SCENARIO_SKILL_URI = "pqa://skill/create-pqa-scenario";
 
 export { CREATE_PQA_SCENARIO_SKILL_URI };
 
 export function resolveCreatePqaScenarioSkillPath(cwd: string): string {
-  const cwdPath = path.resolve(cwd, SKILL_RELATIVE);
-  if (existsSync(cwdPath)) {
-    return cwdPath;
+  const fromCwd = resolveFirstExistingSkill(cwd);
+  if (fromCwd) {
+    return fromCwd;
   }
-  const bundled = path.resolve(getPackageRoot(), SKILL_RELATIVE);
-  if (existsSync(bundled)) {
-    return bundled;
+  const fromPkg = resolveFirstExistingSkill(getPackageRoot());
+  if (fromPkg) {
+    return fromPkg;
   }
-  return resolveBundledPath(cwd, SKILL_RELATIVE);
+  return resolveBundledPath(cwd, SKILL_CANDIDATES[0]!);
 }
 
 export function loadCreatePqaScenarioSkill(cwd: string): string {
@@ -30,7 +38,7 @@ export function loadCreatePqaScenarioSkill(cwd: string): string {
   if (!existsSync(skillPath)) {
     throw new Error(
       `create-pqa-scenario skill not found at ${skillPath}. ` +
-        "Expected .agents/skills/create-pqa-scenario/SKILL.md in the project or package.",
+        "Expected skills/create-pqa-scenario/SKILL.md in the project or package.",
     );
   }
   return readFileSync(skillPath, "utf-8");
