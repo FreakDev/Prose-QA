@@ -4,12 +4,13 @@
   "description": "ProseQA — agent harness for NL E2E regression testing via agent-browser",
   "type": "module",
   "bin": {
-    "pqa": "./dist/cli/index.js"
+    "pqa": "dist/cli/index.js"
   },
   "files": [
     "dist",
     "prompt",
     "skills",
+    "scripts/install-lightpanda.mjs",
     "pqa.config.ts"
   ],
   "scripts": {
@@ -29,7 +30,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/FreakDev/Prose-QA.git"
+    "url": "git+https://github.com/FreakDev/Prose-QA.git"
   },
   "homepage": "https://github.com/FreakDev/Prose-QA#readme",
   "bugs": {

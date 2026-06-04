@@ -24,6 +24,10 @@ import type { RunOptions } from "../types/config.js";
 import type { ScenarioTagFilterExpression } from "../types/scenario.js";
 import { executeHelp } from "./help.js";
 import { executeConfig } from "./config.js";
+import {
+  executeInstallBrowserChrome,
+  executeInstallBrowserLightpanda,
+} from "./install-browser.js";
 import { executeMcpServe } from "./mcp.js";
 import { collectAllTags, collectAnyTag, mergeTagFilters } from "./tags.js";
 
@@ -396,6 +400,24 @@ record
       out: opts.out,
     });
     process.exit(code);
+  });
+
+const installBrowser = program
+  .command("install-browser")
+  .description("Install browser binaries for agent-browser");
+
+installBrowser
+  .command("chrome")
+  .description("Install Chromium and system deps via agent-browser")
+  .action(() => {
+    process.exit(executeInstallBrowserChrome());
+  });
+
+installBrowser
+  .command("lightpanda")
+  .description("Download the Lightpanda browser binary for this OS/arch")
+  .action(() => {
+    process.exit(executeInstallBrowserLightpanda());
   });
 
 program

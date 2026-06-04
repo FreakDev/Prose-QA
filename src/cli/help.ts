@@ -46,7 +46,8 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--tag <tag>",
-        description: "Single tag matched with OR; repeat for OR; prefix ! to match absence",
+        description:
+          "Single tag matched with OR; repeat for OR; prefix ! to match absence",
       },
       {
         flags: "--skills-dir <dirs>",
@@ -77,10 +78,14 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         description: "When to keep artifacts: on-failure, always, or never",
         defaultValue: "on-failure",
       },
-      { flags: "--headed", description: "Run the browser in headed (visible) mode" },
+      {
+        flags: "--headed",
+        description: "Run the browser in headed (visible) mode",
+      },
       {
         flags: "--keep-browser",
-        description: "Leave the browser open after each scenario for inspection",
+        description:
+          "Leave the browser open after each scenario for inspection",
       },
       {
         flags: "--auth-refresh",
@@ -131,7 +136,8 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--tag <tag>",
-        description: "Single tag matched with OR; repeat for OR; prefix ! to match absence",
+        description:
+          "Single tag matched with OR; repeat for OR; prefix ! to match absence",
       },
       {
         flags: "--skills-dir <dirs>",
@@ -143,7 +149,8 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--keep-browser",
-        description: "Leave the browser open after each scenario for inspection",
+        description:
+          "Leave the browser open after each scenario for inspection",
       },
       {
         flags: "--auth-refresh",
@@ -160,7 +167,10 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
           "When healing is enabled: retry only transient failures (transient) or any failure (always)",
         defaultValue: "transient",
       },
-      { flags: "--no-healing", description: "Disable in-run recovery and transient-only retries" },
+      {
+        flags: "--no-healing",
+        description: "Disable in-run recovery and transient-only retries",
+      },
       {
         flags: "--no-cache",
         description: "Do not load or write scenario replay hints cache",
@@ -176,7 +186,8 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--no-headed",
-        description: "Run the browser headless instead of the debug default (headed)",
+        description:
+          "Run the browser headless instead of the debug default (headed)",
       },
       {
         flags: "--report-output <path>",
@@ -209,6 +220,29 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
     ],
   },
   {
+    name: "install-browser",
+    summary: "Install browser binaries for agent-browser",
+    usage: "pqa install-browser <subcommand>",
+    description:
+      "Install Chromium (Playwright-style deps) or the Lightpanda CDP browser used with agent-browser.",
+    subcommands: [
+      {
+        name: "chrome",
+        summary: "Install Chromium and system dependencies",
+        usage: "pqa install-browser chrome",
+        description:
+          "Runs `npx agent-browser install --with-deps` to download Chromium and OS packages required for headed/headless runs.",
+      },
+      {
+        name: "lightpanda",
+        summary: "Install Lightpanda browser binary",
+        usage: "pqa install-browser lightpanda",
+        description:
+          "Downloads the Lightpanda binary into `./bin/` in the current project (same path the bundled config uses). Agent bash sessions pick it up automatically when browser.engine is lightpanda.",
+      },
+    ],
+  },
+  {
     name: "config",
     summary: "Set a value in pqa.config.json",
     usage: "pqa config <key> <value>",
@@ -217,11 +251,13 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
     arguments: [
       {
         name: "key",
-        description: "Config key, dot-separated for nested properties (e.g. browser.headed)",
+        description:
+          "Config key, dot-separated for nested properties (e.g. browser.headed)",
       },
       {
         name: "value",
-        description: "Value to set (booleans, numbers, JSON arrays/objects, or strings)",
+        description:
+          "Value to set (booleans, numbers, JSON arrays/objects, or strings)",
       },
     ],
   },
@@ -258,12 +294,22 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         name: "start",
         summary: "Start recording",
         usage: "pqa record start [options]",
-        description: "Open a headed browser with the recorder script and local event bridge.",
+        description:
+          "Open a headed browser with the recorder script and local event bridge.",
         options: [
           { flags: "-c, --config <path>", description: "Config file path" },
-          { flags: "--url <url>", description: "URL to open when recording starts" },
-          { flags: "--no-headed", description: "Run headless (not recommended)" },
-          { flags: "--session <name>", description: "agent-browser session name" },
+          {
+            flags: "--url <url>",
+            description: "URL to open when recording starts",
+          },
+          {
+            flags: "--no-headed",
+            description: "Run headless (not recommended)",
+          },
+          {
+            flags: "--session <name>",
+            description: "agent-browser session name",
+          },
           {
             flags: "--connect <port>",
             description: "Connect to Chrome CDP port instead of launching",
@@ -288,7 +334,8 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         name: "stop",
         summary: "Stop recording and generate scenario",
         usage: "pqa record stop [options]",
-        description: "Close the browser and generate scenarios/recorded/<name>.md.",
+        description:
+          "Close the browser and generate scenarios/recorded/<name>.md.",
         options: [
           { flags: "--name <name>", description: "Scenario name (kebab-case)" },
           { flags: "--out <path>", description: "Output markdown path" },
@@ -365,7 +412,8 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         name: "list",
         summary: "List cached auth profiles",
         usage: "pqa auth list",
-        description: "Show profiles stored in the auth store with paths and timestamps.",
+        description:
+          "Show profiles stored in the auth store with paths and timestamps.",
       },
       {
         name: "clear",
@@ -385,13 +433,18 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         usage: "pqa auth save <name> [options]",
         description:
           "Execute the configured auth scenario for a profile and persist browser state.",
-        arguments: [{ name: "name", description: "Auth profile name from config" }],
+        arguments: [
+          { name: "name", description: "Auth profile name from config" },
+        ],
         options: [
           {
             flags: "-c, --config <path>",
             description: "Path to pqa.config.json (or .mjs / .ts / .js)",
           },
-          { flags: "-v, --verbose", description: "Enable verbose agent output" },
+          {
+            flags: "-v, --verbose",
+            description: "Enable verbose agent output",
+          },
         ],
       },
     ],
@@ -456,9 +509,7 @@ function printCommandHelp(cmd: CliCommandHelp): void {
     printSection(
       "Arguments",
       cmd.arguments.map((arg) => {
-        const suffix = arg.defaultValue
-          ? formatDefault(arg.defaultValue)
-          : "";
+        const suffix = arg.defaultValue ? formatDefault(arg.defaultValue) : "";
         return `${arg.name.padEnd(14)} ${arg.description}${suffix}`;
       }),
     );
@@ -468,9 +519,7 @@ function printCommandHelp(cmd: CliCommandHelp): void {
     printSection(
       "Options",
       cmd.options.map((opt) => {
-        const suffix = opt.defaultValue
-          ? formatDefault(opt.defaultValue)
-          : "";
+        const suffix = opt.defaultValue ? formatDefault(opt.defaultValue) : "";
         return `${opt.flags.padEnd(22)} ${opt.description}${suffix}`;
       }),
     );
@@ -479,16 +528,18 @@ function printCommandHelp(cmd: CliCommandHelp): void {
   if (cmd.subcommands?.length) {
     printSection(
       "Subcommands",
-      cmd.subcommands.map(
-        (sub) => `${sub.name.padEnd(14)} ${sub.summary}`,
-      ),
+      cmd.subcommands.map((sub) => `${sub.name.padEnd(14)} ${sub.summary}`),
     );
-    console.log("\nRun `pqa help <command> <subcommand>` for subcommand options.");
+    console.log(
+      "\nRun `pqa help <command> <subcommand>` for subcommand options.",
+    );
   }
 }
 
 export function printTopLevelHelp(): void {
-  console.log("ProseQA — agent harness for NL E2E regression testing\n");
+  console.log(
+    "Prose-QA — Frictionless web QA: Write in plain text, let AI drive the rest.",
+  );
   console.log("Usage: pqa <command> [options]\n");
   console.log("Commands:");
   for (const cmd of CLI_REFERENCE) {
@@ -496,9 +547,7 @@ export function printTopLevelHelp(): void {
   }
   printSection(
     "Global options",
-    GLOBAL_OPTIONS.map(
-      (opt) => `${opt.flags.padEnd(22)} ${opt.description}`,
-    ),
+    GLOBAL_OPTIONS.map((opt) => `${opt.flags.padEnd(22)} ${opt.description}`),
   );
   console.log("\nRun `pqa help <command>` for command-specific options.");
   console.log("Exit codes: 0 pass · 1 failure · 2 config/harness error");

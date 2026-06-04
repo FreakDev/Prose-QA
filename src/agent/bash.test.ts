@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { getPackageRoot } from "../paths.js";
@@ -12,6 +15,28 @@ describe("withAgentBrowserPath", () => {
     });
     assert.ok(env.PATH?.startsWith(`${pkgBin}:`));
     assert.equal(env.PATH, env.Path);
+  });
+});
+
+describe("withAgentBrowserPath lightpanda", () => {
+  it("prepends project bin when lightpanda is installed there", () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-lp-path-"));
+    const binDir = path.join(cwd, "bin");
+    mkdirSync(binDir, { recursive: true });
+    writeFileSync(path.join(binDir, "lightpanda"), "");
+
+    const browserEnv = buildBrowserEnv({
+      cwd,
+      headed: false,
+      sessionName: "pqa",
+      engine: "lightpanda",
+      lightpanda: { executablePath: "./bin", telemetry: false },
+      artifactDir: cwd,
+    });
+    const env = withAgentBrowserPath(cwd, { PATH: "/usr/bin", ...browserEnv });
+
+    const pathParts = env.PATH?.split(path.delimiter) ?? [];
+    assert.ok(pathParts.includes(binDir));
   });
 });
 
@@ -44,20 +69,22 @@ describe("buildBrowserEnv", () => {
   });
 
   it("applies lightpanda config when engine is lightpanda", () => {
-    const cwd = "/project";
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-lp-env-"));
+    const binary = path.join(cwd, "custom-lightpanda");
+    writeFileSync(binary, "");
     const env = buildBrowserEnv({
       cwd,
       headed: false,
       sessionName: "pqa",
       engine: "lightpanda",
       lightpanda: {
-        executablePath: "/opt/lightpanda",
+        executablePath: binary,
         telemetry: false,
       },
       artifactDir: "/tmp/artifacts",
     });
     assert.equal(env.AGENT_BROWSER_ENGINE, "lightpanda");
-    assert.equal(env.AGENT_BROWSER_EXECUTABLE_PATH, "/opt/lightpanda");
+    assert.equal(env.AGENT_BROWSER_EXECUTABLE_PATH, binary);
     assert.equal(env.LIGHTPANDA_DISABLE_TELEMETRY, "true");
   });
 

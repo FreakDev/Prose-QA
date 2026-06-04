@@ -1,19 +1,20 @@
 import { exec } from "node:child_process";
 import path from "node:path";
 import { promisify } from "node:util";
-import { lightpandaBrowserEnv } from "../config/lightpanda.js";
+import {
+  lightpandaBrowserEnv,
+  resolveLightpandaBinDirs,
+} from "../config/lightpanda.js";
 import { resolveAgentBrowserBinDirs } from "../paths.js";
 import type { BrowserEngine, LightpandaBrowserConfig } from "../types/config.js";
 import type { BashEntry } from "../types/verdict.js";
 
 const execAsync = promisify(exec);
 
-/** Prepend local agent-browser CLI dirs so bash works without a global install. */
-export function withAgentBrowserPath(
-  cwd: string,
+function prependPathDirs(
   env: NodeJS.ProcessEnv,
+  binDirs: string[],
 ): NodeJS.ProcessEnv {
-  const binDirs = resolveAgentBrowserBinDirs(cwd);
   if (binDirs.length === 0) return env;
 
   const existing = env.PATH ?? env.Path ?? process.env.PATH ?? "";
@@ -22,6 +23,32 @@ export function withAgentBrowserPath(
     : binDirs.join(path.delimiter);
 
   return { ...env, PATH: nextPath, Path: nextPath };
+}
+
+/** Prepend local agent-browser and Lightpanda dirs so bash works without a global install. */
+export function withAgentBrowserPath(
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): NodeJS.ProcessEnv {
+  const binDirs = resolveAgentBrowserBinDirs(cwd);
+  const seen = new Set(binDirs.map((d) => path.resolve(d)));
+
+  const add = (dir: string) => {
+    const resolved = path.resolve(dir);
+    if (seen.has(resolved)) return;
+    seen.add(resolved);
+    binDirs.push(resolved);
+  };
+
+  if (env.AGENT_BROWSER_EXECUTABLE_PATH) {
+    add(path.dirname(env.AGENT_BROWSER_EXECUTABLE_PATH));
+  } else {
+    for (const dir of resolveLightpandaBinDirs(cwd)) {
+      add(dir);
+    }
+  }
+
+  return prependPathDirs(env, binDirs);
 }
 
 export async function runBash(
