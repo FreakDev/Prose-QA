@@ -22,7 +22,7 @@ import type { ScenarioFixProposal } from "../analyze/parse-proposal.js";
 import { runAnalyzeRepl, type LlmReplEntry } from "../analyze/repl.js";
 import {
   loadConfig,
-  missingLlmApiKey,
+  missingLlmRequirements,
 } from "../config/load.js";
 
 export interface AnalyzeOptions {
@@ -66,9 +66,9 @@ async function executeSingleRunAnalyze(
 
   const config = await loadConfig(configPath, cwd);
   if (report.findings.length > 0) {
-    const missingKey = missingLlmApiKey(config);
-    if (missingKey) {
-      throw new Error(missingKey);
+    const missingLlm = missingLlmRequirements(config);
+    if (missingLlm) {
+      throw new Error(missingLlm);
     }
   }
 
@@ -161,9 +161,9 @@ async function executeMultiRunAnalyze(
   }
 
   const config = await loadConfig(configPath, cwd);
-  const missingKey = missingLlmApiKey(config);
-  if (missingKey) {
-    throw new Error(missingKey);
+  const missingLlm = missingLlmRequirements(config);
+  if (missingLlm) {
+    throw new Error(missingLlm);
   }
 
   const llmReport: LlmAnalyzeReport = {

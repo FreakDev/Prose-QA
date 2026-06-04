@@ -8,7 +8,7 @@ import ora from "ora";
 import {
   loadConfig,
   missingDeclaredEnvVars,
-  missingLlmApiKey,
+  missingLlmRequirements,
   resolveAgentParallel,
   resolveBrowserHeaded,
   resolveReportConfig,
@@ -416,9 +416,9 @@ export async function executeRun(
     return 2;
   }
 
-  const apiKeyError = missingLlmApiKey(config);
-  if (apiKeyError) {
-    console.error(chalk.red(apiKeyError));
+  const llmError = missingLlmRequirements(config);
+  if (llmError) {
+    console.error(chalk.red(llmError));
     return 2;
   }
 
@@ -707,9 +707,9 @@ export async function executeScenarioWorker(
   const cwd = process.cwd();
   const config = await loadConfig(options.configPath, cwd);
 
-  const apiKeyError = missingLlmApiKey(config);
-  if (apiKeyError) {
-    console.error(chalk.red(apiKeyError));
+  const llmError = missingLlmRequirements(config);
+  if (llmError) {
+    console.error(chalk.red(llmError));
     return 2;
   }
 
@@ -786,9 +786,9 @@ export async function executeAuthSave(
     return 2;
   }
 
-  const apiKeyError = missingLlmApiKey(config);
-  if (apiKeyError) {
-    console.error(chalk.red(apiKeyError));
+  const llmError = missingLlmRequirements(config);
+  if (llmError) {
+    console.error(chalk.red(llmError));
     return 2;
   }
 

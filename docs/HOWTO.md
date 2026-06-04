@@ -5,13 +5,15 @@ This guide introduces the essential **Prose-QA** (PQA) features in a progressive
 **Common prerequisites**
 
 - Node.js 24+ (see `engines` in `package.json`)
-- An LLM API key (`ANTHROPIC_API_KEY`, `FIREWORKS_API_KEY`, etc.)
+- `PQA_LLM_API_KEY` and `llm.provider` / `llm.model` in config (or `PQA_LLM_PROVIDER` / `PQA_LLM_MODEL`)
 - Package and browser installation:
 
 ```bash
 npm ci && npm run build
 npx agent-browser install
-export ANTHROPIC_API_KEY=...   # or another provider
+export PQA_LLM_API_KEY=...
+pqa config llm.provider anthropic
+pqa config llm.model claude-sonnet-4-20250514
 ```
 
 **Thread scenario**: [`scenarios/0_hello-world.md`](../scenarios/0_hello-world.md) and the local server:
@@ -205,13 +207,14 @@ Example in this repo: [`.github/workflows/smoke_tests.yml`](../.github/workflows
     done
 - run: node dist/cli/index.js run --tag example
   env:
-    FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+    PQA_LLM_API_KEY: ${{ secrets.PQA_LLM_API_KEY }}
     PQA_LLM_PROVIDER: fireworks
+    PQA_LLM_MODEL: accounts/fireworks/models/deepseek-v4-flash
 ```
 
 Best practices:
 
-- GitHub Secrets → `ANTHROPIC_API_KEY`, `PQA_TEST_EMAIL`, etc.
+- GitHub Secrets → `PQA_LLM_API_KEY`, `PQA_TEST_EMAIL`, etc.
 - `envVars` in `pqa.config.json` for test credentials
 - `--tag example` to limit scope (bundled demo scenarios in this repo)
 - Upload `.pqa/runs/` on failure (`actions/upload-artifact`)
@@ -462,6 +465,7 @@ Sections §7–12: separate workshop on a real app or as follow-up depth.
 
 ## See also
 
-- [README.md](../README.md) — install, full configuration, CLI
+- [README.md](../README.md) — quick start and CLI
+- [CONFIG.md](CONFIG.md) — full configuration reference
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — contributing to the repo
 - [SECURITY.md](../SECURITY.md) — secrets and artifacts

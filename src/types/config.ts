@@ -67,14 +67,14 @@ export interface PqaConfig {
   /** Env var names whose values are redacted from transcripts, verdicts, reports and verbose logs */
   sensitiveEnvVars?: string[];
   llm: {
-    provider:
+    provider?:
       | "anthropic"
       | "openai"
       | "fireworks"
       | "ollama"
       | "google"
       | "openrouter";
-    model: string;
+    model?: string;
     /**
      * Extended thinking / reasoning (opt-in).
      * `budgetTokens`: Anthropic, Fireworks, Google & OpenRouter reasoning budget.

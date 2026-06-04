@@ -6,15 +6,6 @@
 const config = {
   scenariosDir: "scenarios",
   llm: {
-    provider:
-      (process.env.PQA_LLM_PROVIDER as
-        | "anthropic"
-        | "openai"
-        | "fireworks"
-        | "ollama"
-        | "google"
-        | "openrouter") ?? "anthropic",
-    model: process.env.PQA_LLM_MODEL ?? "claude-sonnet-4-20250514",
     thinking: {
       enabled: true,
       budgetTokens: 10_000,

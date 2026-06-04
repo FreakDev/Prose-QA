@@ -24,10 +24,7 @@ const BUNDLED_CONFIG_CANDIDATES = [
 const MINIMAL_FALLBACK_CONFIG: PqaConfig = {
   systemPromptPath: "prompt/SYSTEM.md",
   envVars: [],
-  llm: {
-    provider: "anthropic",
-    model: "claude-sonnet-4-20250514",
-  },
+  llm: {},
   browser: {
     headed: false,
     sessionName: "pqa",
@@ -129,7 +126,10 @@ export async function loadConfig(
       throw new Error(`Config file not found: ${resolved}`);
     }
     const config = await importConfigModule(resolved);
-    return normalizeBundledPaths(mergeConfig(bundledDefault, config), cwd);
+    return normalizeBundledPaths(
+      applyLlmEnvOverrides(mergeConfig(bundledDefault, config)),
+      cwd,
+    );
   }
 
   for (const candidate of LOCAL_CONFIG_CANDIDATES) {
@@ -137,13 +137,31 @@ export async function loadConfig(
     if (!existsSync(resolved)) continue;
     try {
       const config = await importConfigModule(resolved);
-      return normalizeBundledPaths(mergeConfig(bundledDefault, config), cwd);
+      return normalizeBundledPaths(
+        applyLlmEnvOverrides(mergeConfig(bundledDefault, config)),
+        cwd,
+      );
     } catch {
       continue;
     }
   }
 
-  return normalizeBundledPaths(bundledDefault, cwd);
+  return normalizeBundledPaths(applyLlmEnvOverrides(bundledDefault), cwd);
+}
+
+type LlmProvider = NonNullable<PqaConfig["llm"]["provider"]>;
+
+function applyLlmEnvOverrides(config: PqaConfig): PqaConfig {
+  const provider = process.env.PQA_LLM_PROVIDER as LlmProvider | undefined;
+  const model = process.env.PQA_LLM_MODEL;
+  return {
+    ...config,
+    llm: {
+      ...config.llm,
+      ...(provider ? { provider } : {}),
+      ...(model ? { model } : {}),
+    },
+  };
 }
 
 function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
@@ -235,29 +253,46 @@ export function resolveHealingConfig(config: PqaConfig): Required<
   };
 }
 
-export const LLM_API_KEY_ENV: Partial<
-  Record<PqaConfig["llm"]["provider"], string>
-> = {
-  anthropic: "ANTHROPIC_API_KEY",
-  openai: "OPENAI_API_KEY",
-  fireworks: "FIREWORKS_API_KEY",
-  google: "GOOGLE_GENERATIVE_AI_API_KEY",
-  openrouter: "OPENROUTER_API_KEY",
-};
+export const PQA_LLM_API_KEY = "PQA_LLM_API_KEY";
+
+const LLM_PROVIDERS_REQUIRING_API_KEY = new Set<
+  NonNullable<PqaConfig["llm"]["provider"]>
+>(["anthropic", "openai", "fireworks", "google", "openrouter"]);
 
 export function resolveSensitiveEnvVars(config: PqaConfig): string[] {
   const base = config.sensitiveEnvVars ?? config.envVars ?? [];
-  const llmKey = LLM_API_KEY_ENV[config.llm.provider];
+  const llmKey =
+    config.llm.provider &&
+    LLM_PROVIDERS_REQUIRING_API_KEY.has(config.llm.provider)
+      ? PQA_LLM_API_KEY
+      : undefined;
   return llmKey
     ? [...new Set([...base, llmKey])].sort()
     : [...new Set(base)].sort();
 }
 
+export function missingLlmConfig(config: PqaConfig): string | undefined {
+  if (!config.llm.provider) {
+    return "Missing llm.provider (set in pqa.config or PQA_LLM_PROVIDER)";
+  }
+  if (!config.llm.model) {
+    return "Missing llm.model (set in pqa.config or PQA_LLM_MODEL)";
+  }
+  return undefined;
+}
+
 export function missingLlmApiKey(config: PqaConfig): string | undefined {
-  const envVar = LLM_API_KEY_ENV[config.llm.provider];
-  if (!envVar) return undefined;
-  if (process.env[envVar]) return undefined;
-  return `Missing ${envVar} for llm.provider "${config.llm.provider}"`;
+  const provider = config.llm.provider;
+  if (!provider || !LLM_PROVIDERS_REQUIRING_API_KEY.has(provider)) {
+    return undefined;
+  }
+  if (process.env[PQA_LLM_API_KEY]) return undefined;
+  return `Missing ${PQA_LLM_API_KEY} for llm.provider "${provider}"`;
+}
+
+/** First missing llm.provider / llm.model / API key error, if any. */
+export function missingLlmRequirements(config: PqaConfig): string | undefined {
+  return missingLlmConfig(config) ?? missingLlmApiKey(config);
 }
 
 export function missingDeclaredEnvVars(config: PqaConfig): string | undefined {

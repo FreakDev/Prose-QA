@@ -5,7 +5,7 @@ import chalk from "chalk";
 import ora from "ora";
 import {
   loadConfig,
-  missingLlmApiKey,
+  missingLlmRequirements,
   resolveBrowserHeaded,
   resolveSensitiveEnvVars,
 } from "../config/load.js";
@@ -278,7 +278,7 @@ export async function executeRecordStop(
     return 0;
   }
 
-  const missingKey = missingLlmApiKey(config);
+  const missingKey = missingLlmRequirements(config);
   if (missingKey) {
     console.error(chalk.red(`${missingKey} — cannot generate scenario.`));
     console.log(
@@ -323,7 +323,7 @@ export async function executeRecordGenerate(
 ): Promise<number> {
   const cwd = process.cwd();
   const config = await loadConfig(options.configPath, cwd);
-  const missingKey = missingLlmApiKey(config);
+  const missingKey = missingLlmRequirements(config);
   if (missingKey) {
     console.error(chalk.red(missingKey));
     return 2;

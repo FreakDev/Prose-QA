@@ -7,8 +7,12 @@ import { getPackageRoot } from "../paths.js";
 import type { PqaConfig } from "../types/config.js";
 import {
   loadConfig,
+  missingLlmApiKey,
+  missingLlmConfig,
+  PQA_LLM_API_KEY,
   resolveAgentParallel,
   resolveBrowserHeaded,
+  resolveSensitiveEnvVars,
 } from "./load.js";
 
 const minimalConfig = (engine: PqaConfig["browser"]["engine"]): PqaConfig => ({
@@ -68,18 +72,47 @@ describe("resolveBrowserHeaded", () => {
 describe("loadConfig", () => {
   it("loads bundled pqa.config.ts when no local config exists", async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
-    const config = await loadConfig(undefined, cwd);
+    const prevProvider = process.env.PQA_LLM_PROVIDER;
+    const prevModel = process.env.PQA_LLM_MODEL;
+    process.env.PQA_LLM_PROVIDER = "fireworks";
+    process.env.PQA_LLM_MODEL = "accounts/fireworks/models/test";
+    try {
+      const config = await loadConfig(undefined, cwd);
+        assert.equal(config.llm.provider, "fireworks");
+      assert.equal(config.llm.model, "accounts/fireworks/models/test");
+      assert.equal(config.llm.thinking?.enabled, true);
+      assert.equal(config.healing?.enabled, true);
+      assert.equal(config.healing?.maxRecoveryTurns, 2);
+      assert.deepEqual(config.envVars, []);
+      assert.equal(config.auth.admin?.scenario, "login-admin");
+      assert.equal(config.recorder?.bridgePort, 17_321);
+      assert.equal(config.scenariosDir, "scenarios");
+      assert.equal(config.agent.parallel, 0);
+    } finally {
+      if (prevProvider === undefined) delete process.env.PQA_LLM_PROVIDER;
+      else process.env.PQA_LLM_PROVIDER = prevProvider;
+      if (prevModel === undefined) delete process.env.PQA_LLM_MODEL;
+      else process.env.PQA_LLM_MODEL = prevModel;
+    }
+  });
 
-    assert.equal(config.llm.provider, "anthropic");
-    assert.equal(config.llm.model, "claude-sonnet-4-20250514");
-    assert.equal(config.llm.thinking?.enabled, true);
-    assert.equal(config.healing?.enabled, true);
-    assert.equal(config.healing?.maxRecoveryTurns, 2);
-    assert.deepEqual(config.envVars, []);
-    assert.equal(config.auth.admin?.scenario, "login-admin");
-    assert.equal(config.recorder?.bridgePort, 17_321);
-    assert.equal(config.scenariosDir, "scenarios");
-    assert.equal(config.agent.parallel, 0);
+  it("has no default llm.provider or llm.model without env or local config", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
+    const prevProvider = process.env.PQA_LLM_PROVIDER;
+    const prevModel = process.env.PQA_LLM_MODEL;
+    delete process.env.PQA_LLM_PROVIDER;
+    delete process.env.PQA_LLM_MODEL;
+    try {
+      const config = await loadConfig(undefined, cwd);
+      assert.equal(config.llm.provider, undefined);
+      assert.equal(config.llm.model, undefined);
+      assert.match(missingLlmConfig(config)!, /llm\.provider/);
+    } finally {
+      if (prevProvider === undefined) delete process.env.PQA_LLM_PROVIDER;
+      else process.env.PQA_LLM_PROVIDER = prevProvider;
+      if (prevModel === undefined) delete process.env.PQA_LLM_MODEL;
+      else process.env.PQA_LLM_MODEL = prevModel;
+    }
   });
 
   it("merges local pqa.config.json overrides", async () => {
@@ -115,5 +148,30 @@ describe("loadConfig", () => {
       path.resolve(getPackageRoot(), "prompt/SYSTEM.md"),
     );
     assert.match(bundledPath, /pqa\.config\.ts$/);
+  });
+});
+
+describe("missingLlmApiKey", () => {
+  it("requires PQA_LLM_API_KEY for cloud providers", () => {
+    const config = minimalConfig("chrome");
+    assert.match(
+      missingLlmApiKey(config)!,
+      new RegExp(PQA_LLM_API_KEY),
+    );
+  });
+
+  it("does not require an API key for ollama", () => {
+    const config = {
+      ...minimalConfig("chrome"),
+      llm: { provider: "ollama" as const, model: "llama3.2" },
+    };
+    assert.equal(missingLlmApiKey(config), undefined);
+  });
+});
+
+describe("resolveSensitiveEnvVars", () => {
+  it("includes PQA_LLM_API_KEY for cloud providers", () => {
+    const names = resolveSensitiveEnvVars(minimalConfig("chrome"));
+    assert.deepEqual(names, [PQA_LLM_API_KEY]);
   });
 });

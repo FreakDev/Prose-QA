@@ -12,7 +12,7 @@ Prose-QA runs an LLM agent against your application and writes artifacts under `
 - Agent messages
 - HTML/JSON reports
 
-Variables listed in `sensitiveEnvVars` (and the configured LLM API key) are redacted from transcripts, verdicts, and reports. Other page content, user data visible in the browser, or values typed by the agent may still appear in artifacts.
+Variables listed in `sensitiveEnvVars` (and `PQA_LLM_API_KEY` for cloud providers) are redacted from transcripts, verdicts, and reports. Other page content, user data visible in the browser, or values typed by the agent may still appear in artifacts.
 
 Treat run artifacts as potentially sensitive. Do not publish CI artifacts or local `.pqa/` directories without review.
 

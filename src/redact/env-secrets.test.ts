@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { resolveSensitiveEnvVars } from "../config/load.js";
+import { PQA_LLM_API_KEY, resolveSensitiveEnvVars } from "../config/load.js";
 import type { PqaConfig } from "../types/config.js";
 import { createEnvRedactor } from "./env-secrets.js";
 
@@ -124,7 +124,7 @@ describe("resolveSensitiveEnvVars", () => {
       envVars: ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
     });
     assert.deepEqual(names, [
-      "FIREWORKS_API_KEY",
+      PQA_LLM_API_KEY,
       "PQA_TEST_EMAIL",
       "PQA_TEST_PASSWORD",
     ]);
@@ -136,7 +136,7 @@ describe("resolveSensitiveEnvVars", () => {
       envVars: ["PQA_TEST_EMAIL"],
       sensitiveEnvVars: ["PQA_TEST_PASSWORD"],
     });
-    assert.deepEqual(names, ["FIREWORKS_API_KEY", "PQA_TEST_PASSWORD"]);
+    assert.deepEqual(names, [PQA_LLM_API_KEY, "PQA_TEST_PASSWORD"]);
   });
 
   it("omits LLM API key env var for ollama", () => {

@@ -57,14 +57,14 @@ jobs:
 
       - name: Run smoke scenarios
         env:
-          FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+          PQA_LLM_API_KEY: ${{ secrets.PQA_LLM_API_KEY }}
           PQA_LLM_PROVIDER: fireworks
           PQA_LLM_MODEL: accounts/fireworks/models/deepseek-v4-flash
           PQA_TEST_EMAIL: demo@pqa.local
           PQA_TEST_PASSWORD: demo-password
         run: |
-          if [ -z "$FIREWORKS_API_KEY" ]; then
-            echo "Skipping smoke PQA — FIREWORKS_API_KEY secret not configured"
+          if [ -z "$PQA_LLM_API_KEY" ]; then
+            echo "Skipping smoke PQA — PQA_LLM_API_KEY secret not configured"
             exit 0
           fi
           node dist/cli/index.js run --tag example
