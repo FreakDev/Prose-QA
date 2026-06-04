@@ -1,6 +1,6 @@
 ---
 name: login-admin
-tags: [auth, example]
+tags: [auth]
 url: http://127.0.0.1:8080/login
 ---
 

@@ -41,7 +41,7 @@ jobs:
         run: npm ci
 
       - name: Install browser
-        run: npx agent-browser install --with-deps
+        run: npm run install-lightpanda
 
       - name: Build
         run: npm run build
@@ -67,8 +67,7 @@ jobs:
             echo "Skipping smoke PQA — FIREWORKS_API_KEY secret not configured"
             exit 0
           fi
-          node dist/cli/index.js run scenarios/hello-world-smoke.md
-          node dist/cli/index.js run scenarios/example-authenticated.md
+          node dist/cli/index.js run --tag example
 
       - name: Upload artifacts
         if: failure()

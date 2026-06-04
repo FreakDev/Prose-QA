@@ -1,7 +1,7 @@
 ---
 name: example-authenticated
-tags: [smoke, example, auth-demo]
-auth: admin
+tags: [example, auth-demo]
+auth: login-admin
 url: http://127.0.0.1:8080/projects
 ---
 

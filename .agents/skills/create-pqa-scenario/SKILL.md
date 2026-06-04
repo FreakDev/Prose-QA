@@ -168,7 +168,7 @@ As a user, complete checkout.
 
 ## Authenticated smoke example
 
-From `scenarios/example-authenticated.md`:
+From `scenarios/1_example-authenticated.md`:
 
 ```markdown
 ---
@@ -251,7 +251,7 @@ Chrome extension for a daily browser profile: `recorder-extension/` in the Prose
 From the Prose-QA repo:
 
 ```bash
-npm run dev -- debug scenarios/example-smoke.md --verbose
+npm run dev -- debug scenarios/0_hello-world.md --verbose
 # or
 npm run dev -- run scenarios/**/*.md --tags smoke
 ```
@@ -270,4 +270,4 @@ Parser errors (`missing 'name'`, `Circular scenario include`) mean fix frontmatt
 
 ## When unsure
 
-Read bundled examples in `scenarios/` (`example-smoke.md`, `example-authenticated.md`, `auth/login-admin.md`) and mirror their structure. For browser mechanics, the run uses the `agent-browser` skill from Prose-QA — scenarios should not re-document CLI flags.
+Read bundled examples in `scenarios/` (`0_hello-world.md`, `1_example-authenticated.md`, `auth/login-admin.md`) and mirror their structure. For browser mechanics, the run uses the `agent-browser` skill from Prose-QA — scenarios should not re-document CLI flags.

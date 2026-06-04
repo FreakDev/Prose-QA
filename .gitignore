@@ -9,8 +9,6 @@ dist/
 !.env.example
 
 scenarios/*
-!scenarios/example-smoke.md
-!scenarios/hello-world-smoke.md
-!scenarios/example-authenticated.md
-!scenarios/auth/
+!scenarios/0_hello-world.md
+!scenarios/1_example-authenticated.md
 !scenarios/auth/login-admin.md

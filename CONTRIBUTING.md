@@ -16,7 +16,7 @@ Run the CLI locally:
 
 ```bash
 export ANTHROPIC_API_KEY=...
-npm run dev -- run scenarios/example-smoke.md --verbose
+npm run dev -- run scenarios/0_hello-world.md --verbose
 ```
 
 ## Pull requests

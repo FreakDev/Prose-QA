@@ -14,7 +14,7 @@ npx agent-browser install
 export ANTHROPIC_API_KEY=...   # or another provider
 ```
 
-**Thread scenario**: [`scenarios/hello-world-smoke.md`](../scenarios/hello-world-smoke.md) and the local server:
+**Thread scenario**: [`scenarios/0_hello-world.md`](../scenarios/0_hello-world.md) and the local server:
 
 ```bash
 npm run smoke:server   # http://127.0.0.1:8080/ → "Hello World"
@@ -49,8 +49,8 @@ Headings must be exactly: `# Goal`, `# Steps`, `# Then` (case-insensitive).
 
 ```markdown
 ---
-name: hello-world-smoke
-tags: [smoke]
+name: hello-world
+tags: [example]
 url: http://127.0.0.1:8080/
 ---
 
@@ -133,7 +133,7 @@ The agent ends with a structured JSON block (pass/fail per checkpoint). The harn
 
 ```bash
 npm run smoke:server &
-npm run dev -- debug scenarios/hello-world-smoke.md --verbose
+npm run dev -- debug scenarios/0_hello-world.md --verbose
 ```
 
 Useful options: `--headed` / `--no-headed`, `--tag` / `--tags`.
@@ -200,7 +200,7 @@ Example in this repo: [`.github/workflows/smoke_tests.yml`](../.github/workflows
 - run: |
     node scripts/smoke-hello-server.mjs &
     # wait until http://127.0.0.1:8080/ responds
-- run: node dist/cli/index.js run scenarios/hello-world-smoke.md
+- run: node dist/cli/index.js run --tag example
   env:
     FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
     PQA_LLM_PROVIDER: fireworks
@@ -210,7 +210,7 @@ Best practices:
 
 - GitHub Secrets → `ANTHROPIC_API_KEY`, `PQA_TEST_EMAIL`, etc.
 - `envVars` in `pqa.config.json` for test credentials
-- `--tags smoke` to limit scope
+- `--tag example` to limit scope (bundled demo scenarios in this repo)
 - Upload `.pqa/runs/` on failure (`actions/upload-artifact`)
 
 Optional: `--retries 1 --retries-policy transient` (§11), pre-seed auth (§7).
@@ -262,7 +262,7 @@ Authenticate as an admin test user.
 ```markdown
 ---
 name: example-authenticated
-tags: [smoke, auth-demo]
+tags: [example, auth-demo]
 auth: admin
 url: http://127.0.0.1:8080/projects
 ---
@@ -274,7 +274,7 @@ Local demo:
 npm run smoke:server &
 export PQA_TEST_EMAIL=demo@pqa.local
 export PQA_TEST_PASSWORD=demo-password
-pqa debug scenarios/example-authenticated.md --verbose
+pqa debug scenarios/1_example-authenticated.md --verbose
 ```
 
 The harness loads `.pqa/auth/admin.json` or runs `login-admin` once, saves browser state, then opens the URL with `$AGENT_BROWSER_STATE`.
@@ -380,16 +380,16 @@ After a **PASS**, PQA can generate **replay hints** (second LLM pass on the tran
 
 ```bash
 # First run: full execution + hint generation
-pqa run scenarios/hello-world-smoke.md
+pqa run scenarios/0_hello-world.md
 
 # Second run: hints used if scenario content is unchanged
-pqa run scenarios/hello-world-smoke.md
+pqa run scenarios/0_hello-world.md
 
 # Disable read/write
 pqa run scenarios/**/*.md --no-cache
 
 # Invalidate
-pqa clear-cache hello-world-smoke
+pqa clear-cache hello-world
 pqa clear-cache
 ```
 
@@ -448,8 +448,8 @@ Related prompts: [`prompt/ANALYZE.md`](../prompt/ANALYZE.md), [`prompt/ANALYZE-F
 
 | Minutes | Section | Action |
 | ------- | ------- | ------ |
-| 0–10 | §1–2 | Read `hello-world-smoke.md`, run `debug --verbose` |
-| 10–15 | §3–4 | `run` with `--tags smoke` |
+| 0–10 | §1–2 | Read `0_hello-world.md`, run `debug --verbose` |
+| 10–15 | §3–4 | `run` with `--tag example` |
 | 15–20 | §5 | Open latest `report.html` |
 | 20–30 | §6 | Review `smoke_tests.yml` |
 

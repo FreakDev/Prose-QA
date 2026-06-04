@@ -42,7 +42,7 @@ pqa config llm.model claude-sonnet-4-20250514
 
 Supported config filenames (first match wins): `pqa.config.json`, `pqa.config.mjs`, `pqa.config.js`, `pqa.config.ts`.
 
-3. Create scenarios under `scenarios/` (see [example-smoke.md](scenarios/example-smoke.md)).
+3. Create scenarios under `scenarios/` (see [0_hello-world.md](scenarios/0_hello-world.md)).
 4. Copy [`.env.example`](.env.example) to `.env.development.local` (or set env vars in CI) and fill in secrets.
 5. Run:
 
@@ -67,12 +67,12 @@ export ANTHROPIC_API_KEY=...
 npm run dev -- run scenarios/**/*.md --tags example
 
 # Debug single scenario
-npm run dev -- debug scenarios/example-smoke.md --verbose
+npm run dev -- debug scenarios/0_hello-world.md --verbose
 
 # Auth demo (smoke server with hardcoded demo credentials)
 npm run smoke:server
 export PQA_TEST_EMAIL=demo@pqa.local PQA_TEST_PASSWORD=demo-password
-npm run dev -- debug scenarios/example-authenticated.md --verbose
+npm run dev -- debug scenarios/1_example-authenticated.md --verbose
 ```
 
 The smoke server (`scripts/smoke-hello-server.mjs`) serves `/` (Hello World), `/login`, and protected `/projects`. Credentials match `.env.example`.
