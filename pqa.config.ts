@@ -38,6 +38,7 @@ const config = {
     preloads: ["core"],
   },
   agent: {
+    parallel: 0,
     maxTurns: 300,
     bashTimeoutMs: 120_000,
   },
