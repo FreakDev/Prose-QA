@@ -62,13 +62,43 @@ describe("buildInitialPrompt", () => {
     );
   });
 
-  it("mentions start URL when frontmatter url is set", () => {
+  it("asks agent to open start URL when frontmatter url is set but harness did not preload", () => {
     const prompt = buildInitialPrompt(
       makeScenario({
         frontmatter: { name: "with-url", url: "http://localhost:3000/clients" },
       }),
     );
     assert.match(prompt, /http:\/\/localhost:3000\/clients/);
+    assert.match(prompt, /agent-browser/);
+    assert.doesNotMatch(prompt, /already open/i);
+  });
+
+  it("tells agent not to reload when harness pre-opened frontmatter url", () => {
+    const prompt = buildInitialPrompt(
+      makeScenario({
+        frontmatter: { name: "hello", url: "http://127.0.0.1:8080/" },
+      }),
+      "http://127.0.0.1:8080/",
+    );
+    assert.match(prompt, /already open on http:\/\/127\.0\.0\.1:8080\//);
+    assert.match(prompt, /harness opened this page via agent-browser/i);
+    assert.match(prompt, /reload/i);
+    assert.doesNotMatch(prompt, /auth state loaded/i);
+  });
+
+  it("mentions auth when harness pre-opened url with auth profile", () => {
+    const prompt = buildInitialPrompt(
+      makeScenario({
+        frontmatter: {
+          name: "authed",
+          url: "http://127.0.0.1:8080/projects",
+          auth: "admin",
+        },
+      }),
+      "http://127.0.0.1:8080/projects",
+    );
+    assert.match(prompt, /auth state loaded/i);
+    assert.match(prompt, /reload/i);
   });
 });
 
@@ -88,6 +118,23 @@ describe("buildSystemPrompt", () => {
     assert.match(prompt, /Then checkpoints to verify: 2/);
     assert.match(prompt, /Observe-Act-Verify loop/);
     assert.match(prompt, /url contains "\/dashboard"/);
+  });
+
+  it("marks frontmatter url as harness-opened when preparedStartUrl is set", () => {
+    const scenario = makeScenario({
+      frontmatter: { name: "preloaded", url: "http://127.0.0.1:8080/" },
+    });
+    const prompt = buildSystemPrompt(baseConfig, [], scenario, {
+      cwd: repoRoot,
+      artifactDir: "/tmp/pqa-artifacts",
+      headed: false,
+      sessionName: "pqa",
+      artifacts: "on-failure",
+      preparedStartUrl: "http://127.0.0.1:8080/",
+    });
+
+    assert.match(prompt, /harness already opened it/);
+    assert.doesNotMatch(prompt, /open this before executing Steps/);
   });
 
   it("includes scenario replay hints block when provided", () => {

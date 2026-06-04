@@ -120,7 +120,8 @@ export async function prepareBrowserSession(options: {
   headed: boolean;
   engine: BrowserEngine;
   lightpanda?: LightpandaBrowserConfig;
-  profilePath: string;
+  profilePath?: string;
+  authStatePath?: string;
   startUrl?: string;
   verbose?: boolean;
 }): Promise<{ startUrl: string }> {
@@ -131,6 +132,7 @@ export async function prepareBrowserSession(options: {
     engine: options.engine,
     lightpanda: options.lightpanda,
     profilePath: options.profilePath,
+    authStatePath: options.profilePath ? undefined : options.authStatePath,
     artifactDir: options.cwd,
   });
   const startUrl = options.startUrl ?? "about:blank";
@@ -161,8 +163,9 @@ export async function prepareBrowserSession(options: {
   }
 
   if (entry.exitCode !== 0 || stateWasIgnored(entry)) {
+    const label = options.profilePath ? "auth profile" : "browser session";
     throw new Error(
-      `Failed to start browser with auth profile: ${entry.stderr || entry.stdout}`,
+      `Failed to start ${label}: ${entry.stderr || entry.stdout}`,
     );
   }
 
@@ -183,11 +186,14 @@ export async function prepareBrowserSession(options: {
 
   if (startUrl !== "about:blank") {
     if (!currentUrl || currentUrl === "about:blank") {
+      const hint = options.profilePath
+        ? " Re-run with --auth-refresh."
+        : "";
       throw new Error(
-        `Auth profile browser is empty after opening ${startUrl} (url=${currentUrl || "(empty)"}). Re-run with --auth-refresh.`,
+        `Browser is empty after opening ${startUrl} (url=${currentUrl || "(empty)"}).${hint}`,
       );
     }
-    if (isAuthRedirectUrl(currentUrl)) {
+    if (options.profilePath && isAuthRedirectUrl(currentUrl)) {
       throw new Error(
         `Auth profile is not signed in — browser redirected to ${currentUrl}. Re-run with --auth-refresh.`,
       );

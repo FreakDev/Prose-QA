@@ -184,6 +184,7 @@ export async function runScenario(
       sessionName,
       artifacts: options.artifacts,
       scenarioCacheHints: options.scenarioCacheHints,
+      preparedStartUrl: options.preparedStartUrl,
     },
   );
 

@@ -17,9 +17,12 @@ export function buildInitialPrompt(
 ): string {
   const name = scenario.frontmatter.name;
   if (preparedStartUrl && preparedStartUrl !== "about:blank") {
+    const authClause = scenario.frontmatter.auth
+      ? "with auth state loaded. "
+      : "The harness opened this page via agent-browser. ";
     return (
       `Execute the scenario "${name}" now. The browser is already open on ${preparedStartUrl} ` +
-      "with auth state loaded. Continue from Step 1 without running agent-browser close or reopening the page unless navigation failed. " +
+      `${authClause}Continue from Step 1 without running agent-browser close or reloading/reopening the page unless navigation failed. ` +
       EXECUTION_HINT
     );
   }
@@ -32,7 +35,7 @@ export function buildInitialPrompt(
   const url = scenario.frontmatter.url;
   if (url) {
     return (
-      `Execute the scenario "${name}" now. Start by opening ${url} with agent-browser. ${EXECUTION_HINT}`
+      `Execute the scenario "${name}" now. Start by opening ${url} with agent-browser, then continue with the Steps. ${EXECUTION_HINT}`
     );
   }
   return (
@@ -54,6 +57,7 @@ export function buildSystemPrompt(
     sessionName: string;
     artifacts: ArtifactsMode;
     scenarioCacheHints?: string;
+    preparedStartUrl?: string;
   },
 ): string {
   const systemPrompt = loadSystemPrompt(
@@ -77,7 +81,10 @@ export function buildSystemPrompt(
         ].join("\n")
       : null,
     scenario.frontmatter.url
-      ? `Scenario start URL: ${scenario.frontmatter.url} (open this before executing Steps)`
+      ? runtime.preparedStartUrl &&
+          runtime.preparedStartUrl !== "about:blank"
+        ? `Scenario start URL: ${scenario.frontmatter.url} (harness already opened it — do not reload or agent-browser open this URL again)`
+        : `Scenario start URL: ${scenario.frontmatter.url} (open this before executing Steps)`
       : "No start URL — navigate to URLs as specified in Steps",
     `Artifact directory: ${runtime.artifactDir}`,
     formatArtifactsRuntimeHint(runtime.artifacts),

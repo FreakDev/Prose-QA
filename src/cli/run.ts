@@ -304,7 +304,8 @@ async function runOneScenario(
     while (attempt <= ctx.retries) {
       try {
         let preparedStartUrl: string | undefined;
-        if (profilePath) {
+        const scenarioStartUrl = scenario.frontmatter.url;
+        if (profilePath || scenarioStartUrl) {
           ({ startUrl: preparedStartUrl } = await prepareBrowserSession({
             cwd: ctx.cwd,
             timeoutMs: ctx.config.agent.bashTimeoutMs,
@@ -313,7 +314,8 @@ async function runOneScenario(
             engine: ctx.config.browser.engine,
             lightpanda: ctx.config.browser.lightpanda,
             profilePath,
-            startUrl: scenario.frontmatter.url,
+            authStatePath: authState,
+            startUrl: scenarioStartUrl,
             verbose: ctx.verbose,
           }));
         }
