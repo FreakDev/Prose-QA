@@ -41,14 +41,14 @@ jobs:
         run: npm ci
 
       - name: Install browser
-        run: npm run install-lightpanda
+        run: npm run install-chrome
 
       - name: Build
         run: npm run build
 
       - name: Start Hello World smoke server
         run: |
-          node scripts/smoke-hello-server.mjs &
+          npm run demo:server &
           for i in $(seq 1 30); do
             curl -sf http://127.0.0.1:8080/ | grep -q "Hello World" && break
             sleep 1
