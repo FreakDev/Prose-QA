@@ -1,6 +1,6 @@
 # Prose-QA
 
-Agent harness for **end-to-end regression testing** of web apps. Scenarios are written in natural language with explicit verification checkpoints. An LLM agent executes them using [Vercel `agent-browser`](https://github.com/vercel-labs/agent-browser) via bash — no browser wrapper in TypeScript.
+Write what you want to test in plain text, and let Prose-QA do the rest. This autonomous, LLM-driven testing engine executes complex web workflows and validation checkpoints without the overhead of heavy browser wrappers, bringing frictionless QA to modern development.
 
 Requires **Node.js 24+**, `PQA_LLM_API_KEY`, and `llm.provider` / `llm.model` in config.
 
@@ -21,7 +21,7 @@ pqa run scenarios/**/*.md --tags smoke
 1. Install the package in your app repo (or globally with `npm install -g prose-qa`).
 2. Create `pqa.config.json` — use `pqa config <key> <value>` or copy the [minimal example](docs/CONFIG.md#minimal-example).
 3. Add scenarios under `scenarios/` (see [0_hello-world.md](scenarios/0_hello-world.md)).
-4. Copy [`.env.example`](.env.example) to `.env.development.local` (or set env vars in CI).
+4. Copy `[.env.example](.env.example)` to `.env.development.local` (or set env vars in CI).
 5. Run `pqa run` or `pqa debug`.
 
 On first install, `agent-browser` downloads its browser binary via `postinstall`. In CI:
@@ -42,27 +42,31 @@ Bundled harness assets (`prompt/`, `skills/`) ship inside the npm package. Your 
 
 ## Documentation
 
-| Doc | Purpose |
-| --- | --- |
-| [docs/HOWTO.md](docs/HOWTO.md) | Step-by-step guide: scenarios → run → CI → auth → MCP → record → cache → healing → analyze |
-| [docs/CONFIG.md](docs/CONFIG.md) | Full configuration reference |
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Pull request guidelines |
-| [SECURITY.md](SECURITY.md) | Vulnerability reporting, secrets, and run artifacts |
-| [recorder-extension/README.md](recorder-extension/README.md) | Chrome extension recorder (WIP) |
+
+| Doc                                                          | Purpose                                                                                    |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| [docs/HOWTO.md](docs/HOWTO.md)                               | Step-by-step guide: scenarios → run → CI → auth → MCP → record → cache → healing → analyze |
+| [docs/CONFIG.md](docs/CONFIG.md)                             | Full configuration reference                                                               |
+| [CONTRIBUTING.md](CONTRIBUTING.md)                           | Pull request guidelines                                                                    |
+| [SECURITY.md](SECURITY.md)                                   | Vulnerability reporting, secrets, and run artifacts                                        |
+| [recorder-extension/README.md](recorder-extension/README.md) | Chrome extension recorder (WIP)                                                            |
+
 
 ## CLI
 
-| Command | Description |
-| --- | --- |
-| `pqa config <key> <value>` | Set a value in `pqa.config.json` |
-| `pqa run [globs]` | Run scenarios (headless by default) |
-| `pqa debug [globs]` | Verbose debug run (headed by default) |
-| `pqa clear-cache [scenario]` | Clear scenario replay cache |
-| `pqa auth list` / `clear` / `save` | Manage cached auth profiles |
-| `pqa analyze [run...]` | Post-run analysis and flaky detection (`--last N`) |
-| `pqa record start` / `note` / `checkpoint` / `stop` | Record browser actions → scenario markdown |
-| `pqa skills list` / `show` / `sync` | Discover and inspect agent skills |
-| `pqa mcp` | Start MCP server (Cursor, Claude Desktop, …) |
+
+| Command                                             | Description                                        |
+| --------------------------------------------------- | -------------------------------------------------- |
+| `pqa config <key> <value>`                          | Set a value in `pqa.config.json`                   |
+| `pqa run [globs]`                                   | Run scenarios (headless by default)                |
+| `pqa debug [globs]`                                 | Verbose debug run (headed by default)              |
+| `pqa clear-cache [scenario]`                        | Clear scenario replay cache                        |
+| `pqa auth list` / `clear` / `save`                  | Manage cached auth profiles                        |
+| `pqa analyze [run...]`                              | Post-run analysis and flaky detection (`--last N`) |
+| `pqa record start` / `note` / `checkpoint` / `stop` | Record browser actions → scenario markdown         |
+| `pqa skills list` / `show` / `sync`                 | Discover and inspect agent skills                  |
+| `pqa mcp`                                           | Start MCP server (Cursor, Claude Desktop, …)       |
+
 
 Tag filters, auth refresh, retries, and cache flags: see [HOWTO §3–§4](docs/HOWTO.md#3-debug-vs-run) and [HOWTO §11](docs/HOWTO.md#11-healing--retries).
 
@@ -82,11 +86,13 @@ Supported filenames (first match wins): `pqa.config.json`, `pqa.config.mjs`, `pq
 }
 ```
 
-| Variable | Required when |
-| --- | --- |
-| `PQA_LLM_API_KEY` | Any cloud `llm.provider` (not `ollama`) |
+
+| Variable           | Required when                            |
+| ------------------ | ---------------------------------------- |
+| `PQA_LLM_API_KEY`  | Any cloud `llm.provider` (not `ollama`)  |
 | `PQA_LLM_PROVIDER` | Optional env shortcut for `llm.provider` |
-| `PQA_LLM_MODEL` | Optional env shortcut for `llm.model` |
+| `PQA_LLM_MODEL`    | Optional env shortcut for `llm.model`    |
+
 
 All options, env vars, and a full example: **[docs/CONFIG.md](docs/CONFIG.md)**.
 

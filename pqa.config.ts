@@ -21,7 +21,6 @@ const config = {
       telemetry: false,
     },
   },
-  systemPromptPath: "prompt/SYSTEM.md",
   envVars: [],
   sensitiveEnvVars: [],
   skills: {

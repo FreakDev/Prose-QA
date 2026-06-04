@@ -22,7 +22,6 @@ const BUNDLED_CONFIG_CANDIDATES = [
 
 /** Fallback when the bundled config file is missing (broken install). */
 const MINIMAL_FALLBACK_CONFIG: PqaConfig = {
-  systemPromptPath: "prompt/SYSTEM.md",
   envVars: [],
   llm: {},
   browser: {
@@ -74,12 +73,8 @@ async function importConfigModule(resolved: string): Promise<Partial<PqaConfig>>
 }
 
 function normalizeBundledPaths(config: PqaConfig, cwd: string): PqaConfig {
-  const promptPath = config.systemPromptPath ?? "prompt/SYSTEM.md";
   return {
     ...config,
-    systemPromptPath: path.isAbsolute(promptPath)
-      ? promptPath
-      : resolveBundledPath(cwd, promptPath),
     skills: {
       ...config.skills,
       dirs: config.skills.dirs.map((dir) =>

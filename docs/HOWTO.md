@@ -30,13 +30,13 @@ A PQA scenario is a Markdown file with **three required sections** and a YAML bl
 
 ### Frontmatter
 
-| Field     | Required | Role |
-| --------- | -------- | ---- |
-| `name`    | yes      | Stable identifier (kebab-case) |
-| `tags`    | no       | Filter runs (`smoke`, `checkout`, …) |
-| `url`     | no       | URL opened before Steps |
-| `auth`    | no       | Session profile (`admin`, …) — see §7 |
-| `skills`  | no       | Extra Agent Skills |
+| Field     | Required | Role                                          |
+| --------- | -------- | --------------------------------------------- |
+| `name`    | yes      | Stable identifier (kebab-case)                |
+| `tags`    | no       | Filter runs (`smoke`, `checkout`, …)          |
+| `url`     | no       | URL opened before Steps                       |
+| `auth`    | no       | Session profile (`admin`, …) — see §7         |
+| `skills`  | no       | Extra Agent Skills                            |
 | `partial` | no       | `true` = includable fragment, never run alone |
 
 ### Sections
@@ -72,11 +72,11 @@ Verify the smoke test server serves a page that displays Hello World.
 
 ### Recommended Then patterns
 
-| Pattern       | Example |
-| ------------- | ------- |
-| URL           | `- url contains "/projects"` |
-| Visible text  | `- page shows "Thank you"` |
-| Field value   | `- cart count equals "3"` |
+| Pattern      | Example                      |
+| ------------ | ---------------------------- |
+| URL          | `- url contains "/projects"` |
+| Visible text | `- page shows "Thank you"`   |
+| Field value  | `- cart count equals "3"`    |
 
 Avoid vague wording (“the form should work”); prefer observable assertions.
 
@@ -101,15 +101,15 @@ PQA does not drive the browser from TypeScript: an **LLM agent** runs **`agent-b
 2. **Action** on a ref (`@eN`) or semantic locator — **one UI command per bash call**.
 3. **Re-snapshot** after navigation, submit, or DOM change.
 
-The system prompt ([`prompt/SYSTEM.md`](../prompt/SYSTEM.md)) enforces this loop and forbids `curl`/`wget` for UI testing.
+The system prompt system prompt enforces this loop and forbids `curl`/`wget` for UI testing.
 
 ### Then verification
 
 After Steps, the agent verifies **every** Then checkpoint with the CLI:
 
-| Checkpoint         | Typical command |
-| ------------------ | --------------- |
-| `url contains "…"` | `agent-browser get url` |
+| Checkpoint         | Typical command                            |
+| ------------------ | ------------------------------------------ |
+| `url contains "…"` | `agent-browser get url`                    |
 | `page shows "…"`   | `agent-browser snapshot -i` (text present) |
 
 On failure, artifacts are written to `$PQA_ARTIFACT_DIR` (screenshot + snapshot JSON).
@@ -124,12 +124,12 @@ The agent ends with a structured JSON block (pass/fail per checkpoint). The harn
 
 ## 3. `debug` vs `run`
 
-| | `pqa debug` | `pqa run` |
-| --- | --- | --- |
-| Use case | Development, investigation | CI, batch regression |
-| Browser | Headed by default | Headless by default |
-| Verbosity | `--verbose` recommended | Concise output |
-| Scenarios | One | One or multiple globs |
+|           | `pqa debug`                | `pqa run`             |
+| --------- | -------------------------- | --------------------- |
+| Use case  | Development, investigation | CI, batch regression  |
+| Browser   | Headed by default          | Headless by default   |
+| Verbosity | `--verbose` recommended    | Concise output        |
+| Scenarios | One                        | One or multiple globs |
 
 ### Debug (single scenario, visible)
 
@@ -178,11 +178,11 @@ pqa run scenarios/**/*.md --tag smoke --tag checkout
 
 Each run writes artifacts under **`.pqa/runs/<runId>/`**:
 
-| File | Content |
-| ---- | ------- |
-| `report.json` / `report.html` | Run summary |
-| `<scenario>/transcript.json` | Bash commands + agent messages |
-| `<scenario>/verdict.json` | Structured pass/fail per checkpoint |
+| File                          | Content                             |
+| ----------------------------- | ----------------------------------- |
+| `report.json` / `report.html` | Run summary                         |
+| `<scenario>/transcript.json`  | Bash commands + agent messages      |
+| `<scenario>/verdict.json`     | Structured pass/fail per checkpoint |
 
 On debug failure, open `report.html` and the scenario’s `transcript.json` to follow snapshot → action → verification.
 
@@ -250,14 +250,17 @@ url: http://127.0.0.1:8080/login
 ---
 
 # Goal
+
 Authenticate as an admin test user.
 
 # Steps
+
 1. Open the login page.
 2. Sign in using `$PQA_TEST_EMAIL` and `$PQA_TEST_PASSWORD` from the environment.
 3. Confirm you reach an authenticated area.
 
 # Then
+
 - url does not contain "/login"
 ```
 
@@ -339,13 +342,13 @@ npm run mcp
 
 ### MCP surfaces
 
-| Surface | Role |
-| ------- | ---- |
-| Resource `pqa://skill/create-pqa-scenario` | Full scenario authoring skill |
-| `get_create_pqa_scenario_skill` | Same content as text |
-| `validate_scenario` | Parse markdown **without** launching the browser |
-| `run_scenario` | Execute inline scenario (LLM + browser required) |
-| Prompt `author_pqa_scenario` | Guided template with the skill |
+| Surface                                    | Role                                             |
+| ------------------------------------------ | ------------------------------------------------ |
+| Resource `pqa://skill/create-pqa-scenario` | Full scenario authoring skill                    |
+| `get_create_pqa_scenario_skill`            | Same content as text                             |
+| `validate_scenario`                        | Parse markdown **without** launching the browser |
+| `run_scenario`                             | Execute inline scenario (LLM + browser required) |
+| Prompt `author_pqa_scenario`               | Guided template with the skill                   |
 
 Typical workflow: ask the agent to **author** a scenario → `validate_scenario` → `run_scenario` or commit under `scenarios/`.
 
@@ -452,12 +455,12 @@ Related prompts: [`prompt/ANALYZE.md`](../prompt/ANALYZE.md), [`prompt/ANALYZE-F
 
 ## Quick path (30 min)
 
-| Minutes | Section | Action |
-| ------- | ------- | ------ |
-| 0–10 | §1–2 | `npm run demo:server`, read `0_hello-world.md`, run `debug --verbose` |
-| 10–15 | §3–4 | `run` with `--tag example` |
-| 15–20 | §5 | Open latest `report.html` |
-| 20–30 | §6 | Review `smoke_tests.yml` |
+| Minutes | Section | Action                                                                |
+| ------- | ------- | --------------------------------------------------------------------- |
+| 0–10    | §1–2    | `npm run demo:server`, read `0_hello-world.md`, run `debug --verbose` |
+| 10–15   | §3–4    | `run` with `--tag example`                                            |
+| 15–20   | §5      | Open latest `report.html`                                             |
+| 20–30   | §6      | Review `smoke_tests.yml`                                              |
 
 Sections §7–12: separate workshop on a real app or as follow-up depth.
 

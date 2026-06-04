@@ -59,9 +59,8 @@ export type LlmReasoningEffort =
   | "xhigh";
 
 export interface PqaConfig {
-  /** Root directory for scenario markdown files. Default: scenarios (or pqa if present). */
+  /** Root directory for scenario markdown files. Default: scenarios */
   scenariosDir?: string;
-  systemPromptPath?: string;
   /** Env var names injected into the system prompt and expected at runtime */
   envVars?: string[];
   /** Env var names whose values are redacted from transcripts, verdicts, reports and verbose logs */

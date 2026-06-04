@@ -56,7 +56,7 @@ export function buildSystemPrompt(
     preparedStartUrl?: string;
   },
 ): string {
-  const systemPrompt = loadSystemPrompt(runtime.cwd, config.systemPromptPath);
+  const systemPrompt = loadSystemPrompt(runtime.cwd);
   const skillBlock = buildSkillPrompt(skills);
   const scenarioBlock = formatScenarioForPrompt(scenario);
 

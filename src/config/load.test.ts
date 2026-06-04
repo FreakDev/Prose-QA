@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { getPackageRoot } from "../paths.js";
+import { loadSystemPrompt } from "../prompt/load.js";
 import type { PqaConfig } from "../types/config.js";
 import {
   loadConfig,
@@ -143,11 +144,8 @@ describe("loadConfig", () => {
     const config = await loadConfig(undefined, cwd);
     const bundledPath = path.resolve(getPackageRoot(), "pqa.config.ts");
 
-    assert.equal(
-      config.systemPromptPath,
-      path.resolve(getPackageRoot(), "prompt/SYSTEM.md"),
-    );
     assert.match(bundledPath, /pqa\.config\.ts$/);
+    assert.ok(loadSystemPrompt(cwd).includes("ProseQA"));
   });
 });
 

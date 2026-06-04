@@ -438,7 +438,7 @@ export async function executeRun(
   const baseSkillNames = config.skills.preloads;
   requireSkills(allSkills, baseSkillNames);
 
-  const { searchGlobs, runGlobs } = resolveRunGlobs(config, patterns, cwd);
+  const { searchGlobs, runGlobs } = resolveRunGlobs(config, patterns);
   const runFiles = new Set(
     await fg(runGlobs, { cwd, absolute: true }),
   );
@@ -814,7 +814,7 @@ export async function executeAuthSave(
   const baseSkillNames = config.skills.preloads;
   requireSkills(allSkills, baseSkillNames);
 
-  const { searchGlobs } = resolveRunGlobs(config, [], cwd);
+  const { searchGlobs } = resolveRunGlobs(config, []);
   const files = await fg(searchGlobs, { cwd, absolute: true });
   const authSummaries = findScenarioSummariesByNames(
     files,
