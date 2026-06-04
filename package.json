@@ -47,10 +47,10 @@
     "access": "public"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.0",
+    "@ai-sdk/anthropic": "^3.0.81",
     "@ai-sdk/fireworks": "^2.0.53",
-    "@ai-sdk/google": "^2.0.74",
-    "@ai-sdk/openai": "^2.0.0",
+    "@ai-sdk/google": "^3.0.80",
+    "@ai-sdk/openai": "^3.0.67",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "agent-browser": "^0.27.1",
