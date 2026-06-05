@@ -77,6 +77,7 @@ import { createEnvRedactor, type EnvRedactor } from "../redact/env-secrets.js";
 import { generateOrMergeScenarioCacheHints } from "../cache/generate.js";
 import { isCacheEnabled } from "../cache/resolve.js";
 import { clearCache, loadScenarioCache } from "../cache/store.js";
+import { PACKAGE_VERSION } from "../version.js";
 
 function safeScenarioName(name: string): string {
   return name.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
@@ -576,9 +577,9 @@ export async function executeRun(
     noCache: options.noCache,
   };
 
-  console.log(chalk.bold(`PQA run ${runId}`));
+  console.log(chalk.bold(`PQA (${PACKAGE_VERSION}) run ${runId}`));
   console.log(
-    `Scenarios: ${selectedSummaries.length} – Engine ${config.browser.engine} – LLM Provider ${config.llm.provider}`,
+    `Scenarios: ${selectedSummaries.length} – Engine: ${config.browser.engine} – LLM Model: ${config.llm.model} (${config.llm.provider})`,
   );
   if (parallel !== undefined) {
     const limitLabel = Number.isFinite(parallel)
