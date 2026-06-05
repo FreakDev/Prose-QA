@@ -30,7 +30,7 @@ import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
 import { buildBrowserEnv, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
 import { buildVerdictRetryPrompt } from "./verdict-retry-prompt.js";
-import { writeTranscript } from "../reporter/index.js";
+import { persistTranscript } from "./transcript-persist.js";
 import {
   appendFinalTextToTranscript,
   appendStepToTranscript,
@@ -55,15 +55,6 @@ function removeLastAssistantMessage(transcript: AgentTranscript): void {
   const last = transcript.entries.at(-1);
   if (last?.type === "message" && last.role === "assistant") {
     transcript.entries.pop();
-  }
-}
-
-function persistTranscript(
-  options: RunScenarioOptions,
-  transcript: AgentTranscript,
-): void {
-  if (options.verbose) {
-    writeTranscript(options.artifactDir, transcript, options.redactor);
   }
 }
 
@@ -229,6 +220,7 @@ export async function runScenario(
     options.preparedStartUrl,
   );
   appendTranscriptMessage(transcript, "user", initialPrompt);
+  persistTranscript(options, transcript);
 
   const onStepFinish = async (step: {
     text: string;
