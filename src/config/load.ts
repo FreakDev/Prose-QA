@@ -153,8 +153,8 @@ function applyLlmEnvOverrides(config: PqaConfig): PqaConfig {
     ...config,
     llm: {
       ...config.llm,
-      ...(provider ? { provider } : {}),
-      ...(model ? { model } : {}),
+      ...(provider && !config.llm.provider ? { provider } : {}),
+      ...(model && !config.llm.model ? { model } : {}),
     },
   };
 }

@@ -126,6 +126,30 @@ describe("loadConfig", () => {
     assert.equal(config.scenariosDir, "custom-scenarios");
   });
 
+  it("prefers llm.provider and llm.model from pqa.config.json over env vars", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
+    writeFileSync(
+      path.join(cwd, "pqa.config.json"),
+      JSON.stringify({
+        llm: { provider: "ollama", model: "gemma4:e2b" },
+      }),
+    );
+    const prevProvider = process.env.PQA_LLM_PROVIDER;
+    const prevModel = process.env.PQA_LLM_MODEL;
+    process.env.PQA_LLM_PROVIDER = "fireworks";
+    process.env.PQA_LLM_MODEL = "accounts/fireworks/models/test";
+    try {
+      const config = await loadConfig(undefined, cwd);
+      assert.equal(config.llm.provider, "ollama");
+      assert.equal(config.llm.model, "gemma4:e2b");
+    } finally {
+      if (prevProvider === undefined) delete process.env.PQA_LLM_PROVIDER;
+      else process.env.PQA_LLM_PROVIDER = prevProvider;
+      if (prevModel === undefined) delete process.env.PQA_LLM_MODEL;
+      else process.env.PQA_LLM_MODEL = prevModel;
+    }
+  });
+
   it("deep-merges browser.lightpanda overrides", async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
     writeFileSync(
