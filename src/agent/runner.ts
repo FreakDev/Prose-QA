@@ -214,7 +214,7 @@ export async function runScenario(
     onDemandEnabled && options.config.skills.onDemand?.autoLoad !== false;
   const skillRegistry = new SkillLoadRegistry({
     maxChars: options.config.skills.onDemand?.maxChars,
-    skillDirs: options.config.skills.dirs,
+    skillDirs: options.config.skills.dirs ?? [],
     preloadedNames: options.skills.map((s) => s.name),
   });
 

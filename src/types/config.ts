@@ -95,8 +95,10 @@ export interface PqaConfig {
     lightpanda?: LightpandaBrowserConfig;
   };
   skills: {
-    dirs: string[];
-    preloads: string[];
+    /** Directories scanned for custom SKILL.md files. Default: [] */
+    dirs?: string[];
+    /** Extra skill names always appended to the system prompt (core is always loaded). Default: [] */
+    preloads?: string[];
     /** On-demand loading of agent-browser references and bundled skills. */
     onDemand?: {
       /** Master switch for load_skill tool and auto-load. Default: true */

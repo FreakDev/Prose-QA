@@ -62,7 +62,7 @@ export function buildSystemPrompt(
   const skillBlock = buildSkillPrompt(skills, {
     onDemandCatalog: onDemandEnabled
       ? formatOnDemandCatalog(runtime.cwd, skills, {
-          skillDirs: config.skills.dirs,
+          skillDirs: config.skills.dirs ?? [],
         })
       : undefined,
   });

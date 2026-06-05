@@ -116,7 +116,7 @@ export class SkillLoadRegistry {
     const resolved =
       typeof options === "number" ? { maxChars: options } : options;
     this.maxChars = resolved.maxChars ?? DEFAULT_MAX_CHARS;
-    this.skillDirs = resolved.skillDirs ?? ["skills", ".agents/skills"];
+    this.skillDirs = resolved.skillDirs ?? [];
     this.preloadedNames = new Set(resolved.preloadedNames ?? []);
   }
 
@@ -206,7 +206,7 @@ export function formatOnDemandCatalog(
   const core = skills.find((s) => s.name === "core");
   if (!core) return "";
 
-  const skillDirs = options?.skillDirs ?? ["skills", ".agents/skills"];
+  const skillDirs = options?.skillDirs ?? [];
   const preloaded = new Set(skills.map((s) => s.name));
   const customSkills = listLoadableCustomSkills(cwd, skillDirs, preloaded);
 

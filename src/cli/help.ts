@@ -375,7 +375,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
           {
             flags: "--skills-dir <dirs>",
             description: "Skill directories to scan (comma-separated)",
-            defaultValue: "skills, .agents/skills",
+            defaultValue: "skills.dirs from pqa.config (default: .pqa/skills; core is always loaded)",
           },
         ],
       },
@@ -389,7 +389,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
           {
             flags: "--skills-dir <dirs>",
             description: "Skill directories to scan (comma-separated)",
-            defaultValue: "skills, .agents/skills",
+            defaultValue: "skills.dirs from pqa.config (default: .pqa/skills; core is always loaded)",
           },
         ],
       },

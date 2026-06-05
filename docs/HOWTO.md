@@ -95,14 +95,14 @@ Detailed reference: [create-pqa-scenario](../skills/create-pqa-scenario/SKILL.md
 
 PQA does not drive the browser from TypeScript: an **LLM agent** runs **`agent-browser`** commands via bash.
 
-The vendored `core` skill (`skills/agent-browser/`) is synced at `npm install` via `scripts/sync-skills.mjs`:
+The vendored `core` skill (`skills/agent-browser/`) is synced at `npm install` via `scripts/sync-skills.mjs` and **always** injected into the system prompt (no `skills.preloads` entry required):
 
 - **Minimal core** (`SKILL.md`, ~480 lines) is injected into the system prompt.
 - **References**, **templates**, and **bundled skills** stay on disk for on-demand loading.
 
 ### On-demand skill loading
 
-The harness exposes a `load_skill` tool so the agent can pull detailed docs only when needed (e.g. `authentication`, `commands`, `snapshot-refs`). Custom project skills under `skills.dirs` (e.g. `skills/my-app/SKILL.md`) are loadable with `kind=custom`. Do not use `agent-browser skills get` in bash during a run.
+The harness exposes a `load_skill` tool so the agent can pull detailed docs only when needed (e.g. `authentication`, `commands`, `snapshot-refs`). Custom project skills under `skills.dirs` (default `.pqa/skills/`, e.g. `.pqa/skills/my-app/SKILL.md`) are loadable with `kind=custom`. Do not use `agent-browser skills get` in bash during a run.
 
 | Mechanism | When |
 | --------- | ---- |

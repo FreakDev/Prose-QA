@@ -9,6 +9,10 @@ import {
 import { resolveBundledPath } from "../paths.js";
 
 const SKILL_FILE = "SKILL.md";
+const BUNDLED_CORE_SKILL_DIR = path.join("skills", "agent-browser");
+
+/** Vendored agent-browser skill always injected into the system prompt. */
+export const CORE_SKILL_NAME = "core";
 
 function findSkillDirs(root: string): string[] {
   const results: string[] = [];
@@ -46,6 +50,17 @@ function parseSkillDir(dir: string): Skill {
   };
 }
 
+export function loadBundledCoreSkill(cwd: string): Skill {
+  const dir = resolveBundledPath(cwd, BUNDLED_CORE_SKILL_DIR);
+  const skillPath = path.join(dir, SKILL_FILE);
+  if (!existsSync(skillPath)) {
+    throw new Error(
+      "skills/agent-browser/SKILL.md missing. Run: npm ci (or npm install) in the prose-qa package.",
+    );
+  }
+  return parseSkillDir(dir);
+}
+
 export function discoverSkills(dirs: string[], cwd: string): Skill[] {
   const seen = new Set<string>();
   const skills: Skill[] = [];
@@ -62,7 +77,17 @@ export function discoverSkills(dirs: string[], cwd: string): Skill[] {
     }
   }
 
+  const core = loadBundledCoreSkill(cwd);
+  if (!seen.has(core.name)) {
+    skills.unshift(core);
+  }
+
   return skills;
+}
+
+/** Skill names always preloaded: bundled core + config skills.preloads. */
+export function resolveBaseSkillNames(preloads: string[] = []): string[] {
+  return mergeSkillNames([CORE_SKILL_NAME], preloads);
 }
 
 export function catalog(skills: Skill[]): SkillCatalogEntry[] {

@@ -34,6 +34,7 @@ import {
 import {
   discoverSkills,
   requireSkills,
+  resolveBaseSkillNames,
   resolveSkills,
   verifyBundledSkill,
   catalog,
@@ -440,9 +441,9 @@ export async function executeRun(
     resolveSensitiveEnvVars(config),
   );
 
-  const skillDirs = options.skillsDirs ?? config.skills.dirs;
+  const skillDirs = options.skillsDirs ?? config.skills.dirs ?? [];
   const allSkills = discoverSkills(skillDirs, cwd);
-  const baseSkillNames = config.skills.preloads;
+  const baseSkillNames = resolveBaseSkillNames(config.skills.preloads);
   requireSkills(allSkills, baseSkillNames);
 
   const { searchGlobs, runGlobs } = resolveRunGlobs(config, patterns);
@@ -732,9 +733,9 @@ export async function executeScenarioWorker(
     resolveSensitiveEnvVars(config),
   );
 
-  const skillDirs = options.skillsDirs ?? config.skills.dirs;
+  const skillDirs = options.skillsDirs ?? config.skills.dirs ?? [];
   const allSkills = discoverSkills(skillDirs, cwd);
-  const baseSkillNames = config.skills.preloads;
+  const baseSkillNames = resolveBaseSkillNames(config.skills.preloads);
   requireSkills(allSkills, baseSkillNames);
 
   const scenario = parseScenarioFile(scenarioFilePath);
@@ -817,9 +818,9 @@ export async function executeAuthSave(
     return 2;
   }
 
-  const skillDirs = options.skillsDirs ?? config.skills.dirs;
+  const skillDirs = options.skillsDirs ?? config.skills.dirs ?? [];
   const allSkills = discoverSkills(skillDirs, cwd);
-  const baseSkillNames = config.skills.preloads;
+  const baseSkillNames = resolveBaseSkillNames(config.skills.preloads);
   requireSkills(allSkills, baseSkillNames);
 
   const { searchGlobs } = resolveRunGlobs(config, []);

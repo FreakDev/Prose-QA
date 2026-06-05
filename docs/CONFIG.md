@@ -106,12 +106,12 @@ Default browser behavior for scenario runs (overridable per run with `--headed` 
 
 ### `skills` (object)
 
-Agent skill discovery and preloading ([agentskills.io](https://agentskills.io/) `SKILL.md` format).
+Agent skill discovery and preloading ([agentskills.io](https://agentskills.io/) `SKILL.md` format). The vendored **core** skill (`skills/agent-browser/`) is always loaded into the system prompt — it does not need to appear in `preloads`.
 
-| Key        | Type     | Default                        | Description                                                                              |
-| ---------- | -------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
-| `dirs`     | string[] | `["skills", ".agents/skills"]` | Directories scanned for skills. Relative paths resolve like bundled assets               |
-| `preloads` | string[] | `["core"]`                     | Skill names always appended to the system prompt (`core` = vendored agent-browser skill) |
+| Key        | Type     | Default              | Description                                                                                              |
+| ---------- | -------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
+| `dirs`     | string[] | `[".pqa/skills"]`    | Directories scanned for custom `SKILL.md` files. Relative paths resolve like bundled assets. Can be `[]` |
+| `preloads` | string[] | `[]`                 | Extra skill names always appended to the system prompt (the vendored `core` skill is always loaded)      |
 
 #### `skills.onDemand` (object, optional)
 
@@ -217,8 +217,8 @@ Settings for `pqa record`. See [HOWTO §9 — Record → markdown](HOWTO.md#9-re
     "defaultTimeout": 25000
   },
   "skills": {
-    "dirs": ["skills", ".agents/skills"],
-    "preloads": ["core"]
+    "dirs": [".pqa/skills"],
+    "preloads": ["prose-qa"]
   },
   "agent": {
     "maxTurns": 200,

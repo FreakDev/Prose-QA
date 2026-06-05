@@ -31,8 +31,8 @@ const MINIMAL_FALLBACK_CONFIG: PqaConfig = {
     engine: "chrome",
   },
   skills: {
-    dirs: ["skills", ".agents/skills"],
-    preloads: ["core"],
+    dirs: [],
+    preloads: [],
   },
   agent: {
     maxTurns: 200,
@@ -77,7 +77,7 @@ function normalizeBundledPaths(config: PqaConfig, cwd: string): PqaConfig {
     ...config,
     skills: {
       ...config.skills,
-      dirs: config.skills.dirs.map((dir) =>
+      dirs: (config.skills.dirs ?? []).map((dir) =>
         path.isAbsolute(dir) ? dir : resolveBundledPath(cwd, dir),
       ),
     },
@@ -173,7 +173,15 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
         ? { ...base.browser.lightpanda, ...override.browser.lightpanda }
         : base.browser.lightpanda,
     },
-    skills: { ...base.skills, ...override.skills },
+    skills: {
+      ...base.skills,
+      ...override.skills,
+      dirs: override.skills?.dirs ?? base.skills.dirs ?? [],
+      preloads: override.skills?.preloads ?? base.skills.preloads ?? [],
+      onDemand: override.skills?.onDemand
+        ? { ...base.skills.onDemand, ...override.skills.onDemand }
+        : base.skills.onDemand,
+    },
     agent: { ...base.agent, ...override.agent },
     auth: { ...base.auth, ...override.auth },
     healing: {

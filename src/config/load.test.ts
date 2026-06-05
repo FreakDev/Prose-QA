@@ -89,6 +89,10 @@ describe("loadConfig", () => {
       assert.equal(config.recorder?.bridgePort, 17_321);
       assert.equal(config.scenariosDir, "scenarios");
       assert.equal(config.agent.parallel, 0);
+      assert.deepEqual(config.skills.dirs, [
+        path.resolve(cwd, ".pqa/skills"),
+      ]);
+      assert.deepEqual(config.skills.preloads, []);
     } finally {
       if (prevProvider === undefined) delete process.env.PQA_LLM_PROVIDER;
       else process.env.PQA_LLM_PROVIDER = prevProvider;

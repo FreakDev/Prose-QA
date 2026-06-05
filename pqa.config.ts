@@ -24,8 +24,8 @@ const config = {
   envVars: [],
   sensitiveEnvVars: [],
   skills: {
-    dirs: ["skills"],
-    preloads: ["core"],
+    dirs: [".pqa/skills"],
+    preloads: [],
     onDemand: {
       enabled: true,
       autoLoad: true,
