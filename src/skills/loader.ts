@@ -106,24 +106,32 @@ export function resolveSkills(
   return requireSkills(catalog, mergeSkillNames(...nameGroups));
 }
 
-export function buildSkillPrompt(skills: Skill[]): string {
-  return skills
-    .map(
-      (s) =>
-        `## Skill: ${s.name}\n\n${s.body}`,
-    )
-    .join("\n\n---\n\n");
+export function buildSkillPrompt(
+  skills: Skill[],
+  options?: { onDemandCatalog?: string },
+): string {
+  const blocks = skills.map((s) => `## Skill: ${s.name}\n\n${s.body}`);
+  if (options?.onDemandCatalog?.trim()) {
+    blocks.push(options.onDemandCatalog.trim());
+  }
+  return blocks.join("\n\n---\n\n");
 }
 
 export function verifyBundledSkill(cwd: string): void {
-  const skillPath = path.join(
+  const skillDir = path.join(
     resolveBundledPath(cwd, "skills"),
     "agent-browser",
-    "SKILL.md",
   );
+  const skillPath = path.join(skillDir, "SKILL.md");
   if (!existsSync(skillPath)) {
     throw new Error(
       "skills/agent-browser/SKILL.md missing. Run: npm ci (or npm install) in the prose-qa package.",
+    );
+  }
+  const manifestPath = path.join(skillDir, "manifest.json");
+  if (!existsSync(manifestPath)) {
+    throw new Error(
+      "skills/agent-browser/manifest.json missing. Run: pqa skills sync (or npm install).",
     );
   }
 }

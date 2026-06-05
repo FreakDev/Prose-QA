@@ -29,6 +29,12 @@ import {
 import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
 import { buildBrowserEnv, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
+import {
+  SkillLoadRegistry,
+  formatAutoLoadedMessage,
+  inferAutoSkillLoads,
+  type SkillLoadKind,
+} from "../skills/on-demand.js";
 import { buildVerdictRetryPrompt } from "./verdict-retry-prompt.js";
 import { persistTranscript } from "./transcript-persist.js";
 import {
@@ -203,7 +209,16 @@ export async function runScenario(
   const stepTiming = { startMs: Date.now() };
   const pendingBashEntries: BashEntry[] = [];
 
-  const tools = {
+  const onDemandEnabled = options.config.skills.onDemand?.enabled !== false;
+  const autoLoadEnabled =
+    onDemandEnabled && options.config.skills.onDemand?.autoLoad !== false;
+  const skillRegistry = new SkillLoadRegistry({
+    maxChars: options.config.skills.onDemand?.maxChars,
+    skillDirs: options.config.skills.dirs,
+    preloadedNames: options.skills.map((s) => s.name),
+  });
+
+  const tools: ToolSet = {
     bash: tool({
       description:
         "Run ONE bash command. For UI interactions (click, fill, select, open, press), run a single agent-browser command per call. Use snapshot -i before acting on refs.",
@@ -234,11 +249,74 @@ export async function runScenario(
     }),
   };
 
+  if (onDemandEnabled) {
+    tools.load_skill = tool({
+      description:
+        "Load agent-browser references, templates, bundled skills, or custom project skills on demand. " +
+        "Use instead of `agent-browser skills get` in bash. Load one item at a time, only when needed.",
+      inputSchema: z.object({
+        kind: z
+          .enum(["reference", "template", "skill", "custom"])
+          .describe(
+            "reference = agent-browser doc, template = shell script, " +
+              "skill = bundled agent-browser skill (falls back to custom), " +
+              "custom = user SKILL.md from skills.dirs",
+          ),
+        name: z
+          .string()
+          .describe(
+            "Item name: authentication, dogfood (bundled), prose-qa (custom), etc.",
+          ),
+      }),
+      execute: async ({ kind, name }) => {
+        try {
+          const result = skillRegistry.load(
+            options.cwd,
+            kind as SkillLoadKind,
+            name,
+          );
+          if (options.verbose && !result.alreadyLoaded) {
+            console.log(`\n[load_skill] ${kind}:${name} (${result.content.length} chars)`);
+          }
+          return {
+            kind: result.kind,
+            name: result.name,
+            alreadyLoaded: result.alreadyLoaded,
+            truncated: result.truncated,
+            content: result.content,
+          };
+        } catch (err) {
+          return { error: String(err) };
+        }
+      },
+    });
+  }
+
   const initialPrompt = buildInitialPrompt(
     options.scenario,
     options.preparedStartUrl,
   );
   appendTranscriptMessage(transcript, "user", initialPrompt);
+
+  const initialMessages: ModelMessage[] = [
+    { role: "user", content: initialPrompt },
+  ];
+
+  if (autoLoadEnabled) {
+    const autoSpecs = inferAutoSkillLoads({
+      scenario: options.scenario,
+      authProfile: options.authProfile,
+    });
+    const autoResults = autoSpecs.map((spec) =>
+      skillRegistry.load(options.cwd, spec.kind, spec.name),
+    );
+    const autoMessage = formatAutoLoadedMessage(autoResults);
+    if (autoMessage) {
+      appendTranscriptMessage(transcript, "user", autoMessage);
+      initialMessages.push({ role: "user", content: autoMessage });
+    }
+  }
+
   persistTranscript(options, transcript);
 
   const onStepFinish = async (step: {
@@ -288,7 +366,7 @@ export async function runScenario(
     let result = (await generateText({
       model: createLlmModel(options.config),
       system,
-      prompt: initialPrompt,
+      messages: initialMessages,
       tools,
       providerOptions,
       stopWhen: stepCountIs(options.config.agent.maxTurns),

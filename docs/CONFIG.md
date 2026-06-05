@@ -113,6 +113,20 @@ Agent skill discovery and preloading ([agentskills.io](https://agentskills.io/) 
 | `dirs`     | string[] | `["skills", ".agents/skills"]` | Directories scanned for skills. Relative paths resolve like bundled assets               |
 | `preloads` | string[] | `["core"]`                     | Skill names always appended to the system prompt (`core` = vendored agent-browser skill) |
 
+#### `skills.onDemand` (object, optional)
+
+Lazy loading for the vendored agent-browser skill. The full skill package (references, templates, bundled skills) is synced at install via `scripts/sync-skills.mjs`, but only the **minimal** `core` body is injected into the system prompt.
+
+| Key        | Type    | Default  | Description                                                                 |
+| ---------- | ------- | -------- | --------------------------------------------------------------------------- |
+| `enabled`  | boolean | `true`   | Expose the `load_skill` tool and on-demand catalog in the system prompt     |
+| `autoLoad` | boolean | `true`   | Harness auto-injects context-aware references (e.g. `authentication` for auth scenarios) |
+| `maxChars` | number  | `50000`  | Max characters returned per `load_skill` call                               |
+
+Custom skills discovered under `skills.dirs` (but not listed in `skills.preloads` or scenario frontmatter) appear in the on-demand catalog and load via `load_skill` with `kind=custom` (or `kind=skill` as fallback).
+
+Disable with `skills.onDemand.enabled: false` to fall back to the minimal core only (no `load_skill` tool).
+
 ---
 
 ### `agent` (object)

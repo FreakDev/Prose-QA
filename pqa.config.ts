@@ -26,6 +26,11 @@ const config = {
   skills: {
     dirs: ["skills"],
     preloads: ["core"],
+    onDemand: {
+      enabled: true,
+      autoLoad: true,
+      maxChars: 50_000,
+    },
   },
   agent: {
     parallel: 0,

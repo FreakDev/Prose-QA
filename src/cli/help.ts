@@ -398,7 +398,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         summary: "Sync agent-browser skill from pinned npm version",
         usage: "pqa skills sync",
         description:
-          "Re-vendor the agent-browser skill into skills/agent-browser/ (dev repo workflow).",
+          "Re-vendor agent-browser skills into skills/agent-browser/ (minimal core + references + bundled skills).",
       },
     ],
   },

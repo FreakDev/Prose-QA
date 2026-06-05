@@ -40,6 +40,11 @@ describe("runner transcript persistence contract", () => {
     assert.equal(calls.length, EXPECTED_PERSIST_CALL_SITES);
   });
 
+  it("exposes load_skill tool when on-demand skills are enabled", () => {
+    assert.match(runnerSource, /tools\.load_skill = tool\(/);
+    assert.match(runnerSource, /SkillLoadRegistry/);
+  });
+
   it("does not gate disk writes on verbose", () => {
     assert.doesNotMatch(
       runnerSource,
@@ -51,10 +56,10 @@ describe("runner transcript persistence contract", () => {
     );
   });
 
-  it("persists immediately after the initial user message", () => {
+  it("persists after initial user messages (including optional auto-loaded skills)", () => {
     assert.match(
       runnerSource,
-      /appendTranscriptMessage\(transcript,\s*"user",\s*initialPrompt\);\s*\n\s*persistTranscript\(options,\s*transcript\);/,
+      /appendTranscriptMessage\(transcript,\s*"user",\s*initialPrompt\);[\s\S]*?persistTranscript\(options,\s*transcript\);/,
     );
   });
 

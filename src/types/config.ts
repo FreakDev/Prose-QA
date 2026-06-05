@@ -97,6 +97,15 @@ export interface PqaConfig {
   skills: {
     dirs: string[];
     preloads: string[];
+    /** On-demand loading of agent-browser references and bundled skills. */
+    onDemand?: {
+      /** Master switch for load_skill tool and auto-load. Default: true */
+      enabled?: boolean;
+      /** Max characters returned per load_skill call. Default: 50000 */
+      maxChars?: number;
+      /** Harness auto-injects context-aware references before the run. Default: true */
+      autoLoad?: boolean;
+    };
   };
   agent: {
     maxTurns: number;

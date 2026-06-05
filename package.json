@@ -10,6 +10,7 @@
     "dist",
     "prompt",
     "skills",
+    "scripts/sync-skills.mjs",
     "scripts/install-lightpanda.mjs",
     "pqa.config.ts"
   ],
@@ -18,7 +19,7 @@
     "test": "node --import tsx --test src/**/*.test.ts",
     "dev": "tsx src/cli/index.ts",
     "mcp": "tsx src/cli/index.ts mcp",
-    "postinstall": "mkdir -p ./skills/agent-browser && agent-browser skills get core --full > ./skills/agent-browser/SKILL.md",
+    "postinstall": "node scripts/sync-skills.mjs",
     "install-chrome": "agent-browser install --with-deps",
     "install-lightpanda": "node scripts/install-lightpanda.mjs",
     "demo:server": "node scripts/demo-server.mjs",

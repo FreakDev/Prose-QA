@@ -6,6 +6,7 @@ import { resolveStatePath } from "../auth/store.js";
 import { formatDeclaredEnvVarHints } from "../config/env-vars.js";
 import { loadSystemPrompt } from "../prompt/load.js";
 import { buildSkillPrompt } from "../skills/loader.js";
+import { formatOnDemandCatalog } from "../skills/on-demand.js";
 import { formatScenarioForPrompt } from "../scenarios/parser.js";
 
 const EXECUTION_HINT =
@@ -57,7 +58,14 @@ export function buildSystemPrompt(
   },
 ): string {
   const systemPrompt = loadSystemPrompt(runtime.cwd);
-  const skillBlock = buildSkillPrompt(skills);
+  const onDemandEnabled = config.skills.onDemand?.enabled !== false;
+  const skillBlock = buildSkillPrompt(skills, {
+    onDemandCatalog: onDemandEnabled
+      ? formatOnDemandCatalog(runtime.cwd, skills, {
+          skillDirs: config.skills.dirs,
+        })
+      : undefined,
+  });
   const scenarioBlock = formatScenarioForPrompt(scenario);
 
   const authSavePath = runtime.authProfile
