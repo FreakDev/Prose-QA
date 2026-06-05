@@ -35,6 +35,7 @@ import {
   appendFinalTextToTranscript,
   appendStepToTranscript,
   appendTranscriptMessage,
+  enrichVerdictWithStats,
   extractVerdict,
   formatStepForTranscript,
   stripLastAssistantTurn,
@@ -47,6 +48,24 @@ import { buildProviderOptions } from "./provider-options.js";
 const MAX_VERDICT_RETRIES = 5;
 /** Extra steps when re-emitting a verdict after an invalid completion. */
 const VERDICT_RETRY_MAX_STEPS = 10;
+
+function finalizeVerdict(
+  verdict: ReturnType<typeof extractVerdict>,
+  transcript: AgentTranscript,
+  options: {
+    durationMs: number;
+    healing?: HealingMeta;
+    redactor?: EnvRedactor;
+  },
+): Verdict | null {
+  const redacted = options.redactor
+    ? options.redactor.redactVerdict(verdict)
+    : verdict;
+  return enrichVerdictWithStats(redacted, transcript, {
+    durationMs: options.durationMs,
+    healing: options.healing,
+  });
+}
 
 function removeLastAssistantMessage(transcript: AgentTranscript): void {
   while (transcript.entries.at(-1)?.type === "bash") {
@@ -310,7 +329,11 @@ export async function runScenario(
       filePath: options.scenario.filePath,
       status: verdict?.status === "pass" ? "pass" : "fail",
       durationMs: Date.now() - start,
-      verdict: options.redactor ? options.redactor.redactVerdict(verdict) : verdict,
+      verdict: finalizeVerdict(verdict, transcript, {
+        durationMs: Date.now() - start,
+        healing: healingMeta,
+        redactor: options.redactor,
+      }),
       transcript,
       artifactDir: options.artifactDir,
       error: verdict
@@ -383,9 +406,11 @@ export async function runScenario(
           draftResult = {
             ...draftResult,
             status: verdict?.status === "pass" ? "pass" : "fail",
-            verdict: options.redactor
-              ? options.redactor.redactVerdict(verdict)
-              : verdict,
+            verdict: finalizeVerdict(verdict, transcript, {
+              durationMs: Date.now() - start,
+              healing: healingMeta,
+              redactor: options.redactor,
+            }),
             error: verdict
               ? undefined
               : "Agent did not emit a valid verdict JSON block",

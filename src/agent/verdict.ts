@@ -3,9 +3,12 @@ import {
   VerdictSchema,
   type AgentTranscript,
   type BashEntry,
+  type HealingMeta,
+  type ParsedVerdict,
   type TranscriptBashEntry,
   type TranscriptMessageEntry,
   type Verdict,
+  type VerdictStats,
 } from "../types/verdict.js";
 
 /** Drop the last assistant turn (and trailing tool results) so the model can redo that completion. */
@@ -20,7 +23,7 @@ export function stripLastAssistantTurn(messages: ModelMessage[]): ModelMessage[]
   return messages;
 }
 
-export function extractVerdict(text: string): Verdict | null {
+export function extractVerdict(text: string): ParsedVerdict | null {
   const jsonBlock = /```(?:json)?\s*([\s\S]*?)```/g;
   let match: RegExpExecArray | null;
   const candidates: string[] = [];
@@ -55,6 +58,71 @@ export function extractVerdict(text: string): Verdict | null {
   }
 
   return null;
+}
+
+export interface TranscriptStatsOptions {
+  durationMs?: number;
+  healing?: HealingMeta;
+}
+
+export function computeTranscriptStats(
+  transcript: AgentTranscript,
+  options: TranscriptStatsOptions = {},
+): VerdictStats {
+  let llmTurns = 0;
+  let userTurns = 0;
+  let toolCalls = 0;
+  let failedToolCalls = 0;
+  let llmDurationMs = 0;
+  let bashDurationMs = 0;
+
+  for (const entry of transcript.entries) {
+    if (entry.type === "message") {
+      if (entry.role === "assistant") {
+        llmTurns += 1;
+        llmDurationMs += entry.durationMs ?? 0;
+      } else if (entry.role === "user") {
+        userTurns += 1;
+      }
+      continue;
+    }
+
+    toolCalls += 1;
+    bashDurationMs += entry.durationMs;
+    if (entry.exitCode !== 0) failedToolCalls += 1;
+  }
+
+  const stats: VerdictStats = {
+    durationMs: options.durationMs ?? llmDurationMs + bashDurationMs,
+    llmTurns,
+    userTurns,
+    toolCalls,
+    failedToolCalls,
+    llmDurationMs,
+    bashDurationMs,
+  };
+
+  if (options.healing) {
+    stats.healing = {
+      used: options.healing.used,
+      recoveryTurns: options.healing.recoveryTurns,
+      scenarioRetries: options.healing.scenarioRetries,
+    };
+  }
+
+  return stats;
+}
+
+export function enrichVerdictWithStats(
+  verdict: ParsedVerdict | Verdict | null,
+  transcript: AgentTranscript,
+  options: TranscriptStatsOptions = {},
+): Verdict | null {
+  if (!verdict) return null;
+  return {
+    ...verdict,
+    stats: computeTranscriptStats(transcript, options),
+  };
 }
 
 export function getTranscriptMessages(

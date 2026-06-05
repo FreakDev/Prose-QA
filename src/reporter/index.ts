@@ -2,7 +2,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { RunReport, ScenarioResult } from "../types/verdict.js";
 import type { EnvRedactor } from "../redact/env-secrets.js";
-import { getTranscriptBashEntries } from "../agent/verdict.js";
+import { enrichVerdictWithStats, getTranscriptBashEntries } from "../agent/verdict.js";
 
 export function createRunId(): string {
   return new Date().toISOString().replace(/[:.]/g, "-");
@@ -60,9 +60,14 @@ export function writeScenarioTranscript(
     `${JSON.stringify(safe.transcript, null, 2)}\n`,
   );
   if (safe.verdict) {
+    const verdict =
+      enrichVerdictWithStats(safe.verdict, safe.transcript, {
+        durationMs: safe.durationMs,
+        healing: safe.healing,
+      }) ?? safe.verdict;
     writeFileSync(
       path.join(artifactDir, "verdict.json"),
-      `${JSON.stringify(safe.verdict, null, 2)}\n`,
+      `${JSON.stringify(verdict, null, 2)}\n`,
     );
   }
 }

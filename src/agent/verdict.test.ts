@@ -5,6 +5,8 @@ import type { AgentTranscript } from "../types/verdict.js";
 import {
   appendFinalTextToTranscript,
   appendStepToTranscript,
+  computeTranscriptStats,
+  enrichVerdictWithStats,
   formatStepForTranscript,
   stripLastAssistantTurn,
 } from "./verdict.js";
@@ -122,6 +124,101 @@ describe("appendFinalTextToTranscript", () => {
 
     appendFinalTextToTranscript(transcript, "Done.");
     assert.equal(transcript.entries.length, 1);
+  });
+});
+
+describe("computeTranscriptStats", () => {
+  it("counts LLM turns, user turns, tool calls, and durations from the transcript", () => {
+    const transcript: AgentTranscript = {
+      entries: [
+        {
+          type: "message",
+          role: "user",
+          content: "Run the scenario.",
+          at: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          type: "message",
+          role: "assistant",
+          content: '[tool bash] {"command":"agent-browser snapshot -i"}',
+          at: "2026-01-01T00:00:05.000Z",
+          durationMs: 5000,
+        },
+        {
+          type: "bash",
+          command: "agent-browser snapshot -i",
+          stdout: "ok",
+          stderr: "",
+          exitCode: 0,
+          durationMs: 200,
+          at: "2026-01-01T00:00:05.000Z",
+        },
+        {
+          type: "message",
+          role: "assistant",
+          content: '{"status":"pass","checkpoints":[],"summary":"done"}',
+          at: "2026-01-01T00:00:08.000Z",
+          durationMs: 3000,
+        },
+      ],
+    };
+
+    assert.deepEqual(computeTranscriptStats(transcript, { durationMs: 12_000 }), {
+      durationMs: 12_000,
+      llmTurns: 2,
+      userTurns: 1,
+      toolCalls: 1,
+      failedToolCalls: 0,
+      llmDurationMs: 8000,
+      bashDurationMs: 200,
+    });
+  });
+
+  it("includes healing metadata when provided", () => {
+    const transcript: AgentTranscript = { entries: [] };
+    const stats = computeTranscriptStats(transcript, {
+      healing: {
+        used: true,
+        recoveryTurns: 2,
+        scenarioRetries: 1,
+      },
+    });
+
+    assert.deepEqual(stats.healing, {
+      used: true,
+      recoveryTurns: 2,
+      scenarioRetries: 1,
+    });
+  });
+});
+
+describe("enrichVerdictWithStats", () => {
+  it("attaches computed stats to a parsed verdict", () => {
+    const transcript: AgentTranscript = {
+      entries: [
+        {
+          type: "message",
+          role: "assistant",
+          content: "done",
+          at: "2026-01-01T00:00:00.000Z",
+          durationMs: 100,
+        },
+      ],
+    };
+
+    const enriched = enrichVerdictWithStats(
+      {
+        status: "pass",
+        checkpoints: [],
+        summary: "ok",
+      },
+      transcript,
+      { durationMs: 500 },
+    );
+
+    assert.equal(enriched?.status, "pass");
+    assert.equal(enriched?.stats?.llmTurns, 1);
+    assert.equal(enriched?.stats?.durationMs, 500);
   });
 });
 

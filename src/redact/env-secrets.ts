@@ -102,6 +102,7 @@ export function createEnvRedactor(
         reason: redact(c.reason),
         evidence: c.evidence?.map(redact),
       })),
+      ...(verdict.stats ? { stats: verdict.stats } : {}),
     };
   }
 

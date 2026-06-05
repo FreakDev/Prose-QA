@@ -13,8 +13,29 @@ export const VerdictSchema = z.object({
   summary: z.string(),
 });
 
+export const VerdictStatsSchema = z.object({
+  durationMs: z.number(),
+  llmTurns: z.number(),
+  userTurns: z.number(),
+  toolCalls: z.number(),
+  failedToolCalls: z.number(),
+  llmDurationMs: z.number(),
+  bashDurationMs: z.number(),
+  healing: z
+    .object({
+      used: z.boolean(),
+      recoveryTurns: z.number(),
+      scenarioRetries: z.number(),
+    })
+    .optional(),
+});
+
 export type CheckpointResult = z.infer<typeof CheckpointResultSchema>;
-export type Verdict = z.infer<typeof VerdictSchema>;
+/** Parsed agent verdict (LLM output). */
+export type ParsedVerdict = z.infer<typeof VerdictSchema>;
+export type VerdictStats = z.infer<typeof VerdictStatsSchema>;
+/** Harness-enriched verdict written to verdict.json and report.json. */
+export type Verdict = ParsedVerdict & { stats?: VerdictStats };
 
 export type FailureKind = "transient" | "scenario_issue" | "product" | "unknown";
 
