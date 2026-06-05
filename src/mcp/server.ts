@@ -13,6 +13,7 @@ import { executeScenarioWorker } from "../cli/run.js";
 import { createRunId, ensureRunDir } from "../reporter/index.js";
 import type { RunOptions } from "../types/config.js";
 import { formatScenarioForPrompt } from "../scenarios/parser.js";
+import { PACKAGE_VERSION } from "../version.js";
 
 const RUN_SCENARIO_INPUT = z.object({
   content: z
@@ -53,7 +54,7 @@ function workerOptions(
 
 export function createPqaMcpServer(cwd: string): McpServer {
   const server = new McpServer(
-    { name: "prose-qa", version: "0.1.0" },
+    { name: "prose-qa", version: PACKAGE_VERSION },
     {
       instructions: [
         "Prose-QA MCP exposes scenario authoring and execution for browser E2E tests.",

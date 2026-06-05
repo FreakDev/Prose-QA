@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { Command, InvalidArgumentError } from "commander";
+import { PACKAGE_VERSION } from "../version.js";
 import { loadEnv } from "../config/env.js";
 import {
   executeRun,
@@ -96,7 +97,7 @@ const program = new Command();
 program
   .name("pqa")
   .description("ProseQA — agent harness for NL E2E regression testing")
-  .version("0.1.0");
+  .version(PACKAGE_VERSION);
 
 program
   .command("_run-scenario", { hidden: true })

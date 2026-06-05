@@ -72,14 +72,8 @@ import {
   writeReport,
   writeScenarioTranscript,
 } from "../reporter/index.js";
-import {
-  finalizeRunReport,
-  resolveRunDirectory,
-} from "../reporter/export.js";
-import {
-  createEnvRedactor,
-  type EnvRedactor,
-} from "../redact/env-secrets.js";
+import { finalizeRunReport, resolveRunDirectory } from "../reporter/export.js";
+import { createEnvRedactor, type EnvRedactor } from "../redact/env-secrets.js";
 import { generateOrMergeScenarioCacheHints } from "../cache/generate.js";
 import { isCacheEnabled } from "../cache/resolve.js";
 import { clearCache, loadScenarioCache } from "../cache/store.js";
@@ -131,7 +125,9 @@ function logRunSummary(report: {
         console.log(chalk.yellow(`    ${result.error}`));
       }
     } else {
-      console.log(chalk.red(`  ✗ ${result.scenario} — ${result.status} (${duration})`));
+      console.log(
+        chalk.red(`  ✗ ${result.scenario} — ${result.status} (${duration})`),
+      );
       if (result.error) {
         console.log(chalk.red(`    ${result.error}`));
       }
@@ -144,7 +140,9 @@ function logRunSummary(report: {
   if (skipped > 0) parts.push(`${skipped} skipped`);
   const summaryLine = parts.join(", ");
   console.log(
-    failed > 0 || errors > 0 ? chalk.red(summaryLine) : chalk.green(summaryLine),
+    failed > 0 || errors > 0
+      ? chalk.red(summaryLine)
+      : chalk.green(summaryLine),
   );
 }
 
@@ -287,7 +285,11 @@ async function runOneScenario(
       });
     };
 
-    const skills = resolveSkills(ctx.allSkills, ctx.baseSkillNames, scenario.skills);
+    const skills = resolveSkills(
+      ctx.allSkills,
+      ctx.baseSkillNames,
+      scenario.skills,
+    );
 
     const scenarioCacheHints = isCacheEnabled(ctx.config, ctx.noCache)
       ? loadScenarioCache(ctx.cwd, ctx.config, scenario)
@@ -352,7 +354,14 @@ async function runOneScenario(
         if (result.status === "pass" || attempt >= ctx.retries) break;
 
         const classified = classifyFailure(result, scenario, ctx.config);
-        if (!isScenarioRetryAllowed(classified, retriesPolicy, ctx.config, ctx.noHealing)) {
+        if (
+          !isScenarioRetryAllowed(
+            classified,
+            retriesPolicy,
+            ctx.config,
+            ctx.noHealing,
+          )
+        ) {
           break;
         }
 
@@ -371,10 +380,7 @@ async function runOneScenario(
     applyArtifactsPolicy(artifactDir, ctx.artifacts, result!);
     writeScenarioTranscript(artifactDir, result!, ctx.redactor);
 
-    if (
-      result!.status === "pass" &&
-      isCacheEnabled(ctx.config, ctx.noCache)
-    ) {
+    if (result!.status === "pass" && isCacheEnabled(ctx.config, ctx.noCache)) {
       await generateOrMergeScenarioCacheHints(
         ctx.config,
         ctx.cwd,
@@ -439,9 +445,7 @@ export async function executeRun(
   requireSkills(allSkills, baseSkillNames);
 
   const { searchGlobs, runGlobs } = resolveRunGlobs(config, patterns);
-  const runFiles = new Set(
-    await fg(runGlobs, { cwd, absolute: true }),
-  );
+  const runFiles = new Set(await fg(runGlobs, { cwd, absolute: true }));
   if (runFiles.size === 0) {
     console.error(chalk.red("No scenario files matched"));
     return 2;
@@ -450,8 +454,9 @@ export async function executeRun(
   const searchFiles = await fg(searchGlobs, { cwd, absolute: true });
   const summaries = [...runFiles]
     .map(tryParseScenarioFrontmatter)
-    .filter((summary): summary is NonNullable<typeof summary> =>
-      summary !== undefined,
+    .filter(
+      (summary): summary is NonNullable<typeof summary> =>
+        summary !== undefined,
     );
   const authScenarioNames = getAuthScenarioNames(config);
   const selectedSummaries = selectRunnableScenarioSummaries(
@@ -461,7 +466,9 @@ export async function executeRun(
   );
 
   if (selectedSummaries.length === 0) {
-    console.error(chalk.red("No runnable scenarios matched the given patterns and filters"));
+    console.error(
+      chalk.red("No runnable scenarios matched the given patterns and filters"),
+    );
     return 2;
   }
 
@@ -486,9 +493,7 @@ export async function executeRun(
   const parallel = resolveAgentParallel(config, options.parallel);
 
   if (options.pause && parallel !== undefined) {
-    console.error(
-      chalk.red("--pause and --parallel cannot be used together"),
-    );
+    console.error(chalk.red("--pause and --parallel cannot be used together"));
     return 2;
   }
 
@@ -497,7 +502,11 @@ export async function executeRun(
     reportOutputPath: options.reportOutputPath,
     reportZip: options.reportZip,
   });
-  const { runDir, zipDestination } = resolveRunDirectory(cwd, runId, reportConfig);
+  const { runDir, zipDestination } = resolveRunDirectory(
+    cwd,
+    runId,
+    reportConfig,
+  );
   const headed = resolveBrowserHeaded(config, options.headed);
   const startedAt = new Date();
   const retries = options.retries ?? 0;
@@ -533,9 +542,7 @@ export async function executeRun(
         },
         requiredProfiles,
       );
-      authSpinner.succeed(
-        `Auth ready: ${requiredProfiles.join(", ")}`,
-      );
+      authSpinner.succeed(`Auth ready: ${requiredProfiles.join(", ")}`);
       await closeAllBrowserSessions({
         cwd,
         timeoutMs: config.agent.bashTimeoutMs,
@@ -570,7 +577,9 @@ export async function executeRun(
   };
 
   console.log(chalk.bold(`PQA run ${runId}`));
-  console.log(`Scenarios: ${selectedSummaries.length}`);
+  console.log(
+    `Scenarios: ${selectedSummaries.length} – Engine ${config.browser.engine} – LLM Provider ${config.llm.provider}`,
+  );
   if (parallel !== undefined) {
     const limitLabel = Number.isFinite(parallel)
       ? `max ${parallel}`
@@ -669,9 +678,7 @@ export async function executeRun(
       if (result.status === "pass") {
         spinner.succeed(chalk.green(`${summary.frontmatter.name} passed`));
       } else {
-        spinner.fail(
-          chalk.red(`${summary.frontmatter.name} ${result.status}`),
-        );
+        spinner.fail(chalk.red(`${summary.frontmatter.name} ${result.status}`));
         logScenarioFailureReason(result);
       }
       results.push(result);
@@ -822,9 +829,7 @@ export async function executeAuthSave(
   );
   const authSummary = authSummaries[0];
   if (!authSummary) {
-    console.error(
-      chalk.red(`Auth scenario "${authEntry.scenario}" not found`),
-    );
+    console.error(chalk.red(`Auth scenario "${authEntry.scenario}" not found`));
     return 2;
   }
   const authScenarios = [parseScenarioFile(authSummary.filePath)];
@@ -924,7 +929,10 @@ export function executeAuthClear(profile?: string): number {
 
 export function executeSkillsSync(): number {
   try {
-    execSync("tsx scripts/sync-skills.ts", { cwd: process.cwd(), stdio: "inherit" });
+    execSync("tsx scripts/sync-skills.ts", {
+      cwd: process.cwd(),
+      stdio: "inherit",
+    });
     return 0;
   } catch {
     return 1;
