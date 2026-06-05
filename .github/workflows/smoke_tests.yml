@@ -57,7 +57,7 @@ jobs:
 
       - name: Run smoke scenarios
         env:
-          PQA_LLM_API_KEY: ${{ secrets.PQA_LLM_API_KEY }}
+          PQA_LLM_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
           PQA_LLM_PROVIDER: fireworks
           PQA_LLM_MODEL: accounts/fireworks/models/deepseek-v4-flash
           PQA_TEST_EMAIL: demo@pqa.local
