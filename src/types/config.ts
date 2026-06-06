@@ -41,7 +41,7 @@ export type BrowserEngine = "chrome" | "lightpanda";
 /** Options when browser.engine is lightpanda (AGENT_BROWSER_EXECUTABLE_PATH, telemetry). */
 export interface LightpandaBrowserConfig {
   /**
-   * Path to the lightpanda binary, or a directory containing it (e.g. ".bin").
+   * Path to the lightpanda binary, or a directory containing it (e.g. "./.pqa/engine").
    * Relative paths resolve from the project cwd. Maps to AGENT_BROWSER_EXECUTABLE_PATH.
    */
   executablePath?: string;

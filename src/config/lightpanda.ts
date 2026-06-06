@@ -7,7 +7,7 @@ const LIGHTPANDA_BINARY =
   process.platform === "win32" ? "lightpanda.exe" : "lightpanda";
 
 /** Default install dir for `pqa install-browser lightpanda` (matches bundled pqa.config). */
-export const DEFAULT_LIGHTPANDA_INSTALL_DIR = "bin";
+export const DEFAULT_LIGHTPANDA_INSTALL_DIR = ".pqa/engine";
 
 function lightpandaBinaryInDir(dir: string): string {
   return path.join(dir, LIGHTPANDA_BINARY);

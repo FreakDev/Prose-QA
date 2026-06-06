@@ -19,24 +19,24 @@ describe("withAgentBrowserPath", () => {
 });
 
 describe("withAgentBrowserPath lightpanda", () => {
-  it("prepends project bin when lightpanda is installed there", () => {
+  it("prepends project .pqa/engine when lightpanda is installed there", () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "pqa-lp-path-"));
-    const binDir = path.join(cwd, "bin");
-    mkdirSync(binDir, { recursive: true });
-    writeFileSync(path.join(binDir, "lightpanda"), "");
+    const engineDir = path.join(cwd, ".pqa", "engine");
+    mkdirSync(engineDir, { recursive: true });
+    writeFileSync(path.join(engineDir, "lightpanda"), "");
 
     const browserEnv = buildBrowserEnv({
       cwd,
       headed: false,
       sessionName: "pqa",
       engine: "lightpanda",
-      lightpanda: { executablePath: "./bin", telemetry: false },
+      lightpanda: { executablePath: "./.pqa/engine", telemetry: false },
       artifactDir: cwd,
     });
     const env = withAgentBrowserPath(cwd, { PATH: "/usr/bin", ...browserEnv });
 
     const pathParts = env.PATH?.split(path.delimiter) ?? [];
-    assert.ok(pathParts.includes(binDir));
+    assert.ok(pathParts.includes(engineDir));
   });
 });
 

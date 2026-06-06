@@ -17,7 +17,7 @@ const config = {
     defaultTimeout: 25_000,
     engine: "chrome",
     lightpanda: {
-      executablePath: "./bin",
+      executablePath: "./.pqa/engine",
       telemetry: false,
     },
   },

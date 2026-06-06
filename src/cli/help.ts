@@ -238,7 +238,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         summary: "Install Lightpanda browser binary",
         usage: "pqa install-browser lightpanda",
         description:
-          "Downloads the Lightpanda binary into `./bin/` in the current project (same path the bundled config uses). Agent bash sessions pick it up automatically when browser.engine is lightpanda.",
+          "Downloads the Lightpanda binary into `./.pqa/engine/` in the current project (same path the bundled config uses). Agent bash sessions pick it up automatically when browser.engine is lightpanda.",
       },
     ],
   },
