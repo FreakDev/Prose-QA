@@ -18,12 +18,12 @@ Unknown keys are rejected; only properties that exist in the bundled reference c
 
 ```json
 {
-  "envVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
-  "sensitiveEnvVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
   "llm": {
     "provider": "anthropic",
     "model": "claude-sonnet-4-20250514"
   },
+  "envVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
+  "sensitiveEnvVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
   "auth": {
     "admin": {
       "scenario": "login-admin",
@@ -108,20 +108,20 @@ Default browser behavior for scenario runs (overridable per run with `--headed` 
 
 Agent skill discovery and preloading ([agentskills.io](https://agentskills.io/) `SKILL.md` format). The vendored **core** skill (`skills/agent-browser/`) is always loaded into the system prompt — it does not need to appear in `preloads`.
 
-| Key        | Type     | Default              | Description                                                                                              |
-| ---------- | -------- | -------------------- | -------------------------------------------------------------------------------------------------------- |
-| `dirs`     | string[] | `[".pqa/skills"]`    | Directories scanned for custom `SKILL.md` files. Relative paths resolve like bundled assets. Can be `[]` |
-| `preloads` | string[] | `[]`                 | Extra skill names always appended to the system prompt (the vendored `core` skill is always loaded)      |
+| Key        | Type     | Default           | Description                                                                                              |
+| ---------- | -------- | ----------------- | -------------------------------------------------------------------------------------------------------- |
+| `dirs`     | string[] | `[".pqa/skills"]` | Directories scanned for custom `SKILL.md` files. Relative paths resolve like bundled assets. Can be `[]` |
+| `preloads` | string[] | `[]`              | Extra skill names always appended to the system prompt (the vendored `core` skill is always loaded)      |
 
 #### `skills.onDemand` (object, optional)
 
 Lazy loading for the vendored agent-browser skill. The full skill package (references, templates, bundled skills) is synced at install via `scripts/sync-skills.mjs`, but only the **minimal** `core` body is injected into the system prompt.
 
-| Key        | Type    | Default  | Description                                                                 |
-| ---------- | ------- | -------- | --------------------------------------------------------------------------- |
-| `enabled`  | boolean | `true`   | Expose the `load_skill` tool and on-demand catalog in the system prompt     |
-| `autoLoad` | boolean | `true`   | Harness auto-injects context-aware references (e.g. `authentication` for auth scenarios) |
-| `maxChars` | number  | `50000`  | Max characters returned per `load_skill` call                               |
+| Key        | Type    | Default | Description                                                                              |
+| ---------- | ------- | ------- | ---------------------------------------------------------------------------------------- |
+| `enabled`  | boolean | `true`  | Expose the `load_skill` tool and on-demand catalog in the system prompt                  |
+| `autoLoad` | boolean | `true`  | Harness auto-injects context-aware references (e.g. `authentication` for auth scenarios) |
+| `maxChars` | number  | `50000` | Max characters returned per `load_skill` call                                            |
 
 Custom skills discovered under `skills.dirs` (but not listed in `skills.preloads` or scenario frontmatter) appear in the on-demand catalog and load via `load_skill` with `kind=custom` (or `kind=skill` as fallback).
 
