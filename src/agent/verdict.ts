@@ -1,15 +1,45 @@
-import type { ModelMessage } from "ai";
+import type { LanguageModelUsage, ModelMessage } from "ai";
 import {
   VerdictSchema,
   type AgentTranscript,
   type BashEntry,
   type HealingMeta,
   type ParsedVerdict,
+  type TokenUsageStats,
   type TranscriptBashEntry,
   type TranscriptMessageEntry,
   type Verdict,
   type VerdictStats,
 } from "../types/verdict.js";
+
+export function emptyTokenUsage(): TokenUsageStats {
+  return { input: 0, output: 0 };
+}
+
+function cachedTokensFromUsage(usage: LanguageModelUsage): number | undefined {
+  return (
+    usage.inputTokenDetails?.cacheReadTokens ?? usage.cachedInputTokens
+  );
+}
+
+export function addLanguageModelUsage(
+  acc: TokenUsageStats,
+  usage: LanguageModelUsage | undefined,
+): TokenUsageStats {
+  if (!usage) return acc;
+
+  const next: TokenUsageStats = {
+    input: acc.input + (usage.inputTokens ?? 0),
+    output: acc.output + (usage.outputTokens ?? 0),
+  };
+  const stepCached = cachedTokensFromUsage(usage);
+  if (stepCached !== undefined) {
+    next.cached = (acc.cached ?? 0) + stepCached;
+  } else if (acc.cached !== undefined) {
+    next.cached = acc.cached;
+  }
+  return next;
+}
 
 /** Drop the last assistant turn (and trailing tool results) so the model can redo that completion. */
 export function stripLastAssistantTurn(messages: ModelMessage[]): ModelMessage[] {
@@ -63,6 +93,7 @@ export function extractVerdict(text: string): ParsedVerdict | null {
 export interface TranscriptStatsOptions {
   durationMs?: number;
   healing?: HealingMeta;
+  tokens?: TokenUsageStats;
 }
 
 export function computeTranscriptStats(
@@ -110,6 +141,15 @@ export function computeTranscriptStats(
     };
   }
 
+  if (
+    options.tokens &&
+    (options.tokens.input > 0 ||
+      options.tokens.output > 0 ||
+      (options.tokens.cached ?? 0) > 0)
+  ) {
+    stats.tokens = options.tokens;
+  }
+
   return stats;
 }
 
@@ -119,9 +159,13 @@ export function enrichVerdictWithStats(
   options: TranscriptStatsOptions = {},
 ): Verdict | null {
   if (!verdict) return null;
+  const existingTokens = "stats" in verdict ? verdict.stats?.tokens : undefined;
   return {
     ...verdict,
-    stats: computeTranscriptStats(transcript, options),
+    stats: computeTranscriptStats(transcript, {
+      ...options,
+      tokens: options.tokens ?? existingTokens,
+    }),
   };
 }
 

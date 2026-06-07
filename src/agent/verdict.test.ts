@@ -2,10 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ModelMessage } from "ai";
 import type { AgentTranscript } from "../types/verdict.js";
+import type { LanguageModelUsage } from "ai";
 import {
+  addLanguageModelUsage,
   appendFinalTextToTranscript,
   appendStepToTranscript,
   computeTranscriptStats,
+  emptyTokenUsage,
   enrichVerdictWithStats,
   formatStepForTranscript,
   stripLastAssistantTurn,
@@ -127,6 +130,50 @@ describe("appendFinalTextToTranscript", () => {
   });
 });
 
+describe("addLanguageModelUsage", () => {
+  it("accumulates input and output tokens across LLM calls", () => {
+    const first: LanguageModelUsage = {
+      inputTokens: 100,
+      outputTokens: 50,
+      inputTokenDetails: {
+        noCacheTokens: 100,
+        cacheReadTokens: undefined,
+        cacheWriteTokens: undefined,
+      },
+      outputTokenDetails: {
+        textTokens: 50,
+        reasoningTokens: undefined,
+      },
+      totalTokens: 150,
+    };
+    const second: LanguageModelUsage = {
+      inputTokens: 200,
+      outputTokens: 75,
+      inputTokenDetails: {
+        noCacheTokens: 150,
+        cacheReadTokens: 50,
+        cacheWriteTokens: undefined,
+      },
+      outputTokenDetails: {
+        textTokens: 75,
+        reasoningTokens: undefined,
+      },
+      totalTokens: 275,
+    };
+
+    const total = addLanguageModelUsage(
+      addLanguageModelUsage(emptyTokenUsage(), first),
+      second,
+    );
+
+    assert.deepEqual(total, {
+      input: 300,
+      output: 125,
+      cached: 50,
+    });
+  });
+});
+
 describe("computeTranscriptStats", () => {
   it("counts LLM turns, user turns, tool calls, and durations from the transcript", () => {
     const transcript: AgentTranscript = {
@@ -171,6 +218,19 @@ describe("computeTranscriptStats", () => {
       failedToolCalls: 0,
       llmDurationMs: 8000,
       bashDurationMs: 200,
+    });
+  });
+
+  it("includes token usage when provided", () => {
+    const transcript: AgentTranscript = { entries: [] };
+    const stats = computeTranscriptStats(transcript, {
+      tokens: { input: 12_000, output: 800, cached: 4_000 },
+    });
+
+    assert.deepEqual(stats.tokens, {
+      input: 12_000,
+      output: 800,
+      cached: 4_000,
     });
   });
 
@@ -219,6 +279,36 @@ describe("enrichVerdictWithStats", () => {
     assert.equal(enriched?.status, "pass");
     assert.equal(enriched?.stats?.llmTurns, 1);
     assert.equal(enriched?.stats?.durationMs, 500);
+  });
+
+  it("preserves existing token stats when options omit tokens", () => {
+    const transcript: AgentTranscript = { entries: [] };
+
+    const enriched = enrichVerdictWithStats(
+      {
+        status: "pass",
+        checkpoints: [],
+        summary: "ok",
+        stats: {
+          durationMs: 500,
+          llmTurns: 1,
+          userTurns: 0,
+          toolCalls: 0,
+          failedToolCalls: 0,
+          llmDurationMs: 100,
+          bashDurationMs: 0,
+          tokens: { input: 900, output: 120, cached: 300 },
+        },
+      },
+      transcript,
+      { durationMs: 500 },
+    );
+
+    assert.deepEqual(enriched?.stats?.tokens, {
+      input: 900,
+      output: 120,
+      cached: 300,
+    });
   });
 });
 

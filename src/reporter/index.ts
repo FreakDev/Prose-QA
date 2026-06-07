@@ -64,6 +64,7 @@ export function writeScenarioTranscript(
       enrichVerdictWithStats(safe.verdict, safe.transcript, {
         durationMs: safe.durationMs,
         healing: safe.healing,
+        tokens: safe.verdict.stats?.tokens,
       }) ?? safe.verdict;
     writeFileSync(
       path.join(artifactDir, "verdict.json"),

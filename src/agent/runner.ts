@@ -38,14 +38,17 @@ import {
 import { buildVerdictRetryPrompt } from "./verdict-retry-prompt.js";
 import { persistTranscript } from "./transcript-persist.js";
 import {
+  addLanguageModelUsage,
   appendFinalTextToTranscript,
   appendStepToTranscript,
   appendTranscriptMessage,
+  emptyTokenUsage,
   enrichVerdictWithStats,
   extractVerdict,
   formatStepForTranscript,
   stripLastAssistantTurn,
 } from "./verdict.js";
+import type { TokenUsageStats } from "../types/verdict.js";
 import { resolveStatePath } from "../auth/store.js";
 import type { EnvRedactor } from "../redact/env-secrets.js";
 import { createLlmModel } from "./llm-model.js";
@@ -62,6 +65,7 @@ function finalizeVerdict(
     durationMs: number;
     healing?: HealingMeta;
     redactor?: EnvRedactor;
+    tokens?: TokenUsageStats;
   },
 ): Verdict | null {
   const redacted = options.redactor
@@ -70,6 +74,7 @@ function finalizeVerdict(
   return enrichVerdictWithStats(redacted, transcript, {
     durationMs: options.durationMs,
     healing: options.healing,
+    tokens: options.tokens,
   });
 }
 
@@ -117,11 +122,13 @@ async function retryVerdictCompletion(options: {
   }) => Promise<void>;
   finalText: string;
   stepTiming: { startMs: number };
+  tokenUsage: TokenUsageStats;
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   finalText: string;
+  tokenUsage: TokenUsageStats;
 }> {
-  let { result, finalText } = options;
+  let { result, finalText, tokenUsage } = options;
 
   for (
     let attempt = 0;
@@ -148,6 +155,7 @@ async function retryVerdictCompletion(options: {
       stopWhen: stepCountIs(VERDICT_RETRY_MAX_STEPS),
       onStepFinish: options.onStepFinish,
     });
+    tokenUsage = addLanguageModelUsage(tokenUsage, result.totalUsage);
 
     finalText = result.text || finalText;
     appendFinalTextToTranscript(
@@ -161,7 +169,7 @@ async function retryVerdictCompletion(options: {
     persistTranscript(options.runOptions, options.transcript);
   }
 
-  return { result, finalText };
+  return { result, finalText, tokenUsage };
 }
 
 export async function runScenario(
@@ -206,6 +214,7 @@ export async function runScenario(
 
   let finalText = "";
   let turn = 0;
+  let tokenUsage = emptyTokenUsage();
   const stepTiming = { startMs: Date.now() };
   const pendingBashEntries: BashEntry[] = [];
 
@@ -372,6 +381,7 @@ export async function runScenario(
       stopWhen: stepCountIs(options.config.agent.maxTurns),
       onStepFinish,
     })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
+    tokenUsage = addLanguageModelUsage(tokenUsage, result.totalUsage);
 
     finalText = result.text || finalText;
     appendFinalTextToTranscript(
@@ -382,7 +392,7 @@ export async function runScenario(
     stepTiming.startMs = Date.now();
     persistTranscript(options, transcript);
 
-    ({ result, finalText } = await retryVerdictCompletion({
+    ({ result, finalText, tokenUsage } = await retryVerdictCompletion({
       config: options.config,
       system,
       providerOptions,
@@ -392,6 +402,7 @@ export async function runScenario(
       onStepFinish,
       finalText,
       stepTiming,
+      tokenUsage,
     }));
 
     let verdict = extractVerdict(finalText);
@@ -411,6 +422,7 @@ export async function runScenario(
         durationMs: Date.now() - start,
         healing: healingMeta,
         redactor: options.redactor,
+        tokens: tokenUsage,
       }),
       transcript,
       artifactDir: options.artifactDir,
@@ -456,6 +468,7 @@ export async function runScenario(
             stopWhen: stepCountIs(options.config.agent.maxTurns),
             onStepFinish,
           })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
+          tokenUsage = addLanguageModelUsage(tokenUsage, result.totalUsage);
 
           finalText = result.text || finalText;
           appendFinalTextToTranscript(
@@ -466,7 +479,7 @@ export async function runScenario(
           stepTiming.startMs = Date.now();
           persistTranscript(options, transcript);
 
-          ({ result, finalText } = await retryVerdictCompletion({
+          ({ result, finalText, tokenUsage } = await retryVerdictCompletion({
             config: options.config,
             system,
             providerOptions,
@@ -476,6 +489,7 @@ export async function runScenario(
             onStepFinish,
             finalText,
             stepTiming,
+            tokenUsage,
           }));
           verdict = extractVerdict(finalText);
 
@@ -488,6 +502,7 @@ export async function runScenario(
               durationMs: Date.now() - start,
               healing: healingMeta,
               redactor: options.redactor,
+              tokens: tokenUsage,
             }),
             error: verdict
               ? undefined

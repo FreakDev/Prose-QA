@@ -64,6 +64,16 @@ describe("writeScenarioTranscript", () => {
           },
         ],
         summary: "All checkpoints passed",
+        stats: {
+          durationMs: 12_750,
+          llmTurns: 1,
+          userTurns: 1,
+          toolCalls: 1,
+          failedToolCalls: 0,
+          llmDurationMs: 5000,
+          bashDurationMs: 200,
+          tokens: { input: 42_000, output: 1_200, cached: 10_000 },
+        },
       },
       transcript: {
         entries: [
@@ -106,6 +116,7 @@ describe("writeScenarioTranscript", () => {
         llmTurns: number;
         userTurns: number;
         toolCalls: number;
+        tokens?: { input: number; output: number; cached?: number };
       };
     };
 
@@ -113,6 +124,11 @@ describe("writeScenarioTranscript", () => {
     assert.equal(written.stats.llmTurns, 1);
     assert.equal(written.stats.userTurns, 1);
     assert.equal(written.stats.toolCalls, 1);
+    assert.deepEqual(written.stats.tokens, {
+      input: 42_000,
+      output: 1_200,
+      cached: 10_000,
+    });
   });
 });
 

@@ -13,6 +13,12 @@ export const VerdictSchema = z.object({
   summary: z.string(),
 });
 
+export const TokenUsageStatsSchema = z.object({
+  input: z.number(),
+  output: z.number(),
+  cached: z.number().optional(),
+});
+
 export const VerdictStatsSchema = z.object({
   durationMs: z.number(),
   llmTurns: z.number(),
@@ -21,6 +27,7 @@ export const VerdictStatsSchema = z.object({
   failedToolCalls: z.number(),
   llmDurationMs: z.number(),
   bashDurationMs: z.number(),
+  tokens: TokenUsageStatsSchema.optional(),
   healing: z
     .object({
       used: z.boolean(),
@@ -33,6 +40,7 @@ export const VerdictStatsSchema = z.object({
 export type CheckpointResult = z.infer<typeof CheckpointResultSchema>;
 /** Parsed agent verdict (LLM output). */
 export type ParsedVerdict = z.infer<typeof VerdictSchema>;
+export type TokenUsageStats = z.infer<typeof TokenUsageStatsSchema>;
 export type VerdictStats = z.infer<typeof VerdictStatsSchema>;
 /** Harness-enriched verdict written to verdict.json and report.json. */
 export type Verdict = ParsedVerdict & { stats?: VerdictStats };
