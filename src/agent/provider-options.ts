@@ -31,18 +31,11 @@ function resolveOpenAIReasoningEffort(config: PqaConfig): LlmReasoningEffort {
 type GeminiThinkingLevel = "minimal" | "low" | "medium" | "high";
 
 function geminiThinkingLevel(
-  reasoningEffort: LlmReasoningEffort | undefined,
-  budgetTokens: number,
+  reasoningEffort: Exclude<LlmReasoningEffort, "none">,
 ): GeminiThinkingLevel {
-  if (reasoningEffort != null && reasoningEffort !== "none") {
-    if (reasoningEffort === "xhigh") return "high";
-    if (reasoningEffort === "minimal") return "minimal";
-    return reasoningEffort;
-  }
-  if (budgetTokens <= 2_000) return "minimal";
-  if (budgetTokens <= 5_000) return "low";
-  if (budgetTokens <= 10_000) return "medium";
-  return "high";
+  if (reasoningEffort === "xhigh") return "high";
+  if (reasoningEffort === "minimal") return "minimal";
+  return reasoningEffort;
 }
 
 /** Map config effort to Anthropic `effort` (none/minimal are omitted). */
@@ -72,7 +65,7 @@ export function buildProviderOptions(
   }
 
   const budget = thinkingBudget(config);
-  const reasoningEffort = config.llm.thinking?.reasoningEffort;
+  const reasoningEffort = config.llm.thinking?.reasoningEffort ?? "none";
 
   switch (config.llm.provider) {
     case "anthropic": {
@@ -97,16 +90,20 @@ export function buildProviderOptions(
           thinking: { type: "enabled", budgetTokens: budget },
         },
       };
-    case "google":
+    case "google": {
+      const thinkingLevel =
+        reasoningEffort !== "none"
+          ? geminiThinkingLevel(reasoningEffort)
+          : undefined;
       return {
         google: {
           thinkingConfig: {
             includeThoughts: true,
-            thinkingBudget: budget,
-            thinkingLevel: geminiThinkingLevel(reasoningEffort, budget),
+            ...(thinkingLevel != null && { thinkingLevel }),
           },
         },
       };
+    }
     case "ollama":
       return {
         ollama: { think: true },
@@ -114,9 +111,10 @@ export function buildProviderOptions(
     case "openrouter":
       return {
         openrouter: {
-          reasoning: reasoningEffort
-            ? { effort: reasoningEffort }
-            : { max_tokens: budget },
+          reasoning:
+            reasoningEffort !== "none"
+              ? { effort: reasoningEffort }
+              : { max_tokens: budget },
         },
       };
     default:

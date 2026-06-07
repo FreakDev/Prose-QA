@@ -76,7 +76,7 @@ export interface PqaConfig {
     model?: string;
     /**
      * Extended thinking / reasoning (opt-in).
-     * `budgetTokens`: Anthropic, Fireworks, Google & OpenRouter reasoning budget.
+     * `budgetTokens`: Anthropic, Fireworks & OpenRouter reasoning budget (ignored for Google).
      * `reasoningEffort`: OpenAI reasoning effort; Anthropic effort; Google thinking level (mapped); OpenRouter reasoning effort.
      * Ollama: `think` only (other fields ignored).
      */

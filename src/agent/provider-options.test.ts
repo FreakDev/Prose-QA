@@ -135,7 +135,7 @@ describe("buildProviderOptions", () => {
     );
   });
 
-  it("enables google thinking config", () => {
+  it("enables google thinking config with explicit reasoningEffort", () => {
     assert.deepEqual(
       buildProviderOptions(
         config("google", {
@@ -148,11 +148,30 @@ describe("buildProviderOptions", () => {
         google: {
           thinkingConfig: {
             includeThoughts: true,
-            thinkingBudget: 8_000,
             thinkingLevel: "high",
           },
         },
       },
+    );
+  });
+
+  it("omits google thinkingLevel when reasoningEffort is none or unset", () => {
+    const expected = {
+      google: {
+        thinkingConfig: {
+          includeThoughts: true,
+        },
+      },
+    };
+    assert.deepEqual(
+      buildProviderOptions(config("google", { enabled: true })),
+      expected,
+    );
+    assert.deepEqual(
+      buildProviderOptions(
+        config("google", { enabled: true, reasoningEffort: "none" }),
+      ),
+      expected,
     );
   });
 
