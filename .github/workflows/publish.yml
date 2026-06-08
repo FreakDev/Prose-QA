@@ -60,7 +60,7 @@ jobs:
         run: npm run build
 
       - name: Publish to npm
-        run: npm publish --tag ${{ github.event_name == 'workflow_dispatch' && inputs.dist-tag || 'beta' }} --access public
+        run: npm publish --tag ${{ github.event_name == 'workflow_dispatch' && inputs['dist-tag'] || 'beta' }} --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -71,5 +71,6 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json
           git commit -m "chore: release v${{ steps.version.outputs.version }}"
-          git tag v${{ steps.version.outputs.version }}
+          git tag "v${{ steps.version.outputs.version }}"
+          git push
           git push --tags
