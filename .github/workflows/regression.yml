@@ -1,4 +1,4 @@
-name: Regression
+name: CI
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  regression:
+  ci:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,14 +20,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify skill lock
+      - name: Sync vendored skills
         run: npm run skills:sync
-
-      - name: Install browser
-        run: npx agent-browser install --with-deps
 
       - name: Build
         run: npm run build
+
+      - name: Unit tests
+        run: npm test
 
       - name: Skill drift check
         run: |
@@ -37,16 +37,51 @@ jobs:
           if (msg) { console.error(msg); process.exit(1); }
           "
 
-      - name: Run smoke scenarios
+  e2e:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync vendored skills
+        run: npm run skills:sync
+
+      - name: Install browser
+        run: npx agent-browser install --with-deps
+
+      - name: Build
+        run: npm run build
+
+      - name: Start static server
+        run: |
+          npx --yes serve -l 8080 . &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:8080/ >/dev/null && break
+            sleep 1
+          done
+
+      - name: Run example smoke scenario
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          SAQ_BASE_URL: ${{ vars.SAQ_BASE_URL || 'https://example.com' }}
-        run: node dist/cli/index.js run scenarios/example-smoke.md --tags smoke
-        continue-on-error: true
+          PQA_LLM_PROVIDER: anthropic
+        run: |
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Skipping E2E — ANTHROPIC_API_KEY secret not configured"
+            exit 0
+          fi
+          node dist/cli/index.js run scenarios/example-smoke.md
 
       - name: Upload artifacts
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: saq-runs
-          path: .saq/runs/
+          name: pqa-runs
+          path: .pqa/runs/

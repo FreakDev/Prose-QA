@@ -16,6 +16,16 @@ export const VerdictSchema = z.object({
 export type CheckpointResult = z.infer<typeof CheckpointResultSchema>;
 export type Verdict = z.infer<typeof VerdictSchema>;
 
+export type FailureKind = "transient" | "scenario_issue" | "product" | "unknown";
+
+export interface HealingMeta {
+  used: boolean;
+  recoveryTurns: number;
+  scenarioRetries: number;
+  failureKind?: FailureKind;
+  signals?: string[];
+}
+
 export interface BashEntry {
   command: string;
   stdout: string;
@@ -24,32 +34,46 @@ export interface BashEntry {
   durationMs: number;
 }
 
+export interface TranscriptMessageEntry {
+  type: "message";
+  role: string;
+  /** Extended thinking / reasoning from the LLM, when available. */
+  thinking?: string;
+  content: string;
+}
+
+export interface TranscriptBashEntry extends BashEntry {
+  type: "bash";
+}
+
+export type TranscriptEntry = TranscriptMessageEntry | TranscriptBashEntry;
+
 export interface AgentTranscript {
-  messages: Array<{ role: string; content: string }>;
-  bash: BashEntry[];
+  entries: TranscriptEntry[];
 }
 
 export interface ScenarioResult {
   scenario: string;
   filePath: string;
-  status: "pass" | "fail" | "error";
+  status: "pass" | "fail" | "error" | "skipped";
   durationMs: number;
   verdict: Verdict | null;
   transcript: AgentTranscript;
   error?: string;
   artifactDir?: string;
+  healing?: HealingMeta;
 }
 
 export interface RunReport {
   runId: string;
   startedAt: string;
   finishedAt: string;
-  baseUrl: string;
   results: ScenarioResult[];
   summary: {
     total: number;
     passed: number;
     failed: number;
     errors: number;
+    skipped: number;
   };
 }

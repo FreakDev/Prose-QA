@@ -1,4 +1,5 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import matter from "gray-matter";
 import type {
   ParsedCheckpoint,
@@ -9,7 +10,50 @@ import type {
 const SECTION_HEADERS = ["goal", "steps", "then"] as const;
 type SectionName = (typeof SECTION_HEADERS)[number];
 
-function parseCheckpoints(lines: string[]): ParsedCheckpoint[] {
+function stripInlineYamlComment(line: string): string {
+  let inSingle = false;
+  let inDouble = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === "'" && !inDouble) inSingle = !inSingle;
+    else if (ch === '"' && !inSingle) inDouble = !inDouble;
+    else if (
+      ch === "#" &&
+      !inSingle &&
+      !inDouble &&
+      (i === 0 || /\s/.test(line[i - 1]!))
+    ) {
+      return line.slice(0, i).trimEnd();
+    }
+  }
+  return line;
+}
+
+function stripYamlComments(yaml: string): string {
+  return yaml
+    .split("\n")
+    .map((line) => {
+      if (/^\s*#/.test(line)) return "";
+      return stripInlineYamlComment(line);
+    })
+    .join("\n");
+}
+
+function stripBodyComments(body: string): string {
+  return body.replace(/<!--[\s\S]*?-->/g, "");
+}
+
+export function stripScenarioComments(raw: string): string {
+  const fmMatch = /^---\r?\n([\s\S]*?)\r?\n---/.exec(raw);
+  if (!fmMatch) {
+    return stripBodyComments(raw);
+  }
+  const frontmatter = stripYamlComments(fmMatch[1]!);
+  const body = stripBodyComments(raw.slice(fmMatch[0].length));
+  return `---\n${frontmatter}\n---${body}`;
+}
+
+export function parseCheckpoints(lines: string[]): ParsedCheckpoint[] {
   return lines.map((raw) => {
     const trimmed = raw.replace(/^-\s*/, "").trim();
     const urlMatch = /^url contains ["'](.+?)["']$/i.exec(trimmed);
@@ -30,6 +74,87 @@ function parseCheckpoints(lines: string[]): ParsedCheckpoint[] {
     }
     return { raw: trimmed, kind: "unknown" as const };
   });
+}
+
+const MARKDOWN_LINK_RE =
+  /\[([^\]]*)\]\(([^)\s]+)(?:\s+["'][^"']*["'])?\)/g;
+
+function isScenarioMarkdownLink(target: string): boolean {
+  if (/^[a-z][a-z0-9+.-]*:/i.test(target)) return false;
+  return /\.md$/i.test(target);
+}
+
+function resolveScenarioLinkPath(fromFilePath: string, target: string): string {
+  return path.isAbsolute(target)
+    ? path.normalize(target)
+    : path.resolve(path.dirname(fromFilePath), target);
+}
+
+function normalizeSkillNames(value: unknown): string[] {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value.map(String).filter(Boolean);
+  }
+  if (typeof value === "string") return [value];
+  return [];
+}
+
+function appendSkillNames(collected: string[], names: string[]): void {
+  const seen = new Set(collected);
+  for (const name of names) {
+    if (seen.has(name)) continue;
+    seen.add(name);
+    collected.push(name);
+  }
+}
+
+function readLinkedScenarioBody(
+  targetPath: string,
+  visiting: Set<string>,
+  collectedSkills: string[],
+): string {
+  const resolved = path.resolve(targetPath);
+  if (visiting.has(resolved)) {
+    const chain = [...visiting, resolved].join(" -> ");
+    throw new Error(`Circular scenario include: ${chain}`);
+  }
+  if (!existsSync(resolved)) {
+    throw new Error(`Scenario link target not found: ${targetPath}`);
+  }
+
+  visiting.add(resolved);
+  try {
+    const raw = stripScenarioComments(readFileSync(resolved, "utf-8"));
+    const { data, content } = matter(raw);
+    const linkedFrontmatter = data as ScenarioFrontmatter;
+    appendSkillNames(collectedSkills, normalizeSkillNames(linkedFrontmatter.skills));
+    return expandScenarioLinks(content, resolved, visiting, collectedSkills);
+  } finally {
+    visiting.delete(resolved);
+  }
+}
+
+export function expandScenarioLinks(
+  body: string,
+  fromFilePath: string,
+  visiting: Set<string> = new Set(),
+  collectedSkills: string[] = [],
+): string {
+  const resolvedFrom = path.resolve(fromFilePath);
+  if (!visiting.has(resolvedFrom)) {
+    visiting.add(resolvedFrom);
+  }
+
+  return body.replace(MARKDOWN_LINK_RE, (match, _label, target: string) => {
+    if (!isScenarioMarkdownLink(target)) return match;
+
+    const linkedPath = resolveScenarioLinkPath(fromFilePath, target);
+    return readLinkedScenarioBody(linkedPath, visiting, collectedSkills);
+  });
+}
+
+export function isRunnableScenario(scenario: Scenario): boolean {
+  return !scenario.frontmatter.partial;
 }
 
 function extractSections(body: string): Record<SectionName, string> {
@@ -59,15 +184,24 @@ function extractSections(body: string): Record<SectionName, string> {
 }
 
 export function parseScenarioFile(filePath: string): Scenario {
-  const raw = readFileSync(filePath, "utf-8");
+  const resolvedPath = path.resolve(filePath);
+  const raw = stripScenarioComments(readFileSync(resolvedPath, "utf-8"));
   const { data, content } = matter(raw);
   const frontmatter = data as ScenarioFrontmatter;
 
   if (!frontmatter.name) {
-    throw new Error(`Scenario ${filePath} missing 'name' in frontmatter`);
+    throw new Error(`Scenario ${resolvedPath} missing 'name' in frontmatter`);
   }
 
-  const sections = extractSections(content);
+  const collectedSkills: string[] = [];
+  appendSkillNames(collectedSkills, normalizeSkillNames(frontmatter.skills));
+  const expandedBody = expandScenarioLinks(
+    content,
+    resolvedPath,
+    new Set(),
+    collectedSkills,
+  );
+  const sections = extractSections(expandedBody);
   const thenLines = sections.then
     .split("\n")
     .map((l) => l.trim())
@@ -76,12 +210,14 @@ export function parseScenarioFile(filePath: string): Scenario {
   const checkpoints = parseCheckpoints(thenLines);
 
   return {
-    filePath,
+    filePath: resolvedPath,
     frontmatter,
+    skills: collectedSkills,
     goal: sections.goal.trim(),
     steps: sections.steps.trim(),
     then: checkpoints.map((c) => c.raw),
     rawCheckpoints: thenLines,
+    checkpoints,
   };
 }
 
@@ -91,7 +227,11 @@ export function formatScenarioForPrompt(scenario: Scenario): string {
       ? scenario.then.map((t) => `- ${t}`).join("\n")
       : "(none)";
 
-  return `# Scenario: ${scenario.frontmatter.name}
+  const urlLine = scenario.frontmatter.url
+    ? `\nStart URL: ${scenario.frontmatter.url}`
+    : "";
+
+  return `# Scenario: ${scenario.frontmatter.name}${urlLine}
 
 ## Goal
 ${scenario.goal || "(none)"}

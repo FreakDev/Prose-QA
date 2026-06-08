@@ -3,6 +3,7 @@ import path from "node:path";
 import { createHash } from "node:crypto";
 import { readdirSync, statSync } from "node:fs";
 import type { SkillsLock } from "../types/config.js";
+import { resolveBundledPath } from "../paths.js";
 
 export function hashSkillDirectory(dir: string): string {
   const hash = createHash("sha256");
@@ -24,8 +25,11 @@ export function hashSkillDirectory(dir: string): string {
 }
 
 export function verifyLockDrift(cwd: string): string | null {
-  const lockPath = path.join(cwd, "skills.lock.json");
-  const skillDir = path.join(cwd, "skills", "agent-browser");
+  const lockPath = resolveBundledPath(cwd, "skills.lock.json");
+  const skillDir = path.join(
+    resolveBundledPath(cwd, "skills"),
+    "agent-browser",
+  );
   if (!existsSync(lockPath) || !existsSync(skillDir)) return null;
 
   const lock = JSON.parse(readFileSync(lockPath, "utf-8")) as SkillsLock;

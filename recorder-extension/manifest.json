@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "Prose-QA Recorder",
+  "version": "0.1.0",
+  "description": "Record browser actions for Prose-QA scenario generation",
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "PQA Recorder"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"],
+      "run_at": "document_start",
+      "all_frames": false
+    }
+  ]
+}

@@ -1,7 +1,14 @@
 node_modules/
 dist/
-.saq/
+.pqa/
 *.log
 .DS_Store
 .env
 .env.*
+!.env.example
+
+scenarios/*
+!scenarios/example-smoke.md
+!scenarios/example-authenticated.md
+!scenarios/auth/
+!scenarios/auth/login-admin.md

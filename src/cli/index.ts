@@ -1,20 +1,45 @@
 #!/usr/bin/env node
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import { loadEnv } from "../config/env.js";
 import {
   executeRun,
+  executeScenarioWorker,
   executeAuthSave,
+  executeAuthList,
+  executeAuthClear,
   executeSkillsSync,
   executeSkillsList,
   executeSkillsShow,
 } from "./run.js";
+import { executeAnalyze } from "./analyze.js";
+import {
+  executeRecordStart,
+  executeRecordStop,
+  executeRecordNoteAsync,
+  executeRecordCheckpointAsync,
+  executeRecordGenerate,
+} from "./record.js";
 import type { RunOptions } from "../types/config.js";
+import { executeHelp } from "./help.js";
+import { executeConfig } from "./config.js";
 
 loadEnv();
 
+function parseParallel(value: string | true | undefined): number {
+  if (value === true || value === undefined || value === "") {
+    return Number.POSITIVE_INFINITY;
+  }
+  const n = parseInt(value, 10);
+  if (Number.isNaN(n) || n < 1) {
+    throw new InvalidArgumentError(
+      "--parallel requires a positive integer when a value is provided",
+    );
+  }
+  return n;
+}
+
 function baseRunOptions(opts: {
   config?: string;
-  baseUrl?: string;
   tags?: string[];
   skillsDir?: string[];
   verbose?: boolean;
@@ -22,10 +47,19 @@ function baseRunOptions(opts: {
   artifacts?: string;
   headed?: boolean;
   pause?: boolean;
+  parallel?: number;
+  failFast?: boolean;
+  authRefresh?: boolean;
+  keepBrowser?: boolean;
+  noHealing?: boolean;
+  retriesPolicy?: string;
 }): RunOptions {
+  const retriesPolicy =
+    opts.retriesPolicy === "always" || opts.retriesPolicy === "transient"
+      ? opts.retriesPolicy
+      : undefined;
   return {
     configPath: opts.config,
-    baseUrl: opts.baseUrl,
     tags: opts.tags,
     skillsDirs: opts.skillsDir,
     verbose: opts.verbose,
@@ -33,22 +67,71 @@ function baseRunOptions(opts: {
     artifacts: (opts.artifacts as RunOptions["artifacts"]) ?? "on-failure",
     headed: opts.headed,
     pause: opts.pause,
+    parallel: opts.parallel,
+    failFast: opts.failFast ?? false,
+    authRefresh: opts.authRefresh,
+    keepBrowser: opts.keepBrowser,
+    noHealing: opts.noHealing,
+    retriesPolicy,
   };
 }
 
 const program = new Command();
 
 program
-  .name("saq")
-  .description("Agent harness for NL E2E regression testing")
+  .name("pqa")
+  .description("ProseQA — agent harness for NL E2E regression testing")
   .version("0.1.0");
+
+program
+  .command("_run-scenario", { hidden: true })
+  .description("Internal: run a single scenario in an isolated subprocess")
+  .requiredOption("--run-dir <path>", "Run artifact directory")
+  .requiredOption("--scenario <path>", "Absolute path to scenario markdown file")
+  .option("-c, --config <path>", "Config file path")
+  .option("--skills-dir <dirs>", "Extra skill dirs (comma-separated)", (v: string) =>
+    v.split(",").map((d) => d.trim()),
+  )
+  .option("--retries <n>", "Retries per failed scenario", "0")
+  .option(
+    "--retries-policy <policy>",
+    "Retry policy when healing is enabled: transient|always",
+    "transient",
+  )
+  .option("--no-healing", "Disable in-run recovery and transient-only retries")
+  .option(
+    "--artifacts <mode>",
+    "Artifact mode: on-failure|always|never",
+    "on-failure",
+  )
+  .option("--headed", "Run browser in headed mode")
+  .option("--keep-browser", "Leave browser open after scenario")
+  .option("--auth-refresh", "Re-run auth scenarios and refresh auth store")
+  .option("-v, --verbose", "Verbose output")
+  .action(async (opts) => {
+    const code = await executeScenarioWorker(opts.scenario, opts.runDir, {
+      configPath: opts.config,
+      skillsDirs: opts.skillsDir,
+      verbose: opts.verbose,
+      retries: opts.retries ? parseInt(opts.retries, 10) : 0,
+      artifacts: (opts.artifacts as RunOptions["artifacts"]) ?? "on-failure",
+      headed: opts.headed,
+      authRefresh: opts.authRefresh,
+      keepBrowser: opts.keepBrowser,
+      noHealing: opts.noHealing,
+      retriesPolicy:
+        opts.retriesPolicy === "always" || opts.retriesPolicy === "transient"
+          ? opts.retriesPolicy
+          : undefined,
+    });
+    process.exit(code);
+  });
 
 program
   .command("run")
   .description("Run E2E scenarios (CI mode)")
   .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
   .option("-c, --config <path>", "Config file path")
-  .option("--base-url <url>", "Target app base URL")
   .option("--tags <tags>", "Comma-separated scenario tags", (v: string) =>
     v.split(",").map((t) => t.trim()),
   )
@@ -57,11 +140,31 @@ program
   )
   .option("--retries <n>", "Retries per failed scenario", "0")
   .option(
+    "--retries-policy <policy>",
+    "Retry policy when healing is enabled: transient|always",
+    "transient",
+  )
+  .option("--no-healing", "Disable in-run recovery and transient-only retries")
+  .option(
     "--artifacts <mode>",
     "Artifact mode: on-failure|always|never",
     "on-failure",
   )
   .option("--headed", "Run browser in headed mode")
+  .option(
+    "--keep-browser",
+    "Leave browser open after each scenario (for local inspection)",
+  )
+  .option("--auth-refresh", "Re-run auth scenarios and refresh auth store")
+  .option(
+    "--parallel [n]",
+    "Run scenarios in parallel (optional max concurrency)",
+    parseParallel,
+  )
+  .option(
+    "--fail-fast",
+    "Stop remaining scenarios on first failure (default: run all)",
+  )
   .action(async (patterns: string[], opts) => {
     const code = await executeRun(patterns, baseRunOptions(opts));
     process.exit(code);
@@ -72,7 +175,6 @@ program
   .description("Run scenarios with verbose output (local debug)")
   .argument("[patterns...]", "Scenario glob patterns", ["scenarios/**/*.md"])
   .option("-c, --config <path>", "Config file path")
-  .option("--base-url <url>", "Target app base URL")
   .option("--tags <tags>", "Comma-separated scenario tags", (v: string) =>
     v.split(",").map((t) => t.trim()),
   )
@@ -80,9 +182,33 @@ program
     v.split(",").map((d) => d.trim()),
   )
   .option("--pause", "Pause between agent turns")
+  .option(
+    "--keep-browser",
+    "Leave browser open after each scenario (for local inspection)",
+  )
+  .option("--auth-refresh", "Re-run auth scenarios and refresh auth store")
   .option("--retries <n>", "Retries", "0")
+  .option(
+    "--retries-policy <policy>",
+    "Retry policy when healing is enabled: transient|always",
+    "transient",
+  )
+  .option("--no-healing", "Disable in-run recovery and transient-only retries")
+  .option(
+    "--parallel [n]",
+    "Run scenarios in parallel (optional max concurrency)",
+    parseParallel,
+  )
+  .option(
+    "--fail-fast",
+    "Stop remaining scenarios on first failure (default: run all)",
+  )
   .option("--no-headed", "Run browser headless")
   .action(async (patterns: string[], opts) => {
+    if (opts.pause && opts.parallel !== undefined) {
+      console.error("--pause and --parallel cannot be used together");
+      process.exit(2);
+    }
     const code = await executeRun(patterns, {
       ...baseRunOptions({
         ...opts,
@@ -129,17 +255,131 @@ skills
 const auth = program.command("auth").description("Authentication helpers");
 
 auth
-  .command("save <name> [loginUrl]")
-  .description("Interactive auth state save")
+  .command("list")
+  .description("List cached auth profiles in the auth store")
+  .action(() => {
+    process.exit(executeAuthList());
+  });
+
+auth
+  .command("clear [profile]")
+  .description("Clear cached auth state (all profiles or one profile)")
+  .action((profile?: string) => {
+    process.exit(executeAuthClear(profile));
+  });
+
+auth
+  .command("save <name>")
+  .description("Run the configured auth scenario and save state to the auth store")
   .option("-c, --config <path>", "Config file path")
   .option("-v, --verbose", "Verbose")
-  .action(async (name: string, loginUrl: string | undefined, opts) => {
-    const code = await executeAuthSave(name, loginUrl, {
+  .action(async (name: string, opts) => {
+    const code = await executeAuthSave(name, {
       configPath: opts.config,
       verbose: opts.verbose,
       artifacts: "never",
     });
     process.exit(code);
+  });
+
+const record = program.command("record").description("Record browser sessions and generate scenarios");
+
+record
+  .command("start")
+  .description("Start recording (headed agent-browser session)")
+  .option("-c, --config <path>", "Config file path")
+  .option("--url <url>", "URL to open when recording starts")
+  .option("--no-headed", "Run headless (not recommended)")
+  .option("--session <name>", "agent-browser session name")
+  .option("--connect <port>", "Connect to Chrome CDP port instead of launching", (v) =>
+    parseInt(v, 10),
+  )
+  .option("-v, --verbose", "Verbose browser output")
+  .action(async (opts) => {
+    const code = await executeRecordStart({
+      configPath: opts.config,
+      url: opts.url,
+      headed: opts.headed !== false,
+      session: opts.session,
+      connect: opts.connect,
+      verbose: opts.verbose,
+    });
+    process.exit(code);
+  });
+
+record
+  .command("note <text>")
+  .description("Add a free-form comment to the active recording")
+  .option("-c, --config <path>", "Config file path")
+  .action(async (text: string, opts) => {
+    process.exit(await executeRecordNoteAsync(text, opts.config));
+  });
+
+record
+  .command("checkpoint <text>")
+  .description("Add a checkpoint hint for the Then section")
+  .option("-c, --config <path>", "Config file path")
+  .action(async (text: string, opts) => {
+    process.exit(await executeRecordCheckpointAsync(text, opts.config));
+  });
+
+record
+  .command("stop")
+  .description("Stop recording and generate scenario markdown")
+  .option("-c, --config <path>", "Config file path")
+  .option("--name <name>", "Scenario name (kebab-case)")
+  .option("--out <path>", "Output markdown path")
+  .option("--no-generate", "Only save events, skip LLM generation")
+  .option("-v, --verbose", "Verbose")
+  .action(async (opts) => {
+    const code = await executeRecordStop({
+      configPath: opts.config,
+      name: opts.name,
+      out: opts.out,
+      skipGenerate: opts.noGenerate,
+      verbose: opts.verbose,
+    });
+    process.exit(code);
+  });
+
+record
+  .command("generate <recordingDir>")
+  .description("Generate scenario.md from a saved recording directory")
+  .option("-c, --config <path>", "Config file path")
+  .option("--name <name>", "Scenario name")
+  .option("--out <path>", "Output markdown path")
+  .action(async (recordingDir: string, opts) => {
+    const code = await executeRecordGenerate(recordingDir, {
+      configPath: opts.config,
+      name: opts.name,
+      out: opts.out,
+    });
+    process.exit(code);
+  });
+
+program
+  .command("config <key> <value>")
+  .description("Set a value in pqa.config.json (creates the file if missing)")
+  .action(async (key: string, value: string) => {
+    process.exit(await executeConfig(key, value));
+  });
+
+program
+  .command("analyze [runPathOrId]")
+  .description("Analyze a run (heuristics + LLM) and review fixes interactively")
+  .option("--config <path>", "Path to pqa.config file")
+  .action(async (runPathOrId: string | undefined, opts) => {
+    const code = await executeAnalyze(runPathOrId, {
+      configPath: opts.config,
+    });
+    process.exit(code);
+  });
+
+program
+  .command("help [command...]")
+  .description("Show help for commands and options")
+  .action((command: string[]) => {
+    process.exit(executeHelp(command));
   });
 
 program.parse();

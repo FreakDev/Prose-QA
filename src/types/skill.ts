@@ -9,7 +9,7 @@ export const SkillFrontmatterSchema = z.object({
   "allowed-tools": z.string().optional(),
   compatibility: z.string().optional(),
   license: z.string().optional(),
-  metadata: z.record(z.string()).optional(),
+  metadata: z.record(z.string(), z.string()).optional(),
 });
 
 export type SkillFrontmatter = z.infer<typeof SkillFrontmatterSchema>;

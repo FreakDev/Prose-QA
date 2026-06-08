@@ -6,6 +6,7 @@ import {
   type Skill,
   type SkillCatalogEntry,
 } from "../types/skill.js";
+import { resolveBundledPath } from "../paths.js";
 
 const SKILL_FILE = "SKILL.md";
 
@@ -50,7 +51,9 @@ export function discoverSkills(dirs: string[], cwd: string): Skill[] {
   const skills: Skill[] = [];
 
   for (const dir of dirs) {
-    const resolved = path.resolve(cwd, dir);
+    const resolved = path.isAbsolute(dir)
+      ? dir
+      : resolveBundledPath(cwd, dir);
     for (const skillDir of findSkillDirs(resolved)) {
       const skill = parseSkillDir(skillDir);
       if (seen.has(skill.name)) continue;
@@ -83,6 +86,26 @@ export function requireSkills(
   return names.map((n) => getSkill(skills, n)!);
 }
 
+export function mergeSkillNames(...groups: string[][]): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const group of groups) {
+    for (const name of group) {
+      if (seen.has(name)) continue;
+      seen.add(name);
+      merged.push(name);
+    }
+  }
+  return merged;
+}
+
+export function resolveSkills(
+  catalog: Skill[],
+  ...nameGroups: string[][]
+): Skill[] {
+  return requireSkills(catalog, mergeSkillNames(...nameGroups));
+}
+
 export function buildSkillPrompt(skills: Skill[]): string {
   return skills
     .map(
@@ -93,8 +116,12 @@ export function buildSkillPrompt(skills: Skill[]): string {
 }
 
 export function verifySkillsLock(cwd: string): void {
-  const lockPath = path.join(cwd, "skills.lock.json");
-  const skillPath = path.join(cwd, "skills", "agent-browser", "SKILL.md");
+  const skillPath = path.join(
+    resolveBundledPath(cwd, "skills"),
+    "agent-browser",
+    "SKILL.md",
+  );
+  const lockPath = resolveBundledPath(cwd, "skills.lock.json");
   if (!existsSync(skillPath)) {
     throw new Error(
       "skills/agent-browser/SKILL.md missing. Run: npm run skills:sync",

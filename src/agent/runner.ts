@@ -1,76 +1,160 @@
-import { generateText, stepCountIs, tool, type ModelMessage } from "ai";
-import { anthropic } from "@ai-sdk/anthropic";
-import { openai } from "@ai-sdk/openai";
+import {
+  generateText,
+  Output,
+  stepCountIs,
+  tool,
+  type GenerateTextResult,
+  type ModelMessage,
+  type ToolSet,
+} from "ai";
+
+type TextGenerateOutput = ReturnType<typeof Output.text>;
 import { z } from "zod";
-import type { SaqConfig } from "../types/config.js";
+import type { ArtifactsMode, PqaConfig } from "../types/config.js";
 import type { Scenario } from "../types/scenario.js";
 import type { Skill } from "../types/skill.js";
 import type {
   AgentTranscript,
+  BashEntry,
+  HealingMeta,
   ScenarioResult,
   Verdict,
 } from "../types/verdict.js";
+import { resolveHealingConfig } from "../config/load.js";
+import {
+  classifyFailure,
+  isHealingEnabled,
+  isRecoveryAllowed,
+} from "../healing/classify.js";
+import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
 import { buildBrowserEnv, readFileTool, runBash } from "./bash.js";
-import { buildSystemPrompt } from "./prompt.js";
-import { appendTranscriptMessage, extractVerdict } from "./verdict.js";
-import { fireworks } from "@ai-sdk/fireworks";
+import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
+import { writeTranscript } from "../reporter/index.js";
+import {
+  appendFinalTextToTranscript,
+  appendStepToTranscript,
+  appendTranscriptMessage,
+  extractVerdict,
+  formatStepForTranscript,
+  stripLastAssistantTurn,
+} from "./verdict.js";
+import { resolveStatePath } from "../auth/store.js";
+import type { EnvRedactor } from "../redact/env-secrets.js";
+import { createLlmModel } from "./llm-model.js";
+import { buildProviderOptions } from "./provider-options.js";
 
 const MAX_VERDICT_RETRIES = 5;
-const VERDICT_RETRY_PROMPT =
-  "Your previous response did not contain valid verdict JSON. Reply with only a ```json code block matching the verdict schema from the system prompt.";
-
-function appendFinalTextToTranscript(
-  transcript: AgentTranscript,
-  finalText: string,
-): void {
-  if (!finalText) return;
-  const last = transcript.messages.at(-1);
-  if (last?.role === "assistant" && last.content === finalText) return;
-  appendTranscriptMessage(transcript, "assistant", finalText);
-}
+/** Extra steps when re-emitting a verdict after an invalid completion. */
+const VERDICT_RETRY_MAX_STEPS = 10;
 
 function removeLastAssistantMessage(transcript: AgentTranscript): void {
-  const last = transcript.messages.at(-1);
-  if (last?.role === "assistant") {
-    transcript.messages.pop();
+  while (transcript.entries.at(-1)?.type === "bash") {
+    transcript.entries.pop();
+  }
+  const last = transcript.entries.at(-1);
+  if (last?.type === "message" && last.role === "assistant") {
+    transcript.entries.pop();
   }
 }
 
-function createModel(config: SaqConfig) {
-  if (config.llm.provider === "openai") {
-    return openai(config.llm.model);
+function persistTranscript(
+  options: RunScenarioOptions,
+  transcript: AgentTranscript,
+): void {
+  if (options.verbose) {
+    writeTranscript(options.artifactDir, transcript, options.redactor);
   }
-  if (config.llm.provider === "fireworks") {
-    return fireworks(config.llm.model);
-  }
-  return anthropic(config.llm.model);
 }
 
 export interface RunScenarioOptions {
-  config: SaqConfig;
+  config: PqaConfig;
   skills: Skill[];
   scenario: Scenario;
   cwd: string;
-  baseUrl: string;
   artifactDir: string;
   authStatePath?: string;
+  authProfile?: string;
+  profilePath?: string;
   headed: boolean;
   verbose?: boolean;
+  artifacts: ArtifactsMode;
+  sessionName?: string;
+  preparedStartUrl?: string;
   onTurn?: () => Promise<void>;
+  redactor?: EnvRedactor;
+  noHealing?: boolean;
+}
+
+async function retryVerdictCompletion<TOOLS extends ToolSet>(options: {
+  config: PqaConfig;
+  system: string;
+  tools: TOOLS;
+  providerOptions: ReturnType<typeof buildProviderOptions>;
+  result: GenerateTextResult<TOOLS, TextGenerateOutput>;
+  transcript: AgentTranscript;
+  runOptions: RunScenarioOptions;
+  onStepFinish: (step: {
+    text: string;
+    reasoningText?: string;
+    toolCalls: Array<{ toolName: string; input: unknown }>;
+  }) => Promise<void>;
+  finalText: string;
+}): Promise<{
+  result: GenerateTextResult<TOOLS, TextGenerateOutput>;
+  finalText: string;
+}> {
+  let { result, finalText } = options;
+
+  for (
+    let attempt = 0;
+    !extractVerdict(finalText) && attempt < MAX_VERDICT_RETRIES;
+    attempt++
+  ) {
+    removeLastAssistantMessage(options.transcript);
+    persistTranscript(options.runOptions, options.transcript);
+
+    result = await generateText({
+      model: createLlmModel(options.config),
+      system: options.system,
+      messages: stripLastAssistantTurn(
+        result.response.messages as ModelMessage[],
+      ),
+      tools: options.tools,
+      providerOptions: options.providerOptions,
+      stopWhen: stepCountIs(VERDICT_RETRY_MAX_STEPS),
+      onStepFinish: options.onStepFinish,
+    });
+
+    finalText = result.text || finalText;
+    appendFinalTextToTranscript(
+      options.transcript,
+      options.runOptions.redactor
+        ? options.runOptions.redactor.redact(finalText)
+        : finalText,
+    );
+    persistTranscript(options.runOptions, options.transcript);
+  }
+
+  return { result, finalText };
 }
 
 export async function runScenario(
   options: RunScenarioOptions,
 ): Promise<ScenarioResult> {
   const start = Date.now();
-  const transcript: AgentTranscript = { messages: [], bash: [] };
-  const sessionName = options.config.browser.sessionName;
+  const transcript: AgentTranscript = { entries: [] };
+  const sessionName =
+    options.sessionName ?? options.config.browser.sessionName;
+  const authSavePath = options.authProfile
+    ? resolveStatePath(options.cwd, options.authProfile, options.config)
+    : undefined;
   const bashEnv = buildBrowserEnv({
     headed: options.headed,
     sessionName,
-    authStatePath: options.authStatePath,
+    profilePath: options.profilePath,
+    authStatePath: options.profilePath ? undefined : options.authStatePath,
+    authSavePath,
     artifactDir: options.artifactDir,
-    baseUrl: options.baseUrl,
   });
 
   const system = buildSystemPrompt(
@@ -79,21 +163,24 @@ export async function runScenario(
     options.scenario,
     {
       cwd: options.cwd,
-      baseUrl: options.baseUrl,
       artifactDir: options.artifactDir,
       authStatePath: options.authStatePath,
+      authProfile: options.authProfile,
+      profilePath: options.profilePath,
       headed: options.headed,
       sessionName,
+      artifacts: options.artifacts,
     },
   );
 
   let finalText = "";
   let turn = 0;
+  const pendingBashEntries: BashEntry[] = [];
 
   const tools = {
     bash: tool({
       description:
-        "Run a bash command. Use agent-browser for browser automation.",
+        "Run ONE bash command. For UI interactions (click, fill, select, open, press), run a single agent-browser command per call. Use snapshot -i before acting on refs.",
       inputSchema: z.object({
         command: z.string().describe("Shell command to execute"),
       }),
@@ -103,11 +190,14 @@ export async function runScenario(
           timeoutMs: options.config.agent.bashTimeoutMs,
           env: bashEnv,
         });
-        transcript.bash.push(entry);
+        const redacted = options.redactor
+          ? options.redactor.redactBashEntry(entry)
+          : entry;
+        pendingBashEntries.push(redacted);
         if (options.verbose) {
-          console.log(`\n$ ${command}`);
-          if (entry.stdout) console.log(entry.stdout.slice(0, 2000));
-          if (entry.stderr) console.error(entry.stderr.slice(0, 1000));
+          console.log(`\n$ ${redacted.command}`);
+          if (redacted.stdout) console.log(redacted.stdout.slice(0, 2000));
+          if (redacted.stderr) console.error(redacted.stderr.slice(0, 1000));
         }
         return {
           exitCode: entry.exitCode,
@@ -129,70 +219,194 @@ export async function runScenario(
     }),
   };
 
-  const onStepFinish = async ({ text }: { text: string }) => {
+  const initialPrompt = buildInitialPrompt(
+    options.scenario,
+    options.preparedStartUrl,
+  );
+  appendTranscriptMessage(transcript, "user", initialPrompt);
+
+  const onStepFinish = async (step: {
+    text: string;
+    reasoningText?: string;
+    toolCalls: Array<{ toolName: string; input: unknown }>;
+  }) => {
     turn += 1;
-    if (text) {
-      appendTranscriptMessage(transcript, "assistant", text);
-      finalText = text;
+    const bashEntries = pendingBashEntries.splice(0);
+    const stepInput = {
+      text: step.text,
+      reasoningText: step.reasoningText,
+      toolCalls: step.toolCalls,
+    };
+    const formatted = formatStepForTranscript(stepInput);
+    const safeFormatted = options.redactor
+      ? {
+        content: formatted.content
+          ? options.redactor.redact(formatted.content)
+          : formatted.content,
+        thinking: formatted.thinking
+          ? options.redactor.redact(formatted.thinking)
+          : formatted.thinking,
+      }
+      : formatted;
+    const changed = appendStepToTranscript(
+      transcript,
+      stepInput,
+      bashEntries,
+      safeFormatted,
+    );
+    if (changed) {
+      persistTranscript(options, transcript);
     }
+    if (step.text) finalText = step.text;
     if (options.onTurn) await options.onTurn();
   };
 
   try {
+    const providerOptions = buildProviderOptions(options.config);
+
     let result = await generateText({
-      model: createModel(options.config),
+      model: createLlmModel(options.config),
       system,
-      prompt: `Execute the scenario "${options.scenario.frontmatter.name}" now. Start by opening ${options.baseUrl} with agent-browser.`,
+      prompt: initialPrompt,
       tools,
+      providerOptions,
       stopWhen: stepCountIs(options.config.agent.maxTurns),
       onStepFinish,
     });
 
     finalText = result.text || finalText;
-    appendFinalTextToTranscript(transcript, finalText);
+    appendFinalTextToTranscript(
+      transcript,
+      options.redactor ? options.redactor.redact(finalText) : finalText,
+    );
+    persistTranscript(options, transcript);
+
+    ({ result, finalText } = await retryVerdictCompletion({
+      config: options.config,
+      system,
+      tools,
+      providerOptions,
+      result,
+      transcript,
+      runOptions: options,
+      onStepFinish,
+      finalText,
+    }));
 
     let verdict = extractVerdict(finalText);
 
-    for (
-      let attempt = 0;
-      !verdict && attempt < MAX_VERDICT_RETRIES;
-      attempt++
-    ) {
-      removeLastAssistantMessage(transcript);
-      appendTranscriptMessage(transcript, "user", VERDICT_RETRY_PROMPT);
+    const healingMeta: HealingMeta = {
+      used: false,
+      recoveryTurns: 0,
+      scenarioRetries: 0,
+    };
 
-      const retryMessages: ModelMessage[] = [
-        ...result.response.messages,
-        { role: "user", content: VERDICT_RETRY_PROMPT },
-      ];
-
-      result = await generateText({
-        model: createModel(options.config),
-        system,
-        messages: retryMessages,
-        stopWhen: stepCountIs(1),
-        onStepFinish,
-      });
-
-      finalText = result.text || finalText;
-      appendFinalTextToTranscript(transcript, finalText);
-      verdict = extractVerdict(finalText);
-    }
-    const status = verdict?.status === "pass" ? "pass" : "fail";
-
-    return {
+    let draftResult: ScenarioResult = {
       scenario: options.scenario.frontmatter.name,
       filePath: options.scenario.filePath,
-      status: verdict ? status : "fail",
+      status: verdict?.status === "pass" ? "pass" : "fail",
       durationMs: Date.now() - start,
-      verdict,
+      verdict: options.redactor ? options.redactor.redactVerdict(verdict) : verdict,
       transcript,
       artifactDir: options.artifactDir,
       error: verdict
         ? undefined
         : "Agent did not emit a valid verdict JSON block",
+      healing: healingMeta,
+    };
+
+    if (
+      isHealingEnabled(options.config, options.noHealing) &&
+      verdict?.status === "fail"
+    ) {
+      const classified = classifyFailure(
+        draftResult,
+        options.scenario,
+        options.config,
+      );
+      healingMeta.failureKind = classified.kind;
+      healingMeta.signals = classified.signals;
+
+      if (isRecoveryAllowed(classified, options.config, options.noHealing)) {
+        const maxRecovery = resolveHealingConfig(options.config).maxRecoveryTurns;
+        const failed = verdict.checkpoints.filter((c) => !c.pass);
+
+        for (let recoveryAttempt = 0; recoveryAttempt < maxRecovery; recoveryAttempt++) {
+          const recoveryPrompt = buildRecoveryPrompt(failed);
+          appendTranscriptMessage(transcript, "user", recoveryPrompt);
+          persistTranscript(options, transcript);
+
+          const recoveryMessages: ModelMessage[] = [
+            ...result.response.messages,
+            { role: "user", content: recoveryPrompt },
+          ];
+
+          result = await generateText({
+            model: createLlmModel(options.config),
+            system,
+            messages: recoveryMessages,
+            tools,
+            providerOptions,
+            stopWhen: stepCountIs(options.config.agent.maxTurns),
+            onStepFinish,
+          });
+
+          finalText = result.text || finalText;
+          appendFinalTextToTranscript(
+            transcript,
+            options.redactor ? options.redactor.redact(finalText) : finalText,
+          );
+          persistTranscript(options, transcript);
+
+          ({ result, finalText } = await retryVerdictCompletion({
+            config: options.config,
+            system,
+            tools,
+            providerOptions,
+            result,
+            transcript,
+            runOptions: options,
+            onStepFinish,
+            finalText,
+          }));
+          verdict = extractVerdict(finalText);
+
+          healingMeta.recoveryTurns += 1;
+
+          draftResult = {
+            ...draftResult,
+            status: verdict?.status === "pass" ? "pass" : "fail",
+            verdict: options.redactor
+              ? options.redactor.redactVerdict(verdict)
+              : verdict,
+            error: verdict
+              ? undefined
+              : "Agent did not emit a valid verdict JSON block",
+          };
+
+          if (verdict?.status === "pass") {
+            healingMeta.used = true;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!draftResult.verdict) {
+      draftResult.status = "fail";
+    }
+
+    return {
+      ...draftResult,
+      durationMs: Date.now() - start,
+      healing: healingMeta,
     };
   } catch (err) {
+    if (pendingBashEntries.length > 0) {
+      appendStepToTranscript(transcript, { text: "", toolCalls: [] }, pendingBashEntries.splice(0));
+    }
+    persistTranscript(options, transcript);
+    const error = String(err);
     return {
       scenario: options.scenario.frontmatter.name,
       filePath: options.scenario.filePath,
@@ -201,67 +415,8 @@ export async function runScenario(
       verdict: null,
       transcript,
       artifactDir: options.artifactDir,
-      error: String(err),
+      error: options.redactor ? options.redactor.redact(error) : error,
     };
-  }
-}
-
-export async function runAuthSave(options: {
-  config: SaqConfig;
-  skills: Skill[];
-  cwd: string;
-  authName: string;
-  loginUrl: string;
-  statePath: string;
-  headed: boolean;
-  verbose?: boolean;
-}): Promise<{ success: boolean; error?: string }> {
-  const transcript: AgentTranscript = { messages: [], bash: [] };
-  const bashEnv = buildBrowserEnv({
-    headed: options.headed,
-    sessionName: `saq-auth-${options.authName}`,
-    artifactDir: options.cwd,
-    baseUrl: options.loginUrl,
-  });
-
-  const { buildAuthPrompt } = await import("./prompt.js");
-
-  try {
-    await generateText({
-      model: createModel(options.config),
-      system: buildAuthPrompt(
-        options.config,
-        options.skills,
-        options.authName,
-        options.loginUrl,
-        options.statePath,
-      ),
-      prompt: `Open ${options.loginUrl} and complete login. Save state to ${options.statePath}.`,
-      tools: {
-        bash: tool({
-          description: "Run a bash command",
-          inputSchema: z.object({ command: z.string() }),
-          execute: async ({ command }) => {
-            const entry = await runBash(command, {
-              cwd: options.cwd,
-              timeoutMs: options.config.agent.bashTimeoutMs,
-              env: bashEnv,
-            });
-            transcript.bash.push(entry);
-            if (options.verbose) console.log(`$ ${command}`);
-            return {
-              exitCode: entry.exitCode,
-              stdout: entry.stdout.slice(0, 8000),
-              stderr: entry.stderr.slice(0, 2000),
-            };
-          },
-        }),
-      },
-      stopWhen: stepCountIs(20),
-    });
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: String(err) };
   }
 }
 

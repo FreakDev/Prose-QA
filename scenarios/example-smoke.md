@@ -1,21 +1,17 @@
 ---
 name: example-smoke
 tags: [smoke, example]
+url: http://127.0.0.1:8080/
 ---
 
 # Goal
 
-load medusaprint credit page
+Verify that a static page loads successfully.
 
 # Steps
 
-1. Open the base http://localhost:3000/credit.
-2. Confirm the page has loaded successfully.
-3. switch lang to english if needed
-4. click on the "Buy" button in the 20 credits box
+1. Confirm the page has loaded successfully.
 
 # Then
 
-- url contains "/login"
-- page shows "Sign in
-  "
+- url contains "127.0.0.1:8080"

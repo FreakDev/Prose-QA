@@ -62,20 +62,168 @@ export function readFileTool(
   }
 }
 
+export async function closeBrowserSession(options: {
+  cwd: string;
+  timeoutMs: number;
+  sessionName: string;
+  headed: boolean;
+  verbose?: boolean;
+}): Promise<void> {
+  const env = buildBrowserEnv({
+    headed: options.headed,
+    sessionName: options.sessionName,
+    artifactDir: options.cwd,
+  });
+  const entry = await runBash("agent-browser close 2>/dev/null || true", {
+    cwd: options.cwd,
+    timeoutMs: options.timeoutMs,
+    env,
+  });
+  if (options.verbose && (entry.stderr || entry.stdout)) {
+    console.error(entry.stderr || entry.stdout);
+  }
+}
+
+export async function closeAllBrowserSessions(options: {
+  cwd: string;
+  timeoutMs: number;
+  headed: boolean;
+  verbose?: boolean;
+}): Promise<void> {
+  const env = buildBrowserEnv({
+    headed: options.headed,
+    sessionName: "pqa",
+    artifactDir: options.cwd,
+  });
+  const entry = await runBash("agent-browser close --all 2>/dev/null || true", {
+    cwd: options.cwd,
+    timeoutMs: options.timeoutMs,
+    env,
+  });
+  if (options.verbose && (entry.stderr || entry.stdout)) {
+    console.error(entry.stderr || entry.stdout);
+  }
+}
+
+function stateWasIgnored(entry: BashEntry): boolean {
+  const msg = `${entry.stderr}\n${entry.stdout}`;
+  return (
+    msg.includes("--state ignored") ||
+    msg.includes("daemon already running")
+  );
+}
+
+function isAuthRedirectUrl(url: string): boolean {
+  return (
+    url.includes("accounts.google.com") || url.includes("iap.googleapis.com")
+  );
+}
+
+export async function prepareBrowserSession(options: {
+  cwd: string;
+  timeoutMs: number;
+  sessionName: string;
+  headed: boolean;
+  profilePath: string;
+  startUrl?: string;
+  verbose?: boolean;
+}): Promise<{ startUrl: string }> {
+  const env = buildBrowserEnv({
+    headed: options.headed,
+    sessionName: options.sessionName,
+    profilePath: options.profilePath,
+    artifactDir: options.cwd,
+  });
+  const startUrl = options.startUrl ?? "about:blank";
+
+  await runBash("agent-browser close 2>/dev/null || true", {
+    cwd: options.cwd,
+    timeoutMs: options.timeoutMs,
+    env,
+  });
+
+  let entry = await runBash(`agent-browser open "${startUrl}"`, {
+    cwd: options.cwd,
+    timeoutMs: options.timeoutMs,
+    env,
+  });
+
+  if (stateWasIgnored(entry)) {
+    await runBash("agent-browser close --all 2>/dev/null || true", {
+      cwd: options.cwd,
+      timeoutMs: options.timeoutMs,
+      env,
+    });
+    entry = await runBash(`agent-browser open "${startUrl}"`, {
+      cwd: options.cwd,
+      timeoutMs: options.timeoutMs,
+      env,
+    });
+  }
+
+  if (entry.exitCode !== 0 || stateWasIgnored(entry)) {
+    throw new Error(
+      `Failed to start browser with auth profile: ${entry.stderr || entry.stdout}`,
+    );
+  }
+
+  if (startUrl !== "about:blank") {
+    await runBash("agent-browser wait --load networkidle 2>/dev/null || true", {
+      cwd: options.cwd,
+      timeoutMs: options.timeoutMs,
+      env,
+    });
+  }
+
+  const urlEntry = await runBash("agent-browser get url", {
+    cwd: options.cwd,
+    timeoutMs: options.timeoutMs,
+    env,
+  });
+  const currentUrl = urlEntry.stdout.trim();
+
+  if (startUrl !== "about:blank") {
+    if (!currentUrl || currentUrl === "about:blank") {
+      throw new Error(
+        `Auth profile browser is empty after opening ${startUrl} (url=${currentUrl || "(empty)"}). Re-run with --auth-refresh.`,
+      );
+    }
+    if (isAuthRedirectUrl(currentUrl)) {
+      throw new Error(
+        `Auth profile is not signed in — browser redirected to ${currentUrl}. Re-run with --auth-refresh.`,
+      );
+    }
+  }
+
+  if (options.verbose) {
+    console.log(
+      `Browser ready on ${currentUrl || startUrl} (session ${options.sessionName})`,
+    );
+  }
+
+  return { startUrl: currentUrl || startUrl };
+}
+
 export function buildBrowserEnv(config: {
   headed: boolean;
   sessionName: string;
   authStatePath?: string;
+  authSavePath?: string;
+  profilePath?: string;
   artifactDir: string;
-  baseUrl: string;
 }): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
-    SAQ_BASE_URL: config.baseUrl,
-    SAQ_ARTIFACT_DIR: config.artifactDir,
+    PQA_ARTIFACT_DIR: config.artifactDir,
     AGENT_BROWSER_SESSION_NAME: config.sessionName,
+    AGENT_BROWSER_SESSION: config.sessionName,
   };
-  if (config.authStatePath) {
+  if (config.profilePath) {
+    env.AGENT_BROWSER_PROFILE = config.profilePath;
+  } else if (config.authStatePath) {
     env.AGENT_BROWSER_STATE = config.authStatePath;
+  }
+  if (config.authSavePath) {
+    env.PQA_AUTH_SAVE_PATH = config.authSavePath;
   }
   if (!config.headed) {
     env.AGENT_BROWSER_HEADED = "false";
