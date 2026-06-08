@@ -8,7 +8,6 @@ Thanks for your interest in contributing.
 git clone https://github.com/FreakDev/Prose-QA.git
 cd Prose-QA
 npm ci
-npm run skills:sync
 npm run build
 npm test
 ```

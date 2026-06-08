@@ -6,7 +6,7 @@ Agent harness for **end-to-end regression testing** of web apps. Scenarios are w
 
 - **Natural language scenarios** with `# Goal`, `# Steps`, and `# Then` checkpoints
 - **Agent Skills** ([agentskills.io](https://agentskills.io/)) — Anthropic-compatible `SKILL.md` format
-- **Pinned agent-browser skill** vendored at `skills/agent-browser/` (synced via `npm run skills:sync` in this repo)
+- **Pinned agent-browser skill** vendored at `skills/agent-browser/` (installed via `postinstall` on `npm ci` / `npm install`)
 - **CI + local debug** modes with HTML/JSON reports
 
 ## Install
@@ -55,7 +55,6 @@ Bundled harness assets (`prompt/`, `skills/`) ship inside the npm package. Your 
 git clone https://github.com/FreakDev/Prose-QA.git
 cd Prose-QA
 npm ci
-npm run skills:sync
 npm run build
 
 export ANTHROPIC_API_KEY=...
@@ -484,7 +483,7 @@ Events are stored under `.pqa/recordings/<timestamp>/events.jsonl`. On each inte
 | File / skill | Role |
 | --- | --- |
 | [prompt/SYSTEM.md](prompt/SYSTEM.md) | Agent system prompt (workflow, verdict schema, rules) |
-| `core` | Vendored agent-browser skill at `skills/agent-browser/` (`npm run skills:sync`) |
+| `core` | Vendored agent-browser skill at `skills/agent-browser/` (bundled with the package) |
 
 `prompt/SYSTEM.md` is loaded as the system prompt; `core` is appended as a supplemental skill. Browser control stays in bash — the agent runs `agent-browser` commands directly.
 

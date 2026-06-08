@@ -112,12 +112,3 @@ export interface RunOptions {
   /** Skip reading and writing scenario replay hints cache */
   noCache?: boolean;
 }
-
-export interface SkillsLock {
-  "agent-browser": {
-    npmVersion: string;
-    skillName: string;
-    syncedAt: string;
-    checksum: string;
-  };
-}

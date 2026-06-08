@@ -80,7 +80,7 @@ export function requireSkills(
   const missing = names.filter((n) => !getSkill(skills, n));
   if (missing.length > 0) {
     throw new Error(
-      `Missing required skills: ${missing.join(", ")}. Run: npm run skills:sync`,
+      `Missing required skills: ${missing.join(", ")}. Run: npm ci (or npm install) in the prose-qa package.`,
     );
   }
   return names.map((n) => getSkill(skills, n)!);
@@ -115,19 +115,15 @@ export function buildSkillPrompt(skills: Skill[]): string {
     .join("\n\n---\n\n");
 }
 
-export function verifySkillsLock(cwd: string): void {
+export function verifyBundledSkill(cwd: string): void {
   const skillPath = path.join(
     resolveBundledPath(cwd, "skills"),
     "agent-browser",
     "SKILL.md",
   );
-  const lockPath = resolveBundledPath(cwd, "skills.lock.json");
   if (!existsSync(skillPath)) {
     throw new Error(
-      "skills/agent-browser/SKILL.md missing. Run: npm run skills:sync",
+      "skills/agent-browser/SKILL.md missing. Run: npm ci (or npm install) in the prose-qa package.",
     );
-  }
-  if (!existsSync(lockPath)) {
-    console.warn("Warning: skills.lock.json missing");
   }
 }

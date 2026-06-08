@@ -22,9 +22,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sync vendored skills
-        run: npm run skills:sync
-
       - name: Build
         run: npm run build
 

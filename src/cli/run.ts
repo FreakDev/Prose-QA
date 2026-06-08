@@ -32,11 +32,10 @@ import {
   discoverSkills,
   requireSkills,
   resolveSkills,
-  verifySkillsLock,
+  verifyBundledSkill,
   catalog,
   getSkill,
 } from "../skills/loader.js";
-import { verifyLockDrift } from "../skills/registry.js";
 import {
   parseScenarioFile,
   findScenarioSummariesByNames,
@@ -396,9 +395,7 @@ export async function executeRun(
   const config = await loadConfig(options.configPath, cwd);
 
   try {
-    verifySkillsLock(cwd);
-    const drift = verifyLockDrift(cwd);
-    if (drift) console.warn(chalk.yellow(`Warning: ${drift}`));
+    verifyBundledSkill(cwd);
   } catch (err) {
     console.error(chalk.red(String(err)));
     return 2;
@@ -759,6 +756,13 @@ export async function executeAuthSave(
   const cwd = process.cwd();
   const config = await loadConfig(options.configPath, cwd);
 
+  try {
+    verifyBundledSkill(cwd);
+  } catch (err) {
+    console.error(chalk.red(String(err)));
+    return 2;
+  }
+
   const apiKeyError = missingLlmApiKey(config);
   if (apiKeyError) {
     console.error(chalk.red(apiKeyError));
@@ -770,8 +774,6 @@ export async function executeAuthSave(
     console.error(chalk.red(envVarError));
     return 2;
   }
-
-  verifySkillsLock(cwd);
 
   const authEntry = config.auth[authName];
   if (!authEntry?.scenario) {

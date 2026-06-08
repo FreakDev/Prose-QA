@@ -20,22 +20,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Sync vendored skills
-        run: npm run skills:sync
-
       - name: Build
         run: npm run build
 
       - name: Unit tests
         run: npm test
-
-      - name: Skill drift check
-        run: |
-          node --input-type=module -e "
-          import { verifyLockDrift } from './dist/skills/registry.js';
-          const msg = verifyLockDrift(process.cwd());
-          if (msg) { console.error(msg); process.exit(1); }
-          "
 
   smoke:
     runs-on: ubuntu-latest
@@ -50,9 +39,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Sync vendored skills
-        run: npm run skills:sync
 
       - name: Install browser
         run: npx agent-browser install --with-deps
