@@ -7,6 +7,7 @@ import { createEnvRedactor } from "../redact/env-secrets.js";
 import {
   buildReport,
   renderScenarioSummaryHtml,
+  writeReport,
   writeScenarioTranscript,
   writeTranscript,
 } from "./index.js";
@@ -43,6 +44,30 @@ describe("renderScenarioSummaryHtml", () => {
 
   it("returns empty string when there are no results", () => {
     assert.equal(renderScenarioSummaryHtml([]), "");
+  });
+});
+
+describe("writeReport", () => {
+  it("writes stats.json aggregated across scenarios", () => {
+    const runDir = mkdtempSync(path.join(tmpdir(), "pqa-run-stats-"));
+    const report = buildReport("test-run", new Date(), [
+      stubResult("Alpha Smoke", "pass"),
+      stubResult("Beta Flow", "fail"),
+    ]);
+    writeReport(runDir, report);
+
+    const stats = JSON.parse(
+      readFileSync(path.join(runDir, "stats.json"), "utf8"),
+    ) as {
+      scenarios: Record<string, { durationMs: number }>;
+      global: { durationMs: number };
+    };
+
+    assert.deepEqual(Object.keys(stats.scenarios).sort(), [
+      "alpha-smoke",
+      "beta-flow",
+    ]);
+    assert.equal(stats.global.durationMs, 25_000);
   });
 });
 

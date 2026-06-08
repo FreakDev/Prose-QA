@@ -3,6 +3,7 @@ import path from "node:path";
 import type { RunReport, ScenarioResult } from "../types/verdict.js";
 import type { EnvRedactor } from "../redact/env-secrets.js";
 import { enrichVerdictWithStats, getTranscriptBashEntries } from "../agent/verdict.js";
+import { buildRunStats, scenarioSlug } from "./stats.js";
 
 export function createRunId(): string {
   return new Date().toISOString().replace(/[:.]/g, "-");
@@ -15,8 +16,7 @@ export function ensureRunDir(cwd: string, runId: string): string {
 }
 
 export function scenarioArtifactDir(runDir: string, scenarioName: string): string {
-  const safe = scenarioName.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
-  const dir = path.join(runDir, safe);
+  const dir = path.join(runDir, scenarioSlug(scenarioName));
   mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -35,6 +35,10 @@ export function writeReport(
     `${JSON.stringify(safeReport, null, 2)}\n`,
   );
   writeFileSync(path.join(runDir, "report.html"), renderHtml(safeReport));
+  writeFileSync(
+    path.join(runDir, "stats.json"),
+    `${JSON.stringify(buildRunStats(safeResults), null, 2)}\n`,
+  );
 }
 
 export function writeTranscript(
