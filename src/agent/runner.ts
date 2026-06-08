@@ -27,7 +27,7 @@ import {
   isRecoveryAllowed,
 } from "../healing/classify.js";
 import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
-import { buildBrowserEnv, readFileTool, runBash } from "./bash.js";
+import { buildBrowserEnv, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
 import { writeTranscript } from "../reporter/index.js";
 import {
@@ -211,17 +211,6 @@ export async function runScenario(
           stdout: entry.stdout.slice(0, 8000),
           stderr: entry.stderr.slice(0, 2000),
         };
-      },
-    }),
-    read: tool({
-      description: "Read a file from the project directory",
-      inputSchema: z.object({
-        path: z.string().describe("Relative file path"),
-      }),
-      execute: async ({ path: filePath }) => {
-        const result = readFileTool(filePath, options.cwd);
-        if ("error" in result) return { error: result.error };
-        return { content: result.content.slice(0, 12000) };
       },
     }),
   };

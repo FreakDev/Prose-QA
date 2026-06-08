@@ -1,7 +1,5 @@
 import { exec } from "node:child_process";
 import { promisify } from "node:util";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import type { BashEntry } from "../types/verdict.js";
 
 const execAsync = promisify(exec);
@@ -44,21 +42,6 @@ export async function runBash(
       exitCode: typeof e.code === "number" ? e.code : 1,
       durationMs: Date.now() - start,
     };
-  }
-}
-
-export function readFileTool(
-  filePath: string,
-  cwd: string,
-): { content: string } | { error: string } {
-  const resolved = path.resolve(cwd, filePath);
-  if (!resolved.startsWith(cwd)) {
-    return { error: "Path must stay within project directory" };
-  }
-  try {
-    return { content: readFileSync(resolved, "utf-8") };
-  } catch (err) {
-    return { error: String(err) };
   }
 }
 
