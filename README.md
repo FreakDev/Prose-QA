@@ -1,5 +1,7 @@
 # Prose-QA
 
+> **Beta** — Prose-QA is under active development. Expect rough edges and breaking changes between releases.
+
 Write what you want to test in plain text, and let Prose-QA do the rest. This autonomous, LLM-driven testing engine executes complex web workflows and validation checkpoints without the overhead of heavy browser wrappers, bringing frictionless QA to modern development.
 
 Requires **Node.js 24+**, `PQA_LLM_API_KEY`, and `llm.provider` / `llm.model` in config.
