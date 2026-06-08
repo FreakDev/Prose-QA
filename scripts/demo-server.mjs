@@ -80,13 +80,47 @@ const routes = {
     "/": () =>
       htmlPage(
         "Hello",
-        "<h1>Hello World</h1><p><a href=\"/login\">Sign in</a></p>",
+        [
+          "<h1>Hello World</h1>",
+          '<div style="display: flex; flex-direction: row; gap: 10px; align-items: center;">',
+          '<p>A: <input id="input-a" type="number" aria-label="A" /></p>',
+          "<p>+</p>",
+          '<p style="display: flex; flex-direction: row;">',
+          "<p>B:</p>",
+          '<div style="display: flex; flex-direction: column; gap: 2px;">',
+          '<p style="margin: 0"><label>4 <input type="radio" name="b" aria-label="B" value="4" /></label></p>',
+          '<p style="margin: 0"><label>5 <input type="radio" name="b" aria-label="B" value="5" /></label></p>',
+          '<p style="margin: 0"><label>6 <input type="radio" name="b" aria-label="B" value="6" /></label></p>',
+          "</div>",
+          "</p>",
+          "<p>=</p>",
+          '<p id="result">—</p>',
+          "</div>",
+          "<script>",
+          "(function () {",
+          '  const inputA = document.getElementById("input-a");',
+          "  const radiosB = document.querySelectorAll('input[aria-label=\"B\"]');",
+          '  const resultEl = document.getElementById("result");',
+          "  function updateResult() {",
+          "    const a = Number(inputA.value) || 0;",
+          "    const selectedB = Array.from(radiosB).find((r) => r.checked);",
+          "    const b = selectedB ? Number(selectedB.value) : 0;",
+          "    resultEl.textContent = a + b;",
+          "  }",
+          '  inputA.addEventListener("input", updateResult);',
+          '  radiosB.forEach((r) => r.addEventListener("change", updateResult));',
+          "})();",
+          "</script>",
+          '<p><a href="/login">Sign in</a></p>',
+        ].join(""),
       ),
     "/login": (req) => {
       if (getSession(req)) {
         return { redirect: "/projects" };
       }
-      const error = new URL(req.url ?? "", "http://x").searchParams.get("error");
+      const error = new URL(req.url ?? "", "http://x").searchParams.get(
+        "error",
+      );
       const errBlock =
         error === "1"
           ? '<p role="alert">Invalid email or password. Try again.</p>'
@@ -166,7 +200,11 @@ const server = http.createServer(async (req, res) => {
     }
 
     const title =
-      pathname === "/login" ? "Sign in" : pathname === "/projects" ? "Projects" : "Hello";
+      pathname === "/login"
+        ? "Sign in"
+        : pathname === "/projects"
+          ? "Projects"
+          : "Hello";
     sendHtml(res, 200, title, result);
   } catch (err) {
     res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
