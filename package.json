@@ -1,6 +1,6 @@
 {
   "name": "prose-qa",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "ProseQA — agent harness for NL E2E regression testing via agent-browser",
   "type": "module",
   "bin": {
