@@ -10,8 +10,10 @@ describe("defaultExtensionHooks", () => {
   it("includes preBatch and preScenario auth hooks", () => {
     assert.ok(defaultExtensionHooks.preBatch);
     assert.ok(defaultExtensionHooks.preScenario);
+    assert.ok(defaultExtensionHooks.postTool);
     assert.equal(defaultExtensionHooks.preBatch!.length, 1);
     assert.equal(defaultExtensionHooks.preScenario!.length, 1);
+    assert.equal(defaultExtensionHooks.postTool!.length, 1);
   });
 });
 

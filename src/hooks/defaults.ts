@@ -1,10 +1,12 @@
 import type { ExtensionHooks } from "../types/hooks.js";
+import { browserHealthPostToolHook } from "./browser-health-post-tool.js";
 import { ensureProfilesBatchHook } from "./ensure-profiles-batch.js";
 import { resolveProfileHook } from "./resolve-profile.js";
 
 export const defaultExtensionHooks = {
   preBatch: [ensureProfilesBatchHook],
   preScenario: [resolveProfileHook],
+  postTool: [browserHealthPostToolHook],
 } satisfies ExtensionHooks;
 
 export type MergeExtensionHooksMode = "append" | "replace";
