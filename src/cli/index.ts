@@ -266,6 +266,44 @@ program
     process.exit(code);
   });
 
+const auth = program.command("auth").description("Authentication helpers");
+
+auth
+  .command("list")
+  .description("List cached auth profiles in the auth store")
+  .action(() => {
+    process.exit(executeAuthList());
+  });
+
+auth
+  .command("clear [profile]")
+  .description("Clear cached auth state (all profiles or one profile)")
+  .action((profile?: string) => {
+    process.exit(executeAuthClear(profile));
+  });
+
+auth
+  .command("save <name>")
+  .description("Run the configured auth scenario and save state to the auth store")
+  .option("-c, --config <path>", "Config file path")
+  .option("-v, --verbose", "Verbose output")
+  .option("--keep-browser", "Leave browser open after auth scenario")
+  .option(
+    "--artifacts <mode>",
+    "Artifact mode: on-failure|always|never",
+    "never",
+  )
+  .action(async (name: string, opts) => {
+    const code = await executeAuthSave(name, {
+      configPath: opts.config,
+      verbose: opts.verbose,
+      keepBrowser: opts.keepBrowser,
+      artifacts: (opts.artifacts as RunOptions["artifacts"]) ?? "never",
+      retries: 0,
+    });
+    process.exit(code);
+  });
+
 const skills = program.command("skills").description("Manage skills");
 
 skills
@@ -296,36 +334,6 @@ skills
   .description("Sync agent-browser skill from pinned npm version")
   .action(() => {
     process.exit(executeSkillsSync());
-  });
-
-const auth = program.command("auth").description("Authentication helpers");
-
-auth
-  .command("list")
-  .description("List cached auth profiles in the auth store")
-  .action(() => {
-    process.exit(executeAuthList());
-  });
-
-auth
-  .command("clear [profile]")
-  .description("Clear cached auth state (all profiles or one profile)")
-  .action((profile?: string) => {
-    process.exit(executeAuthClear(profile));
-  });
-
-auth
-  .command("save <name>")
-  .description("Run the configured auth scenario and save state to the auth store")
-  .option("-c, --config <path>", "Config file path")
-  .option("-v, --verbose", "Verbose")
-  .action(async (name: string, opts) => {
-    const code = await executeAuthSave(name, {
-      configPath: opts.config,
-      verbose: opts.verbose,
-      artifacts: "never",
-    });
-    process.exit(code);
   });
 
 const record = program.command("record").description("Record browser sessions and generate scenarios");

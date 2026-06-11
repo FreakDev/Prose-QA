@@ -70,17 +70,11 @@ Use environment variables when opening:
 
 ```bash
 agent-browser open "https://example.com/page"
-# With auth:
-agent-browser --state "$AGENT_BROWSER_STATE" open "https://example.com/page"
 ```
 
 If the scenario frontmatter includes a `url`, open that URL first. Otherwise, navigate to URLs as specified in Steps.
 
-Auth scenarios (referenced from `pqa.config.ts`) perform login only — the harness saves browser state after they pass. Consumer scenarios with `auth: <profile>` open pages using preloaded state via `$AGENT_BROWSER_STATE`.
-
-During auth scenarios, never run `agent-browser close`, `agent-browser close --all`, or `agent-browser state save` — closing the session before the harness saves produces an empty auth file.
-
-For consumer scenarios, avoid `agent-browser close --all` unless a step explicitly requires it; prefer keeping one browser session for the whole scenario.
+Avoid `agent-browser close --all` unless a step explicitly requires it; prefer keeping one browser session for the whole scenario.
 
 See **Observe-Act-Verify loop** above for re-snapshot rules after navigation or interaction.
 

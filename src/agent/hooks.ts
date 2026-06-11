@@ -18,6 +18,7 @@ import type {
   PreToolResult,
   PreVerdictParams,
   PreVerdictResult,
+  ProfileBrowserContext,
 } from "../types/hooks.js";
 import type { Scenario } from "../types/scenario.js";
 import type { BashEntry, ScenarioResult } from "../types/verdict.js";
@@ -72,6 +73,7 @@ export class HookRunner {
     | PreScenarioResultAbort
   > {
     const hooks = this.hooks.preScenario ?? [];
+    let browserContext: ProfileBrowserContext | undefined;
     for (let i = 0; i < hooks.length; i++) {
       const result = await safeCall(
         `preScenario[${i}]`,
@@ -82,8 +84,13 @@ export class HookRunner {
       if (result.action === "skip" || result.action === "abort") {
         return result;
       }
+      if (result.action === "continue" && result.browserContext) {
+        browserContext = result.browserContext;
+      }
     }
-    return { action: "continue" };
+    return browserContext
+      ? { action: "continue", browserContext }
+      : { action: "continue" };
   }
 
   // ── PreSystemPrompt ──────────────────────────

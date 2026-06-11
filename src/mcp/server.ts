@@ -125,7 +125,6 @@ export function createPqaMcpServer(cwd: string): McpServer {
         name: scenario.frontmatter.name,
         tags: scenario.frontmatter.tags ?? [],
         url: scenario.frontmatter.url,
-        auth: scenario.frontmatter.auth,
         partial: scenario.frontmatter.partial ?? false,
         checkpointCount: scenario.checkpoints.length,
         preview: formatScenarioForPrompt(scenario),

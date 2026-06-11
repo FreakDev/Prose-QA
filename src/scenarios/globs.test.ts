@@ -32,7 +32,7 @@ describe("resolveScenariosDir", () => {
 });
 
 describe("resolveRunGlobs", () => {
-  it("uses discovery glob for auth lookup and expanded patterns for filtering", () => {
+  it("uses discovery glob for scenario lookup and expanded patterns for filtering", () => {
     const { discoveryGlob, runGlobs, searchGlobs } = resolveRunGlobs(
       { scenariosDir: "scenarios" } as PqaConfig,
       ["scenarios/smoke/"],

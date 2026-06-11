@@ -1,6 +1,5 @@
 import { execSync } from "node:child_process";
 import { writeFileSync } from "node:fs";
-import { resolveStatePath } from "../auth/store.js";
 import path from "node:path";
 import fg from "fast-glob";
 import chalk from "chalk";
@@ -16,20 +15,17 @@ import {
 } from "../config/load.js";
 import {
   ensureAuthProfiles,
-  resolveConsumerAuthState,
 } from "../auth/resolve.js";
 import {
   clear as clearAuthStore,
   getAuthEntry,
   getAuthScenarioNames,
   list as listAuthStore,
-  resolveProfilePath,
 } from "../auth/store.js";
 import { runScenario } from "../agent/runner.js";
 import {
   closeAllBrowserSessions,
   closeBrowserSession,
-  prepareBrowserSession,
 } from "../agent/bash.js";
 import {
   discoverSkills,
@@ -41,8 +37,8 @@ import {
   getSkill,
 } from "../skills/loader.js";
 import {
-  parseScenarioFile,
   findScenarioSummariesByNames,
+  parseScenarioFile,
   selectRunnableScenarioSummaries,
   scenarioSummaryToStub,
   tryParseScenarioFrontmatter,
@@ -152,6 +148,7 @@ interface ScenarioRunContext {
   config: PqaConfig;
   allSkills: Skill[];
   baseSkillNames: string[];
+  allScenarios: Scenario[];
   cwd: string;
   runDir: string;
   headed: boolean;
@@ -160,7 +157,7 @@ interface ScenarioRunContext {
   isolatedSessions: boolean;
   keepBrowser: boolean;
   artifacts: ArtifactsMode;
-  authStateByProfile: Map<string, string>;
+  authRefresh?: boolean;
   redactor: EnvRedactor;
   noHealing?: boolean;
   retriesPolicy?: "transient" | "always";
@@ -190,17 +187,6 @@ function writeScenarioResult(
   );
 }
 
-function buildAuthStateMap(
-  config: PqaConfig,
-  cwd: string,
-  profiles: Iterable<string>,
-): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const profile of profiles) {
-    map.set(profile, resolveStatePath(cwd, profile, config));
-  }
-  return map;
-}
 
 /** Parallel worker subprocess: close browser before exit on interrupt. */
 function installScenarioWorkerShutdownHandlers(options: {
@@ -258,16 +244,6 @@ async function runOneScenario(
   const startedAt = Date.now();
 
   try {
-    const authState = resolveConsumerAuthState(
-      ctx.config,
-      scenario.frontmatter.auth,
-      ctx.cwd,
-      ctx.authStateByProfile,
-    );
-    const authProfile = scenario.frontmatter.auth;
-    const profilePath = authProfile
-      ? resolveProfilePath(ctx.cwd, authProfile)
-      : undefined;
     const sessionName = resolveScenarioSessionName(
       ctx.config,
       name,
@@ -305,42 +281,40 @@ async function runOneScenario(
         ? "always"
         : (ctx.retriesPolicy ?? "transient");
 
+    const ensureAuthContext = {
+      config: ctx.config,
+      allSkills: ctx.allSkills,
+      baseSkillNames: ctx.baseSkillNames,
+      cwd: ctx.cwd,
+      runDir: ctx.runDir,
+      headed: ctx.headed,
+      verbose: ctx.verbose,
+      allScenarios: ctx.allScenarios,
+      authRefresh: ctx.authRefresh,
+      keepBrowser: ctx.keepBrowser,
+      artifacts: ctx.artifacts,
+      redactor: ctx.redactor,
+    };
+
     while (attempt <= ctx.retries) {
       try {
-        let preparedStartUrl: string | undefined;
-        const scenarioStartUrl = scenario.frontmatter.url;
-        if (profilePath || scenarioStartUrl) {
-          ({ startUrl: preparedStartUrl } = await prepareBrowserSession({
-            cwd: ctx.cwd,
-            timeoutMs: ctx.config.agent.bashTimeoutMs,
-            sessionName,
-            headed: ctx.headed,
-            engine: ctx.config.browser.engine,
-            lightpanda: ctx.config.browser.lightpanda,
-            profilePath,
-            authStatePath: authState,
-            startUrl: scenarioStartUrl,
-            verbose: ctx.verbose,
-          }));
-        }
-
         result = await runScenario({
           config: ctx.config,
           skills,
           scenario,
           cwd: ctx.cwd,
           artifactDir,
-          authStatePath: authState,
-          profilePath,
+          runDir: ctx.runDir,
           headed: ctx.headed,
           verbose: ctx.verbose,
           artifacts: ctx.artifacts,
           sessionName,
-          preparedStartUrl,
           onTurn: hooks?.onTurn,
           redactor: ctx.redactor,
           noHealing: ctx.noHealing,
           scenarioCacheHints,
+          ensureAuthContext,
+          authRefresh: ctx.authRefresh,
           extensionHooks: ctx.config.extensions?.hooks,
         });
 
@@ -447,14 +421,15 @@ export async function executeRun(
   const baseSkillNames = resolveBaseSkillNames(config.skills.preloads);
   requireSkills(allSkills, baseSkillNames);
 
-  const { searchGlobs, runGlobs } = resolveRunGlobs(config, patterns);
+  const { discoveryGlob, runGlobs } = resolveRunGlobs(config, patterns);
   const runFiles = new Set(await fg(runGlobs, { cwd, absolute: true }));
   if (runFiles.size === 0) {
     console.error(chalk.red("No scenario files matched"));
     return 2;
   }
 
-  const searchFiles = await fg(searchGlobs, { cwd, absolute: true });
+  // Auth creator scenarios live outside the run pattern — always scan scenariosDir.
+  const searchFiles = await fg([discoveryGlob], { cwd, absolute: true });
   const summaries = [...runFiles]
     .map(tryParseScenarioFrontmatter)
     .filter(
@@ -524,11 +499,10 @@ export async function executeRun(
     ),
   ];
 
-  let authStateByProfile = new Map<string, string>();
   if (requiredProfiles.length > 0) {
     const authSpinner = ora("Ensuring auth profiles").start();
     try {
-      authStateByProfile = await ensureAuthProfiles(
+      await ensureAuthProfiles(
         {
           config,
           allSkills,
@@ -564,6 +538,7 @@ export async function executeRun(
     config,
     allSkills,
     baseSkillNames,
+    allScenarios: authScenarios,
     cwd,
     runDir,
     headed,
@@ -572,7 +547,7 @@ export async function executeRun(
     isolatedSessions: parallel !== undefined,
     keepBrowser: options.keepBrowser ?? false,
     artifacts,
-    authStateByProfile,
+    authRefresh: options.authRefresh,
     redactor,
     noHealing: options.noHealing,
     retriesPolicy: options.retriesPolicy,
@@ -740,10 +715,6 @@ export async function executeScenarioWorker(
   requireSkills(allSkills, baseSkillNames);
 
   const scenario = parseScenarioFile(scenarioFilePath);
-  const authProfile = scenario.frontmatter.auth;
-  const authStateByProfile = authProfile
-    ? buildAuthStateMap(config, cwd, [authProfile])
-    : new Map<string, string>();
 
   installScenarioWorkerShutdownHandlers({
     cwd,
@@ -754,10 +725,28 @@ export async function executeScenarioWorker(
     verbose: options.verbose,
   });
 
+  const authProfile = scenario.frontmatter.auth;
+  let authScenarios: Scenario[] = [];
+  if (authProfile) {
+    const authEntry = getAuthEntry(config, authProfile);
+    if (authEntry?.scenario) {
+      const { searchGlobs } = resolveRunGlobs(config, []);
+      const searchFiles = await fg(searchGlobs, { cwd, absolute: true });
+      const authSummaries = findScenarioSummariesByNames(
+        searchFiles,
+        new Set([authEntry.scenario]),
+      );
+      authScenarios = authSummaries.map((summary) =>
+        parseScenarioFile(summary.filePath),
+      );
+    }
+  }
+
   const scenarioCtx: ScenarioRunContext = {
     config,
     allSkills,
     baseSkillNames,
+    allScenarios: authScenarios,
     cwd,
     runDir,
     headed: resolveBrowserHeaded(config, options.headed),
@@ -766,7 +755,7 @@ export async function executeScenarioWorker(
     isolatedSessions: true,
     keepBrowser: options.keepBrowser ?? false,
     artifacts: options.artifacts ?? "on-failure",
-    authStateByProfile,
+    authRefresh: options.authRefresh,
     redactor,
     noHealing: options.noHealing,
     retriesPolicy: options.retriesPolicy,
@@ -780,6 +769,53 @@ export async function executeScenarioWorker(
   writeScenarioResult(artifactDir, result, redactor);
 
   return result.status === "pass" ? 0 : 1;
+}
+
+export async function executeClearCache(
+  scenarioName?: string,
+  configPath?: string,
+): Promise<number> {
+  const cwd = process.cwd();
+  const config = await loadConfig(configPath, cwd);
+  clearCache(cwd, config, scenarioName);
+  if (scenarioName) {
+    console.log(chalk.green(`Cleared cache for scenario "${scenarioName}"`));
+  } else {
+    console.log(chalk.green("Cleared all scenario caches"));
+  }
+  return 0;
+}
+
+export function executeSkillsSync(): number {
+  try {
+    execSync("tsx scripts/sync-skills.ts", {
+      cwd: process.cwd(),
+      stdio: "inherit",
+    });
+    return 0;
+  } catch {
+    return 1;
+  }
+}
+
+export function executeSkillsList(skillsDirs: string[]): void {
+  const skills = discoverSkills(skillsDirs, process.cwd());
+  for (const entry of catalog(skills)) {
+    console.log(`${chalk.bold(entry.name)} — ${entry.description}`);
+    console.log(chalk.dim(`  ${entry.dir}`));
+  }
+}
+
+export function executeSkillsShow(name: string, skillsDirs: string[]): number {
+  const skills = discoverSkills(skillsDirs, process.cwd());
+  const skill = getSkill(skills, name);
+  if (!skill) {
+    console.error(chalk.red(`Skill not found: ${name}`));
+    return 1;
+  }
+  console.log(`--- ${skill.name} ---\n`);
+  console.log(skill.body);
+  return 0;
 }
 
 export async function executeAuthSave(
@@ -808,7 +844,7 @@ export async function executeAuthSave(
     return 2;
   }
 
-  const authEntry = config.auth[authName];
+  const authEntry = config.auth?.[authName];
   if (!authEntry?.scenario) {
     console.error(
       chalk.red(
@@ -905,21 +941,6 @@ export function executeAuthList(): number {
   return 0;
 }
 
-export async function executeClearCache(
-  scenarioName?: string,
-  configPath?: string,
-): Promise<number> {
-  const cwd = process.cwd();
-  const config = await loadConfig(configPath, cwd);
-  clearCache(cwd, config, scenarioName);
-  if (scenarioName) {
-    console.log(chalk.green(`Cleared cache for scenario "${scenarioName}"`));
-  } else {
-    console.log(chalk.green("Cleared all scenario caches"));
-  }
-  return 0;
-}
-
 export function executeAuthClear(profile?: string): number {
   clearAuthStore(process.cwd(), profile);
   if (profile) {
@@ -927,37 +948,5 @@ export function executeAuthClear(profile?: string): number {
   } else {
     console.log(chalk.green("Cleared all auth profiles"));
   }
-  return 0;
-}
-
-export function executeSkillsSync(): number {
-  try {
-    execSync("tsx scripts/sync-skills.ts", {
-      cwd: process.cwd(),
-      stdio: "inherit",
-    });
-    return 0;
-  } catch {
-    return 1;
-  }
-}
-
-export function executeSkillsList(skillsDirs: string[]): void {
-  const skills = discoverSkills(skillsDirs, process.cwd());
-  for (const entry of catalog(skills)) {
-    console.log(`${chalk.bold(entry.name)} — ${entry.description}`);
-    console.log(chalk.dim(`  ${entry.dir}`));
-  }
-}
-
-export function executeSkillsShow(name: string, skillsDirs: string[]): number {
-  const skills = discoverSkills(skillsDirs, process.cwd());
-  const skill = getSkill(skills, name);
-  if (!skill) {
-    console.error(chalk.red(`Skill not found: ${name}`));
-    return 1;
-  }
-  console.log(`--- ${skill.name} ---\n`);
-  console.log(skill.body);
   return 0;
 }

@@ -30,7 +30,9 @@ import {
   isRecoveryAllowed,
 } from "../healing/classify.js";
 import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
-import { buildBrowserEnv, runBash } from "./bash.js";
+import type { EnsureAuthContext } from "../auth/resolve.js";
+import { resolveStatePath } from "../auth/store.js";
+import { buildBrowserEnv, prepareBrowserSession, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
 import {
   SkillLoadRegistry,
@@ -52,7 +54,6 @@ import {
   stripLastAssistantTurn,
 } from "./verdict.js";
 import type { TokenUsageStats } from "../types/verdict.js";
-import { resolveStatePath } from "../auth/store.js";
 import type { EnvRedactor } from "../redact/env-secrets.js";
 import { createLlmModel } from "./llm-model.js";
 import { buildProviderOptions } from "./provider-options.js";
@@ -97,14 +98,18 @@ export interface RunScenarioOptions {
   scenario: Scenario;
   cwd: string;
   artifactDir: string;
-  authStatePath?: string;
-  authProfile?: string;
-  profilePath?: string;
+  runDir?: string;
   headed: boolean;
   verbose?: boolean;
   artifacts: ArtifactsMode;
   sessionName?: string;
   preparedStartUrl?: string;
+  authStatePath?: string;
+  authProfile?: string;
+  profilePath?: string;
+  ensureAuthContext?: EnsureAuthContext;
+  authRefresh?: boolean;
+  provisioning?: boolean;
   onTurn?: () => Promise<void>;
   redactor?: EnvRedactor;
   noHealing?: boolean;
@@ -262,49 +267,89 @@ export async function runScenario(
   const transcript: AgentTranscript = { entries: [] };
   const sessionName =
     options.sessionName ?? options.config.browser.sessionName;
+
+  // Setup HookRunner (always created; hooks supplied via extensionHooks from caller)
+  const hookCtx = {
+    logger: {
+      info: (msg: string) => {
+        if (options.verbose) console.log(`[hook] ${msg}`);
+      },
+      warn: (msg: string) => console.warn(`[hook] ${msg}`),
+      error: (msg: string) => console.error(`[hook] ${msg}`),
+    },
+    cwd: options.cwd,
+    config: options.config,
+    transcript,
+    metadata: {
+      ...(options.verbose !== undefined ? { verbose: options.verbose } : {}),
+      ...(options.runDir ? { runDir: options.runDir } : {}),
+      ...(options.ensureAuthContext
+        ? { ensureAuthContext: options.ensureAuthContext }
+        : {}),
+      ...(options.authRefresh !== undefined
+        ? { authRefresh: options.authRefresh }
+        : {}),
+      ...(options.provisioning ? { provisioning: true } : {}),
+    },
+    abort: (reason: string): never => {
+      throw new HookAbortError(reason);
+    },
+  };
+  const hookRunner = new HookRunner(options.extensionHooks ?? {}, hookCtx);
+
+  // Pre-scenario hook
+  const preScenarioResult = await hookRunner.runPreScenario(options.scenario);
+  if (preScenarioResult.action === "skip") {
+    return {
+      scenario: options.scenario.frontmatter.name,
+      filePath: options.scenario.filePath,
+      status: "skipped",
+      durationMs: Date.now() - start,
+      verdict: null,
+      transcript,
+      artifactDir: options.artifactDir,
+      error: preScenarioResult.reason,
+    };
+  }
+  if (preScenarioResult.action === "abort") {
+    throw new HookAbortError(preScenarioResult.error);
+  }
+
+  let profilePath = options.profilePath;
+  let authStatePath = options.authStatePath;
+  if (
+    preScenarioResult.action === "continue" &&
+    preScenarioResult.browserContext
+  ) {
+    profilePath =
+      preScenarioResult.browserContext.profilePath ?? profilePath;
+    authStatePath =
+      preScenarioResult.browserContext.authStatePath ?? authStatePath;
+  }
+
+  let preparedStartUrl = options.preparedStartUrl;
+  const scenarioStartUrl = options.scenario.frontmatter.url;
+  if (
+    !preparedStartUrl &&
+    (profilePath || authStatePath || scenarioStartUrl)
+  ) {
+    ({ startUrl: preparedStartUrl } = await prepareBrowserSession({
+      cwd: options.cwd,
+      timeoutMs: options.config.agent.bashTimeoutMs,
+      sessionName,
+      headed: options.headed,
+      engine: options.config.browser.engine,
+      lightpanda: options.config.browser.lightpanda,
+      profilePath,
+      authStatePath: profilePath ? undefined : authStatePath,
+      startUrl: scenarioStartUrl,
+      verbose: options.verbose,
+    }));
+  }
+
   const authSavePath = options.authProfile
     ? resolveStatePath(options.cwd, options.authProfile, options.config)
     : undefined;
-
-  // Setup HookRunner if extension hooks are provided
-  let hookRunner: HookRunner | undefined;
-  if (options.extensionHooks) {
-    const hookCtx = {
-      logger: {
-        info: (msg: string) => {
-          if (options.verbose) console.log(`[hook] ${msg}`);
-        },
-        warn: (msg: string) => console.warn(`[hook] ${msg}`),
-        error: (msg: string) => console.error(`[hook] ${msg}`),
-      },
-      cwd: options.cwd,
-      config: options.config,
-      transcript,
-      metadata: {},
-      abort: (reason: string): never => {
-        throw new HookAbortError(reason);
-      },
-    };
-    hookRunner = new HookRunner(options.extensionHooks, hookCtx);
-
-    // Pre-scenario hook
-    const preScenarioResult = await hookRunner.runPreScenario(options.scenario);
-    if (preScenarioResult.action === "skip") {
-      return {
-        scenario: options.scenario.frontmatter.name,
-        filePath: options.scenario.filePath,
-        status: "skipped",
-        durationMs: Date.now() - start,
-        verdict: null,
-        transcript,
-        artifactDir: options.artifactDir,
-        error: preScenarioResult.reason,
-      };
-    }
-    if (preScenarioResult.action === "abort") {
-      throw new HookAbortError(preScenarioResult.error);
-    }
-  }
 
   const bashEnv = buildBrowserEnv({
     cwd: options.cwd,
@@ -312,8 +357,8 @@ export async function runScenario(
     sessionName,
     engine: options.config.browser.engine,
     lightpanda: options.config.browser.lightpanda,
-    profilePath: options.profilePath,
-    authStatePath: options.profilePath ? undefined : options.authStatePath,
+    profilePath,
+    authStatePath: profilePath ? undefined : authStatePath,
     authSavePath,
     artifactDir: options.artifactDir,
   });
@@ -325,14 +370,14 @@ export async function runScenario(
     {
       cwd: options.cwd,
       artifactDir: options.artifactDir,
-      authStatePath: options.authStatePath,
+      authStatePath: profilePath ? undefined : authStatePath,
       authProfile: options.authProfile,
-      profilePath: options.profilePath,
+      profilePath,
       headed: options.headed,
       sessionName,
       artifacts: options.artifacts,
       scenarioCacheHints: options.scenarioCacheHints,
-      preparedStartUrl: options.preparedStartUrl,
+      preparedStartUrl,
     },
   );
 
@@ -345,14 +390,11 @@ export async function runScenario(
       runtime: {
         cwd: options.cwd,
         artifactDir: options.artifactDir,
-        authStatePath: options.authStatePath,
-        authProfile: options.authProfile,
-        profilePath: options.profilePath,
         headed: options.headed,
         sessionName,
         artifacts: options.artifacts,
         scenarioCacheHints: options.scenarioCacheHints,
-        preparedStartUrl: options.preparedStartUrl,
+        preparedStartUrl,
       },
     });
     if (preSystemResult.extraInstructions) {
@@ -459,7 +501,7 @@ export async function runScenario(
         name: z
           .string()
           .describe(
-            "Item name: authentication, dogfood (bundled), prose-qa (custom), etc.",
+            "Item name: dogfood (bundled), prose-qa (custom), etc.",
           ),
       }),
       execute: async ({ kind, name }) => {
@@ -488,7 +530,7 @@ export async function runScenario(
 
   const initialPrompt = buildInitialPrompt(
     options.scenario,
-    options.preparedStartUrl,
+    preparedStartUrl,
   );
   appendTranscriptMessage(transcript, "user", initialPrompt);
 
@@ -499,7 +541,6 @@ export async function runScenario(
   if (autoLoadEnabled) {
     const autoSpecs = inferAutoSkillLoads({
       scenario: options.scenario,
-      authProfile: options.authProfile,
     });
     const autoResults = autoSpecs.map((spec) =>
       skillRegistry.load(options.cwd, spec.kind, spec.name),

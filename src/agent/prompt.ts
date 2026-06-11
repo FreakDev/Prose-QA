@@ -29,7 +29,7 @@ export function buildInitialPrompt(
   }
   if (preparedStartUrl === "about:blank") {
     return (
-      `Execute the scenario "${name}" now. Auth state is loaded in the browser session. ` +
+      `Execute the scenario "${name}" now. The browser session is ready. ` +
       `Follow the Steps without running agent-browser close first. ${EXECUTION_HINT}`
     );
   }

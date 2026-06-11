@@ -161,7 +161,6 @@ const MINIMAL_CONFIG: PqaConfig = {
   browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
-  auth: {},
 };
 
 export function classifyFailure(

@@ -2,11 +2,10 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { CacheConfig, HealingConfig, PqaConfig, ReportConfig } from "../types/config.js";
-import type { ExtensionHooks } from "../types/hooks.js";
 import { loadEnv } from "./env.js";
-import { resolveStatePath } from "../auth/store.js";
 import { getPackageRoot, resolveBundledPath } from "../paths.js";
-import { resolveAllHookModules } from "./hooks.js";
+import { resolveStatePath } from "../auth/store.js";
+import { resolveConfigExtensionHooks } from "./hooks.js";
 
 const LOCAL_CONFIG_CANDIDATES = [
   "pqa.config.json",
@@ -36,11 +35,11 @@ const MINIMAL_FALLBACK_CONFIG: PqaConfig = {
     dirs: [],
     preloads: [],
   },
+  auth: {},
   agent: {
     maxTurns: 200,
     bashTimeoutMs: 120_000,
   },
-  auth: {},
 };
 
 export const DEFAULT_TRANSIENT_PATTERNS = [
@@ -153,14 +152,9 @@ export async function loadConfig(
 
   const config = await resolveBaseConfig(configPath, cwd);
 
-  // Resolve hook module paths into functions
-  if (!config.extensions?.hooks) return config;
-
   try {
-    const resolvedHooks = await resolveAllHookModules(
-      config.extensions.hooks as ExtensionHooks,
-      cwd,
-    );
+    const resolvedHooks = await resolveConfigExtensionHooks(config, cwd);
+    if (!resolvedHooks) return config;
     return {
       ...config,
       extensions: {
@@ -220,8 +214,8 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
         ? { ...base.skills.onDemand, ...override.skills.onDemand }
         : base.skills.onDemand,
     },
+    auth: { ...(base.auth ?? {}), ...(override.auth ?? {}) },
     agent: { ...base.agent, ...override.agent },
-    auth: { ...base.auth, ...override.auth },
     healing: {
       ...base.healing,
       ...override.healing,
@@ -349,11 +343,9 @@ export function resolveAuthState(
   cwd: string,
 ): string | undefined {
   if (!authName) return undefined;
-  const entry = config.auth[authName];
+  const entry = config.auth?.[authName];
   if (!entry) {
-    throw new Error(
-      `Auth profile "${authName}" not configured in pqa.config`,
-    );
+    throw new Error(`Auth profile "${authName}" not configured in pqa.config`);
   }
   if (!entry.scenario && !entry.statePath) {
     throw new Error(

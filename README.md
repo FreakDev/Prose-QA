@@ -31,13 +31,13 @@ pqa run scenarios/**/*.md
 - **Natural language scenarios** — `# Goal`, `# Steps`, and `# Then` checkpoints ([format guide](docs/HOWTO.md#1-scenario-format-goal--steps--then--frontmatter))
 - **CI + local debug** modes with HTML/JSON reports
 - **MCP Server** to help your usual agent create scenario tailored to your codebase
-- **Auth, cache, healing, recording, and analysis** — see [HOWTO](docs/HOWTO.md)
+- **Cache, healing, recording, and analysis** — see [HOWTO](docs/HOWTO.md)
 
 ## Documentation
 
 | Doc                                                          | Purpose                                                                                    |
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| [docs/HOWTO.md](docs/HOWTO.md)                               | Step-by-step guide: scenarios → run → CI → auth → MCP → record → cache → healing → analyze |
+| [docs/HOWTO.md](docs/HOWTO.md)                               | Step-by-step guide: scenarios → run → CI → MCP → record → cache → healing → analyze |
 | [docs/CONFIG.md](docs/CONFIG.md)                             | Full configuration reference                                                               |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                           | Pull request guidelines                                                                    |
 | [SECURITY.md](SECURITY.md)                                   | Vulnerability reporting, secrets, and run artifacts                                        |
@@ -51,13 +51,12 @@ pqa run scenarios/**/*.md
 | `pqa run [globs]`                                   | Run scenarios (headless by default)                |
 | `pqa debug [globs]`                                 | Verbose debug run (headed by default)              |
 | `pqa clear-cache [scenario]`                        | Clear scenario replay cache                        |
-| `pqa auth list` / `clear` / `save`                  | Manage cached auth profiles                        |
 | `pqa analyze [run...]`                              | Post-run analysis and flaky detection (`--last N`) |
 | `pqa record start` / `note` / `checkpoint` / `stop` | Record browser actions → scenario markdown         |
 | `pqa skills list` / `show` / `sync`                 | Discover and inspect agent skills                  |
 | `pqa mcp`                                           | Start MCP server (Cursor, Claude Desktop, …)       |
 
-Tag filters, auth refresh, retries, and cache flags: see [HOWTO §3–§4](docs/HOWTO.md#3-debug-vs-run) and [HOWTO §11](docs/HOWTO.md#11-healing--retries).
+Tag filters, retries, and cache flags: see [HOWTO §3–§4](docs/HOWTO.md#3-debug-vs-run) and [HOWTO §10](docs/HOWTO.md#10-healing--retries).
 
 **Exit codes:** `0` pass · `1` failure · `2` config/harness error
 

@@ -118,6 +118,28 @@ describe("HookRunner", () => {
       const result = await runner.runPreScenario(makeScenario());
       assert.equal(result.action, "continue");
     });
+
+    it("preserves browserContext from continue result", async () => {
+      const hooks: ExtensionHooks = {
+        preScenario: [
+          () => ({
+            action: "continue" as const,
+            browserContext: {
+              profilePath: "/tmp/.pqa/profiles/admin",
+            },
+          }),
+        ],
+      };
+      const runner = new HookRunner(hooks, makeHookContext());
+      const result = await runner.runPreScenario(makeScenario());
+      assert.equal(result.action, "continue");
+      if (result.action === "continue") {
+        assert.equal(
+          result.browserContext?.profilePath,
+          "/tmp/.pqa/profiles/admin",
+        );
+      }
+    });
   });
 
   describe("runPreSystemPrompt", () => {

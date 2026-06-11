@@ -193,7 +193,7 @@ tags: [lapresse, test2]
 });
 
 describe("selectRunnableScenarioSummaries", () => {
-  it("filters by tags, partial, and auth scenario names", () => {
+  it("filters by tags and partial scenarios", () => {
     const summaries = [
       {
         filePath: "/tmp/run.md",
@@ -207,22 +207,40 @@ describe("selectRunnableScenarioSummaries", () => {
         filePath: "/tmp/partial.md",
         frontmatter: { name: "partial", partial: true, tags: ["lapresse", "test2"] },
       },
-      {
-        filePath: "/tmp/auth.md",
-        frontmatter: { name: "login-admin", tags: ["auth"] },
-      },
     ];
-    const authScenarioNames = new Set(["login-admin"]);
 
     const selected = selectRunnableScenarioSummaries(
       summaries,
       [["lapresse", "test2"]],
-      authScenarioNames,
     );
 
     assert.deepEqual(
       selected.map((s) => s.frontmatter.name),
       ["run"],
+    );
+  });
+
+  it("excludes auth creator scenarios from batch runs", () => {
+    const summaries = [
+      {
+        filePath: "/tmp/checkout.md",
+        frontmatter: { name: "checkout", auth: "admin" },
+      },
+      {
+        filePath: "/tmp/login-admin.md",
+        frontmatter: { name: "login-admin", tags: ["auth"] },
+      },
+    ];
+
+    const selected = selectRunnableScenarioSummaries(
+      summaries,
+      undefined,
+      new Set(["login-admin"]),
+    );
+
+    assert.deepEqual(
+      selected.map((s) => s.frontmatter.name),
+      ["checkout"],
     );
   });
 });

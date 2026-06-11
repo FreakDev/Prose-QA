@@ -34,8 +34,8 @@ A PQA scenario is a Markdown file with **three required sections** and a YAML bl
 | --------- | -------- | --------------------------------------------- |
 | `name`    | yes      | Stable identifier (kebab-case)                |
 | `tags`    | no       | Filter runs (`smoke`, `checkout`, …)          |
+| `auth`    | no       | Profile key — run with a persisted identity   |
 | `url`     | no       | URL opened before Steps                       |
-| `auth`    | no       | Session profile (`admin`, …) — see §7         |
 | `skills`  | no       | Extra Agent Skills                            |
 | `partial` | no       | `true` = includable fragment, never run alone |
 
@@ -80,6 +80,34 @@ Verify the smoke test server serves a page that displays Hello World.
 
 Avoid vague wording (“the form should work”); prefer observable assertions.
 
+### Profiles (`auth`)
+
+Consumer scenarios declare `auth: <profile-key>` to run as an already-signed-in user. Configure the profile in `pqa.config`:
+
+```json
+{
+  "auth": {
+    "admin": {
+      "scenario": "login-admin"
+    }
+  }
+}
+```
+
+- **Auth scenario** (`login-admin`) — performs login; do **not** set `auth:` on it. Excluded from batch runs when referenced in config.
+- **Consumer scenario** — `auth: admin` in frontmatter; harness ensures the profile exists before Steps.
+- **Chrome** — profile stored under `.pqa/profiles/<key>/`
+- **Lightpanda** — state JSON under `.pqa/auth/<key>.json`
+
+Refresh a stale profile:
+
+```bash
+pqa run scenarios/checkout.md --auth-refresh
+pqa auth save admin
+pqa auth list
+pqa auth clear admin
+```
+
 ### Author checklist
 
 - [ ] Unique `name`
@@ -102,13 +130,12 @@ The vendored `core` skill (`skills/agent-browser/`) is synced at `npm install` v
 
 ### On-demand skill loading
 
-The harness exposes a `load_skill` tool so the agent can pull detailed docs only when needed (e.g. `authentication`, `commands`, `snapshot-refs`). Custom project skills under `skills.dirs` (default `.pqa/skills/`, e.g. `.pqa/skills/my-app/SKILL.md`) are loadable with `kind=custom`. Do not use `agent-browser skills get` in bash during a run.
+The harness exposes a `load_skill` tool so the agent can pull detailed docs only when needed (e.g. `commands`, `snapshot-refs`). Custom project skills under `skills.dirs` (default `.pqa/skills/`, e.g. `.pqa/skills/my-app/SKILL.md`) are loadable with `kind=custom`. Do not use `agent-browser skills get` in bash during a run.
 
 | Mechanism | When |
 | --------- | ---- |
 | `load_skill` tool | Agent needs a reference or custom skill mid-run |
 | `load_skill kind=custom` | User SKILL.md from `skills.dirs` not in preloads |
-| Harness auto-load | Auth scenarios → `authentication` reference pre-injected |
 | `pqa skills sync` | Re-vendor after upgrading `agent-browser` |
 
 Config: `skills.onDemand` in `pqa.config.*` (`enabled`, `autoLoad`, `maxChars`). See [CONFIG.md](CONFIG.md).
@@ -188,7 +215,7 @@ pqa run scenarios/**/*.md --tags p0,!smoke
 pqa run scenarios/**/*.md --tag smoke --tag checkout
 ```
 
-**Auth** scenarios (`tags: [auth]`) and **partials** (`partial: true`) are usually not run in batch; auth is triggered on demand (§7).
+**Partials** (`partial: true`) are only included via body links — never run directly in batch.
 
 ---
 
@@ -237,104 +264,11 @@ Best practices:
 - `--tag example` to limit scope (bundled demo scenarios in this repo)
 - Upload `.pqa/runs/` on failure (`actions/upload-artifact`)
 
-Optional: `--retries 1 --retries-policy transient` (§11), pre-seed auth (§7).
+Optional: `--retries 1 --retries-policy transient` (§10).
 
 ---
 
-## 7. Hybrid auth
-
-For protected pages, do **not** duplicate login in every scenario. Use an **auth profile** and a dedicated login scenario.
-
-### Demo server (this repo)
-
-The demo server exposes login and a protected page:
-
-```bash
-npm run demo:server
-# Credentials: demo@pqa.local / demo-password (see .env.example)
-```
-
-Routes: `/` (Hello World) · `/login` · `/projects` (protected, session cookie).
-
-### Auth scenario (on-demand)
-
-[`scenarios/auth/login-admin.md`](../scenarios/auth/login-admin.md):
-
-```markdown
----
-name: login-admin
-tags: [auth]
-url: http://127.0.0.1:8080/login
----
-
-# Goal
-
-Authenticate as an admin test user.
-
-# Steps
-
-1. Open the login page.
-2. Sign in using `$PQA_TEST_EMAIL` and `$PQA_TEST_PASSWORD` from the environment.
-3. Confirm you reach an authenticated area.
-
-# Then
-
-- url does not contain "/login"
-```
-
-`name` must match `auth.admin.scenario` in config.
-
-### Consumer scenario
-
-```markdown
----
-name: example-authenticated
-tags: [example, auth-demo]
-auth: admin
-url: http://127.0.0.1:8080/projects
----
-```
-
-Local demo:
-
-```bash
-npm run demo:server &
-export PQA_TEST_EMAIL=demo@pqa.local
-export PQA_TEST_PASSWORD=demo-password
-pqa debug scenarios/1_example-authenticated.md --verbose
-```
-
-The harness loads `.pqa/auth/admin.json` or runs `login-admin` once, saves browser state, then opens the URL with `$AGENT_BROWSER_STATE`.
-
-### Auth CLI
-
-```bash
-pqa auth list
-pqa auth clear admin
-pqa auth save admin          # force login + save state
-pqa run scenarios/**/*.md --auth-refresh   # invalidate and re-run auth
-```
-
-Configure in `pqa.config.json`:
-
-```json
-{
-  "envVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
-  "sensitiveEnvVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
-  "auth": {
-    "admin": {
-      "scenario": "login-admin",
-      "statePath": ".pqa/auth/admin.json"
-    }
-  }
-}
-```
-
-**Never** put passwords in scenario files — only `$PQA_TEST_*` in auth Steps.
-
----
-
-## 8. MCP + author skill
+## 7. MCP + author skill
 
 For **Cursor**, Claude Desktop, etc., the MCP server exposes scenario authoring and execution without leaving the IDE.
 
@@ -372,7 +306,7 @@ Typical workflow: ask the agent to **author** a scenario → `validate_scenario`
 
 ---
 
-## 9. Record → markdown
+## 8. Record → markdown
 
 Record browser actions and produce a scenario **draft** via LLM.
 
@@ -389,7 +323,7 @@ pqa debug scenarios/recorded/my-flow.md --verbose
 - Snapshots: `.pqa/recordings/.../snapshots/`
 - Generated file: `scenarios/recorded/<name>.md` (default tag `recorded`)
 
-**After generation**, edit the file: condense Steps, add `auth:`, `tags`, partials, precise Then checkpoints.
+**After generation**, edit the file: condense Steps, add `tags`, partials, precise Then checkpoints.
 
 Regenerate from a saved recording:
 
@@ -401,7 +335,7 @@ Chrome extension (WIP): see [`recorder-extension/README.md`](../recorder-extensi
 
 ---
 
-## 10. Replay cache
+## 9. Replay cache
 
 After a **PASS**, PQA can generate **replay hints** (second LLM pass on the transcript) in `.pqa/cache/<scenario-name>/` (`hints.md` + `meta.json`). On the next run, those hints are injected into the prompt to reuse proven `agent-browser` paths.
 
@@ -426,7 +360,7 @@ Config: `cache.dir`, `cache.enabled` in `pqa.config.*`.
 
 ---
 
-## 11. Healing / retries
+## 10. Healing / retries
 
 **Conservative self-healing** (enabled by default via `healing.enabled`):
 
@@ -450,7 +384,7 @@ Passes after recovery are marked `healing.used: true` in reports.
 
 ---
 
-## 12. Analyze
+## 11. Analyze
 
 Analyze past runs to understand failures or detect **flakiness**.
 
@@ -480,7 +414,7 @@ Related prompts: [`prompt/ANALYZE.md`](../prompt/ANALYZE.md), [`prompt/ANALYZE-F
 | 15–20   | §5      | Open latest `report.html`                                             |
 | 20–30   | §6      | Review `smoke_tests.yml`                                              |
 
-Sections §7–12: separate workshop on a real app or as follow-up depth.
+Sections §7–11: separate workshop on a real app or as follow-up depth.
 
 ---
 

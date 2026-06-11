@@ -48,7 +48,6 @@ describe("suggestScenarioFixes", () => {
       browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
       skills: { dirs: [], preloads: [] },
       agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
-      auth: {},
     });
     const suggestions = suggestScenarioFixes(failResult, scenario, classified);
     assert.equal(classified.kind, "scenario_issue");

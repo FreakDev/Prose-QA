@@ -21,14 +21,6 @@ Unknown keys are rejected; only properties that exist in the bundled reference c
   "llm": {
     "provider": "anthropic",
     "model": "claude-sonnet-4-20250514"
-  },
-  "envVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
-  "sensitiveEnvVars": ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
-  "auth": {
-    "admin": {
-      "scenario": "login-admin",
-      "statePath": ".pqa/auth/admin.json"
-    }
   }
 }
 ```
@@ -120,12 +112,42 @@ Lazy loading for the vendored agent-browser skill. The full skill package (refer
 | Key        | Type    | Default | Description                                                                              |
 | ---------- | ------- | ------- | ---------------------------------------------------------------------------------------- |
 | `enabled`  | boolean | `true`  | Expose the `load_skill` tool and on-demand catalog in the system prompt                  |
-| `autoLoad` | boolean | `true`  | Harness auto-injects context-aware references (e.g. `authentication` for auth scenarios) |
+| `autoLoad` | boolean | `true`  | Harness auto-injects context-aware references before the run when enabled |
 | `maxChars` | number  | `50000` | Max characters returned per `load_skill` call                                            |
 
 Custom skills discovered under `skills.dirs` (but not listed in `skills.preloads` or scenario frontmatter) appear in the on-demand catalog and load via `load_skill` with `kind=custom` (or `kind=skill` as fallback).
 
 Disable with `skills.onDemand.enabled: false` to fall back to the minimal core only (no `load_skill` tool).
+
+---
+
+### `auth` (object, optional)
+
+Maps profile keys to auth scenarios and optional state file paths. Used when consumer scenarios declare `auth: <key>` in frontmatter.
+
+| Key per profile | Type   | Description                                                        |
+| --------------- | ------ | ------------------------------------------------------------------ |
+| `scenario`      | string | `frontmatter.name` of the login/auth scenario (provisioning)       |
+| `statePath`     | string | Optional override for state JSON (default: `.pqa/auth/<key>.json`) |
+
+Example:
+
+```json
+{
+  "auth": {
+    "admin": {
+      "scenario": "login-admin"
+    }
+  }
+}
+```
+
+Persistence depends on `browser.engine`:
+
+- **chrome** — Chrome profile directory (`.pqa/profiles/<key>/`)
+- **lightpanda** — agent-browser state JSON (`.pqa/auth/<key>.json`)
+
+CLI: `pqa auth save <name>`, `pqa auth list`, `pqa auth clear [profile]`, `--auth-refresh` on `pqa run`.
 
 ---
 
@@ -137,21 +159,6 @@ Agent loop limits.
 | --------------- | ------ | -------- | ------------------------------------------------------------- |
 | `maxTurns`      | number | `200`    | Maximum agent turns per scenario                              |
 | `bashTimeoutMs` | number | `120000` | Timeout for each bash (agent-browser) command in milliseconds |
-
----
-
-### `auth` (object)
-
-Map of auth profile names to login scenario configuration. Consumer scenarios reference a profile via frontmatter `auth: <name>`.
-
-Each profile key (e.g. `admin`) supports:
-
-| Key         | Type   | Default                    | Description                                                              |
-| ----------- | ------ | -------------------------- | ------------------------------------------------------------------------ |
-| `scenario`  | string | —                          | `frontmatter.name` of the on-demand auth scenario (e.g. `"login-admin"`) |
-| `statePath` | string | `.pqa/auth/<profile>.json` | agent-browser state file path                                            |
-
-When a scenario uses `auth: admin`, the harness loads cached state from `statePath` or runs the auth scenario once, saves browser state, then continues. See [HOWTO §7 — Hybrid auth](HOWTO.md#7-hybrid-auth).
 
 ---
 
@@ -223,12 +230,6 @@ Settings for `pqa record`. See [HOWTO §9 — Record → markdown](HOWTO.md#9-re
   "agent": {
     "maxTurns": 200,
     "bashTimeoutMs": 120000
-  },
-  "auth": {
-    "admin": {
-      "scenario": "login-admin",
-      "statePath": ".pqa/auth/admin.json"
-    }
   },
   "healing": {
     "enabled": true,

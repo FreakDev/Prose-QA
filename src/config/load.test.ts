@@ -26,7 +26,6 @@ const minimalConfig = (engine: PqaConfig["browser"]["engine"]): PqaConfig => ({
   },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
-  auth: {},
 });
 
 describe("resolveAgentParallel", () => {
@@ -79,13 +78,16 @@ describe("loadConfig", () => {
     process.env.PQA_LLM_MODEL = "accounts/fireworks/models/test";
     try {
       const config = await loadConfig(undefined, cwd);
-        assert.equal(config.llm.provider, "fireworks");
+      assert.equal(config.llm.provider, "fireworks");
       assert.equal(config.llm.model, "accounts/fireworks/models/test");
       assert.equal(config.llm.thinking?.enabled, true);
       assert.equal(config.healing?.enabled, true);
       assert.equal(config.healing?.maxRecoveryTurns, 2);
-      assert.deepEqual(config.envVars, []);
-      assert.equal(config.auth.admin?.scenario, "login-admin");
+      assert.deepEqual(config.envVars, [
+        "PQA_TEST_EMAIL",
+        "PQA_TEST_PASSWORD",
+      ]);
+      assert.deepEqual(config.auth?.admin, { scenario: "login-admin" });
       assert.equal(config.recorder?.bridgePort, 17_321);
       assert.equal(config.scenariosDir, "scenarios");
       assert.equal(config.agent.parallel, 0);

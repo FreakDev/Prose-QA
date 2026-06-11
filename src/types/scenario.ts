@@ -1,6 +1,7 @@
 export interface ScenarioFrontmatter {
   name: string;
   tags?: string[];
+  /** Profile key — consumer scenarios run with this persisted identity. */
   auth?: string;
   url?: string;
   /** Skill names to load into the agent prompt when this scenario runs. */

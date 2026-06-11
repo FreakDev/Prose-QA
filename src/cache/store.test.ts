@@ -19,7 +19,6 @@ const baseConfig: PqaConfig = {
   browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 100, bashTimeoutMs: 120_000 },
-  auth: {},
   cache: { dir: ".pqa/cache", enabled: true },
 };
 

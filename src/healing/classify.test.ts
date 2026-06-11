@@ -18,7 +18,6 @@ const baseConfig = {
   },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
-  auth: {},
 };
 
 function pilarSmokeScenario(): Scenario {

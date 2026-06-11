@@ -32,18 +32,18 @@ describe("keyExistsInReference", () => {
   const reference = {
     browser: { headed: false, sessionName: "pqa", engine: "chrome" },
     llm: { provider: "anthropic", thinking: { enabled: true } },
-    auth: { admin: { scenario: "login-admin" } },
+    healing: { enabled: true, maxRecoveryTurns: 2 },
   };
 
   it("accepts existing nested keys", () => {
     assert.equal(keyExistsInReference(["browser", "headed"], reference), true);
     assert.equal(keyExistsInReference(["llm", "thinking", "enabled"], reference), true);
-    assert.equal(keyExistsInReference(["auth", "admin", "scenario"], reference), true);
+    assert.equal(keyExistsInReference(["healing", "maxRecoveryTurns"], reference), true);
   });
 
   it("rejects unknown keys", () => {
     assert.equal(keyExistsInReference(["browser", "unknown"], reference), false);
-    assert.equal(keyExistsInReference(["auth", "guest", "scenario"], reference), false);
+    assert.equal(keyExistsInReference(["healing", "unknown"], reference), false);
     assert.equal(keyExistsInReference(["missing"], reference), false);
   });
 });

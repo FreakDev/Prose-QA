@@ -1,5 +1,7 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { ensureProfileHook } from "../hooks/ensure-profile.js";
+import type { PqaConfig } from "../types/config.js";
 import type { ExtensionHooks } from "../types/hooks.js";
 
 /**
@@ -81,4 +83,34 @@ export async function resolveAllHookModules(
     ...(preVerdict.length > 0 ? { preVerdict } : {}),
     ...(postScenario.length > 0 ? { postScenario } : {}),
   };
+}
+
+function hasAuthConfig(config: PqaConfig): boolean {
+  return Object.keys(config.auth ?? {}).length > 0;
+}
+
+/**
+ * Resolve user hook modules and prepend the built-in ensureProfile hook when
+ * auth profiles are configured.
+ */
+export async function resolveConfigExtensionHooks(
+  config: PqaConfig,
+  cwd: string,
+): Promise<ExtensionHooks | undefined> {
+  const userHooks = config.extensions?.hooks;
+  const resolvedUser = userHooks
+    ? await resolveAllHookModules(userHooks, cwd)
+    : {};
+
+  const preScenario = [
+    ...(hasAuthConfig(config) ? [ensureProfileHook] : []),
+    ...(resolvedUser.preScenario ?? []),
+  ];
+
+  const merged: ExtensionHooks = {
+    ...resolvedUser,
+    ...(preScenario.length > 0 ? { preScenario } : {}),
+  };
+
+  return Object.keys(merged).length > 0 ? merged : undefined;
 }

@@ -22,7 +22,6 @@ function truncate(text: string, max: number): string {
 export interface ScenarioIntentContext {
   name: string;
   url?: string;
-  auth?: string;
   tags?: string[];
   goal: string;
   steps: string;
@@ -76,7 +75,6 @@ export function buildScenarioIntent(
     return {
       name: scenario.frontmatter.name,
       url: scenario.frontmatter.url,
-      auth: scenario.frontmatter.auth,
       tags: scenario.frontmatter.tags,
       goal: scenario.goal,
       steps: scenario.steps,

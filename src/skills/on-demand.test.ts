@@ -90,22 +90,10 @@ describe("SkillLoadRegistry", () => {
 });
 
 describe("inferAutoSkillLoads", () => {
-  it("auto-loads authentication for auth scenarios", () => {
+  it("returns no auto-loaded references by default", () => {
     const loads = inferAutoSkillLoads({
       scenario: makeScenario({
         frontmatter: { name: "login-admin", tags: ["auth"] },
-      }),
-      authProfile: "admin",
-    });
-    assert.deepEqual(loads, [
-      { kind: "reference", name: "authentication", reason: "scenario uses authentication" },
-    ]);
-  });
-
-  it("does not auto-load authentication for consumer scenarios with auth profile", () => {
-    const loads = inferAutoSkillLoads({
-      scenario: makeScenario({
-        frontmatter: { name: "checkout", auth: "admin" },
       }),
     });
     assert.deepEqual(loads, []);

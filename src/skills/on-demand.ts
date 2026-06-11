@@ -258,27 +258,10 @@ export function formatOnDemandCatalog(
 }
 
 /** References the harness auto-injects before the agent runs (context-aware). */
-export function inferAutoSkillLoads(options: {
+export function inferAutoSkillLoads(_options: {
   scenario: Scenario;
-  authProfile?: string;
 }): Array<{ kind: SkillLoadKind; name: string; reason: string }> {
-  const loads: Array<{ kind: SkillLoadKind; name: string; reason: string }> = [];
-
-  // Consumer scenarios with auth: use preloaded state — no auth reference needed.
-  const needsAuth =
-    Boolean(options.authProfile) ||
-    options.scenario.frontmatter.tags?.includes("auth") ||
-    options.scenario.frontmatter.name?.startsWith("login-");
-
-  if (needsAuth) {
-    loads.push({
-      kind: "reference",
-      name: "authentication",
-      reason: "scenario uses authentication",
-    });
-  }
-
-  return loads;
+  return [];
 }
 
 export function formatAutoLoadedMessage(

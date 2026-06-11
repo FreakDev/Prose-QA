@@ -15,5 +15,6 @@ skills/agent-browser
 
 scenarios/*
 !scenarios/0_hello-world.md
-!scenarios/1_example-authenticated.md
+!scenarios/1_demo-calculator-form.md
+!scenarios/2_example-authenticated.md
 !scenarios/auth/login-admin.md

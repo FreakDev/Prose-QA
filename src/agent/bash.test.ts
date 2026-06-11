@@ -88,6 +88,30 @@ describe("buildBrowserEnv", () => {
     assert.equal(env.LIGHTPANDA_DISABLE_TELEMETRY, "true");
   });
 
+  it("sets AGENT_BROWSER_PROFILE when profilePath is provided", () => {
+    const env = buildBrowserEnv({
+      headed: false,
+      sessionName: "pqa",
+      engine: "chrome",
+      profilePath: "/tmp/.pqa/profiles/admin",
+      artifactDir: "/tmp/artifacts",
+    });
+    assert.equal(env.AGENT_BROWSER_PROFILE, "/tmp/.pqa/profiles/admin");
+    assert.equal(env.AGENT_BROWSER_STATE, undefined);
+  });
+
+  it("sets AGENT_BROWSER_STATE when authStatePath is provided", () => {
+    const env = buildBrowserEnv({
+      headed: false,
+      sessionName: "pqa",
+      engine: "lightpanda",
+      authStatePath: "/tmp/.pqa/auth/admin.json",
+      artifactDir: "/tmp/artifacts",
+    });
+    assert.equal(env.AGENT_BROWSER_STATE, "/tmp/.pqa/auth/admin.json");
+    assert.equal(env.AGENT_BROWSER_PROFILE, undefined);
+  });
+
   it("does not set lightpanda env for chrome engine", () => {
     const env = buildBrowserEnv({
       cwd: "/project",

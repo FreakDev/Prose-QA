@@ -14,6 +14,7 @@ import {
   getAuthEntry,
   hasState,
   record,
+  resolveBrowserContextForProfile,
   resolveProfilePath,
   resolveStatePath,
 } from "./store.js";
@@ -42,7 +43,6 @@ function findScenarioByName(
 
 interface SavedBrowserState {
   cookies?: unknown[];
-  origins?: unknown[];
 }
 
 function assertNonEmptyAuthState(statePath: string, profile: string): void {
@@ -72,13 +72,21 @@ async function saveBrowserState(
 ): Promise<void> {
   mkdirSync(path.dirname(statePath), { recursive: true });
   mkdirSync(resolveProfilePath(ctx.cwd, profile), { recursive: true });
+  const browserContext = resolveBrowserContextForProfile(
+    ctx.config,
+    ctx.cwd,
+    profile,
+  );
   const bashEnv = buildBrowserEnv({
     cwd: ctx.cwd,
     headed: ctx.headed,
     sessionName: `pqa-auth-${profile}`,
     engine: ctx.config.browser.engine,
     lightpanda: ctx.config.browser.lightpanda,
-    profilePath: resolveProfilePath(ctx.cwd, profile),
+    profilePath: browserContext.profilePath,
+    authStatePath: browserContext.profilePath
+      ? undefined
+      : browserContext.authStatePath,
     artifactDir: ctx.cwd,
   });
 
@@ -155,13 +163,16 @@ export async function ensureAuthProfile(
     );
   }
 
-  const artifactDir = scenarioArtifactDir(
-    ctx.runDir,
-    `auth-${profile}`,
-  );
+  const artifactDir = scenarioArtifactDir(ctx.runDir, `auth-${profile}`);
   const sessionName = `pqa-auth-${profile}`;
-  const profilePath = resolveProfilePath(ctx.cwd, profile);
-  mkdirSync(profilePath, { recursive: true });
+  const browserContext = resolveBrowserContextForProfile(
+    ctx.config,
+    ctx.cwd,
+    profile,
+  );
+  if (browserContext.profilePath) {
+    mkdirSync(browserContext.profilePath, { recursive: true });
+  }
 
   try {
     const skills = resolveSkills(
@@ -175,13 +186,19 @@ export async function ensureAuthProfile(
       scenario: authScenario,
       cwd: ctx.cwd,
       artifactDir,
+      runDir: ctx.runDir,
       headed: ctx.headed,
       verbose: ctx.verbose,
       artifacts: ctx.artifacts,
       sessionName,
       authProfile: profile,
-      profilePath,
+      profilePath: browserContext.profilePath,
+      authStatePath: browserContext.profilePath
+        ? undefined
+        : browserContext.authStatePath,
       redactor: ctx.redactor,
+      provisioning: true,
+      extensionHooks: ctx.config.extensions?.hooks,
     });
 
     applyArtifactsPolicy(artifactDir, ctx.artifacts, result);
@@ -240,7 +257,7 @@ export function resolveConsumerAuthState(
     return preResolved.get(authName);
   }
 
-  const entry = config.auth[authName];
+  const entry = config.auth?.[authName];
   if (!entry) {
     throw new Error(`Auth profile "${authName}" not configured in pqa.config.ts`);
   }

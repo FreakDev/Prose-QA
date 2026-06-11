@@ -17,7 +17,6 @@ const baseConfig: PqaConfig = {
   browser: { headed: false, sessionName: "pqa", defaultTimeout: 25_000, engine: "chrome" },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 100, bashTimeoutMs: 120_000 },
-  auth: {},
 };
 
 function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -84,22 +83,6 @@ describe("buildInitialPrompt", () => {
     assert.match(prompt, /Continue from Step 1 without running agent-browser close/i);
     assert.doesNotMatch(prompt, /auth state loaded/i);
   });
-
-  it("mentions auth when harness pre-opened url with auth profile", () => {
-    const prompt = buildInitialPrompt(
-      makeScenario({
-        frontmatter: {
-          name: "authed",
-          url: "http://127.0.0.1:8080/projects",
-          auth: "admin",
-        },
-      }),
-      "http://127.0.0.1:8080/projects",
-    );
-    assert.match(prompt, /auth state loaded/i);
-    assert.match(prompt, /Continue from Step 1 without running agent-browser close/i);
-    assert.doesNotMatch(prompt, /harness opened this page via agent-browser/i);
-  });
 });
 
 describe("buildSystemPrompt", () => {
@@ -135,6 +118,23 @@ describe("buildSystemPrompt", () => {
 
     assert.match(prompt, /harness already opened it/);
     assert.doesNotMatch(prompt, /open this before executing Steps/);
+  });
+
+  it("includes auth profile runtime hints when profilePath is set", () => {
+    const scenario = makeScenario({
+      frontmatter: { name: "checkout", auth: "admin" },
+    });
+    const prompt = buildSystemPrompt(baseConfig, [], scenario, {
+      cwd: repoRoot,
+      artifactDir: "/tmp/pqa-artifacts",
+      profilePath: "/tmp/.pqa/profiles/admin",
+      headed: false,
+      sessionName: "pqa",
+      artifacts: "on-failure",
+    });
+
+    assert.match(prompt, /Auth browser profile: \/tmp\/\.pqa\/profiles\/admin/);
+    assert.match(prompt, /AGENT_BROWSER_PROFILE/);
   });
 
   it("includes scenario replay hints block when provided", () => {

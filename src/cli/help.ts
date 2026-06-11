@@ -89,7 +89,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--auth-refresh",
-        description: "Re-run auth scenarios and refresh the auth store",
+        description: "Re-run auth scenarios and refresh persisted profiles",
       },
       {
         flags: "--parallel [n]",
@@ -154,7 +154,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
       },
       {
         flags: "--auth-refresh",
-        description: "Re-run auth scenarios and refresh the auth store",
+        description: "Re-run auth scenarios and refresh persisted profiles",
       },
       {
         flags: "--retries <n>",
@@ -403,53 +403,6 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
     ],
   },
   {
-    name: "auth",
-    summary: "Authentication helpers",
-    usage: "pqa auth <subcommand>",
-    description: "Manage cached browser auth state for scenario profiles.",
-    subcommands: [
-      {
-        name: "list",
-        summary: "List cached auth profiles",
-        usage: "pqa auth list",
-        description:
-          "Show profiles stored in the auth store with paths and timestamps.",
-      },
-      {
-        name: "clear",
-        summary: "Clear cached auth state",
-        usage: "pqa auth clear [profile]",
-        description: "Remove one profile or all profiles from the auth store.",
-        arguments: [
-          {
-            name: "profile",
-            description: "Profile name to clear; omit to clear all",
-          },
-        ],
-      },
-      {
-        name: "save",
-        summary: "Run auth scenario and save state",
-        usage: "pqa auth save <name> [options]",
-        description:
-          "Execute the configured auth scenario for a profile and persist browser state.",
-        arguments: [
-          { name: "name", description: "Auth profile name from config" },
-        ],
-        options: [
-          {
-            flags: "-c, --config <path>",
-            description: "Path to pqa.config.json (or .mjs / .ts / .js)",
-          },
-          {
-            flags: "-v, --verbose",
-            description: "Enable verbose agent output",
-          },
-        ],
-      },
-    ],
-  },
-  {
     name: "mcp",
     summary: "Start MCP server (stdio)",
     usage: "pqa mcp",
@@ -464,7 +417,7 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
     arguments: [
       {
         name: "command",
-        description: "Command name (e.g. run, debug, skills, auth)",
+        description: "Command name (e.g. run, debug, skills)",
       },
     ],
   },

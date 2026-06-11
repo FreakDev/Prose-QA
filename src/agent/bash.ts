@@ -234,9 +234,7 @@ export async function prepareBrowserSession(options: {
 
   if (startUrl !== "about:blank") {
     if (!currentUrl || currentUrl === "about:blank") {
-      const hint = options.profilePath
-        ? " Re-run with --auth-refresh."
-        : "";
+      const hint = options.profilePath ? " Re-run with --auth-refresh." : "";
       throw new Error(
         `Browser is empty after opening ${startUrl} (url=${currentUrl || "(empty)"}).${hint}`,
       );

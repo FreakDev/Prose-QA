@@ -34,7 +34,6 @@ describe("printTopLevelHelp", () => {
     assert.match(text, /run/);
     assert.match(text, /debug/);
     assert.match(text, /skills/);
-    assert.match(text, /auth/);
     assert.match(text, /config/);
     assert.match(text, /mcp/);
     assert.match(text, /install-browser/);

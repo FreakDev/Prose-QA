@@ -27,7 +27,7 @@ export function resolveRunGlobs(
   scenariosDir: string;
   discoveryGlob: string;
   runGlobs: string[];
-  /** File globs used to locate auth scenarios; matches run scope when patterns are set. */
+  /** File globs used to locate related scenarios; matches run scope when patterns are set. */
   searchGlobs: string[];
 } {
   const scenariosDir = resolveScenariosDir(config);

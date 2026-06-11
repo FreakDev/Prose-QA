@@ -3,7 +3,7 @@ name: prose-qa
 description: >-
   Author Prose-QA E2E scenario markdown (YAML frontmatter, Goal, Steps, Then).
   Use when creating or editing scenarios under Prose-QA/scenarios, writing
-  checkpoints, auth flows, partials, or when the user mentions Prose-QA, pqa,
+  checkpoints, partials, or when the user mentions Prose-QA, pqa,
   or browser regression scenarios.
 ---
 
@@ -42,20 +42,19 @@ One short paragraph: who is acting, what they want, and what success means.
 
 ## Frontmatter
 
-| Field     | Required | Notes                                                                     |
-| --------- | -------- | ------------------------------------------------------------------------- |
-| `name`    | yes      | Stable ID; must match `pqa.config.ts` auth `scenario` when used for login |
-| `tags`    | no       | Filter runs: `pqa run scenarios/**/*.md --tags smoke`                     |
-| `url`     | no       | Harness opens this before Steps; prefer for consumer scenarios            |
-| `auth`    | no       | Profile key (e.g. `admin`) — uses cached state from auth scenario         |
-| `skills`  | no       | Extra Agent Skill names merged into the prompt                            |
-| `partial` | no       | `true` = include-only fragment; never run in batch                        |
+| Field     | Required | Notes                                              |
+| --------- | -------- | -------------------------------------------------- |
+| `name`    | yes      | Stable kebab-case identifier                       |
+| `tags`    | no       | Filter runs: `pqa run scenarios/**/*.md --tags smoke` |
+| `auth`    | no       | Profile key for consumer scenarios (see below)   |
+| `url`     | no       | Harness opens this before Steps when set           |
+| `skills`  | no       | Extra Agent Skill names merged into the prompt     |
+| `partial` | no       | `true` = include-only fragment; never run in batch |
 
-**Auth defaults (from scenario-format reference)**
+### Auth profiles
 
-- Protected pages: `auth: admin` (configured in `pqa.config.ts` → `login-admin`).
-- Auth scenario: `scenarios/auth/login-admin.md` — credentials only via `$PQA_TEST_EMAIL` / `$PQA_TEST_PASSWORD`, never in the file.
-- Tag scenarios for filtering (e.g. `smoke`, `checkout`, `auth`).
+- **Consumer scenarios** set `auth: <profile-key>` (e.g. `admin`) and are configured in `pqa.config` under `auth.<key>.scenario`.
+- **Auth/login scenarios** perform sign-in; they must **not** declare `auth:` themselves. Reference them only via config.
 
 ## Sections (parser rules)
 
@@ -70,7 +69,6 @@ Section headers must be exactly these H1 titles (case-insensitive): `# Goal`, `#
 
 - Numbered list (`1.`, `2.`, …) or clear short paragraphs.
 - Each step = one agent-executable action (navigate, fill, click, wait).
-- Reference env vars as `$PQA_TEST_EMAIL` in auth flows only.
 - For tabular test data, use a fenced block or bullet list (see example below).
 - Prefer visible labels and roles (“click **Save**”) over brittle CSS selectors.
 - Keep steps atomic — one UI interaction per step; do not bundle multiple clicks in one instruction.
@@ -93,7 +91,7 @@ Semantic checks are allowed when structured patterns do not fit:
 ```markdown
 # Then
 
-- url does not contain "/login"
+- url does not contain "/error"
 - page shows validation errors for required fields
 ```
 
@@ -124,30 +122,18 @@ Include in a parent scenario body (any section):
 - Skills on partials are merged into the parent run automatically.
 - Avoid circular links between `.md` files.
 
-## Comments and disabled fields
+## Comments
 
-- **Frontmatter**: `#` starts a YAML comment (line removed by parser). Use to temporarily disable `auth:` without deleting the key.
+- **Frontmatter**: `#` starts a YAML comment (line removed by parser).
 - **Body**: `<!-- note -->` HTML comments are stripped. Do not put required steps inside HTML comments.
 - **Body**: lines starting with `#` that are not section headers are kept (e.g. step notes).
 
-## Auth scenarios vs consumers
-
-| Type                             | `tags`              | `auth`  | Run in batch              |
-| -------------------------------- | ------------------- | ------- | ------------------------- |
-| Auth (`login-admin`)             | `[auth]`            | omit    | No — on demand via config |
-| Consumer (`checkout-happy-path`) | `[smoke, checkout]` | `admin` | Yes                       |
-
-Auth Steps must end on an authenticated app URL; never instruct `agent-browser close` or `state save` in auth scenarios.
-
-## Complete consumer example
-
-From the Prose-QA README and scenario-format reference:
+## Complete example
 
 ```markdown
 ---
 name: checkout-happy-path
 tags: [smoke]
-auth: admin
 url: https://app.example.com
 ---
 
@@ -166,57 +152,6 @@ As a user, complete checkout.
 - page shows "Thank you"
 ```
 
-## Authenticated smoke example
-
-From `scenarios/1_example-authenticated.md`:
-
-```markdown
----
-name: example-authenticated
-tags: [smoke, example]
-auth: admin
-url: https://app.example.com/projects
----
-
-# Goal
-
-Verify that an authenticated user can load a protected page.
-
-# Steps
-
-1. Confirm the projects page has loaded.
-
-# Then
-
-- url contains "/projects"
-```
-
-## Auth scenario example
-
-From `scenarios/auth/login-admin.md` and the format reference:
-
-```markdown
----
-name: login-admin
-tags: [auth]
-url: https://app.example.com/login
----
-
-# Goal
-
-Authenticate as an admin test user. This scenario is not run in batch — it runs on demand when a consumer scenario needs `auth: admin`.
-
-# Steps
-
-1. Open the login page.
-2. Sign in using `$PQA_TEST_EMAIL` and `$PQA_TEST_PASSWORD` from the environment.
-3. Confirm you reach an authenticated area (dashboard or home).
-
-# Then
-
-- url does not contain "/login"
-```
-
 ## Authoring checklist
 
 Before saving a scenario file:
@@ -226,7 +161,6 @@ Before saving a scenario file:
 - [ ] Every **Then** line starts with `-`
 - [ ] Checkpoints are verifiable (URL, visible text, or explicit semantic claim)
 - [ ] `url` or Steps include how to reach the starting page
-- [ ] `auth: admin` only when the page requires a saved session; credentials not in repo
 - [ ] `tags` set for how you plan to filter runs (`smoke`, `checkout`, etc.)
 - [ ] No secrets in the file (passwords, API keys)
 
@@ -242,7 +176,7 @@ pqa record stop --name my-flow
 pqa debug scenarios/recorded/my-flow.md --verbose --headed
 ```
 
-Edit the generated file before committing (condense steps, add `auth:`, table data, partials). Recorded scenarios default-tag `recorded` (configurable via `recorder.defaultTags` in `pqa.config`).
+Edit the generated file before committing (condense steps, add table data, partials). Recorded scenarios default-tag `recorded` (configurable via `recorder.defaultTags` in `pqa.config`).
 
 Chrome extension for a daily browser profile: `recorder-extension/` in the Prose-QA repo (see its README).
 
@@ -265,9 +199,7 @@ Parser errors (`missing 'name'`, `Circular scenario include`) mean fix frontmatt
 | Then lines without `-`               | Prefix every checkpoint with `- `                          |
 | Duplicate step numbers (1, 4, 5)     | Renumber Steps sequentially                                |
 | Vague Then (“the form should work”)  | Split into `page shows "…"` / `url contains "…"` bullets   |
-| Consumer with login Steps            | Use `auth: admin` and rely on the configured auth scenario |
-| `name` mismatch with `pqa.config.ts` | Align `auth.admin.scenario` with auth file `name`          |
 
 ## When unsure
 
-Read bundled examples in `scenarios/` (`0_hello-world.md`, `1_example-authenticated.md`, `auth/login-admin.md`) and mirror their structure. For browser mechanics, the run uses the `agent-browser` skill from Prose-QA — scenarios should not re-document CLI flags.
+Read bundled examples in `scenarios/` (`0_hello-world.md`, `1_demo-calculator-form.md`) and mirror their structure. For browser mechanics, the run uses the `agent-browser` skill from Prose-QA — scenarios should not re-document CLI flags.

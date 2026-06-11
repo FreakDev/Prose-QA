@@ -21,7 +21,7 @@ const config = {
       telemetry: false,
     },
   },
-  envVars: [],
+  envVars: ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
   sensitiveEnvVars: [],
   skills: {
     dirs: [".pqa/skills"],
@@ -32,15 +32,15 @@ const config = {
       maxChars: 50_000,
     },
   },
-  agent: {
-    parallel: 0,
-    maxTurns: 300,
-    bashTimeoutMs: 120_000,
-  },
   auth: {
     admin: {
       scenario: "login-admin",
     },
+  },
+  agent: {
+    parallel: 0,
+    maxTurns: 300,
+    bashTimeoutMs: 120_000,
   },
   healing: {
     enabled: true,

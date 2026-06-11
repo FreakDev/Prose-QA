@@ -29,8 +29,14 @@ export interface HookContext {
 // PreScenario
 // ──────────────────────────────────────────────
 
+export interface ProfileBrowserContext {
+  profilePath?: string;
+  authStatePath?: string;
+}
+
 export interface PreScenarioResultContinue {
   action: "continue";
+  browserContext?: ProfileBrowserContext;
 }
 
 export interface PreScenarioResultSkip {
@@ -64,9 +70,6 @@ export interface PreSystemPromptParams {
   runtime: {
     cwd: string;
     artifactDir: string;
-    authStatePath?: string;
-    authProfile?: string;
-    profilePath?: string;
     headed: boolean;
     sessionName: string;
     artifacts: string;

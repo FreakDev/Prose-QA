@@ -39,6 +39,13 @@ export interface ReportConfig {
 /** Local browser engine for agent-browser (AGENT_BROWSER_ENGINE). */
 export type BrowserEngine = "chrome" | "lightpanda";
 
+export interface AuthProfileConfig {
+  /** frontmatter.name of the on-demand auth scenario */
+  scenario?: string;
+  /** agent-browser state file; defaults to .pqa/auth/<profile>.json */
+  statePath?: string;
+}
+
 /** Options when browser.engine is lightpanda (AGENT_BROWSER_EXECUTABLE_PATH, telemetry). */
 export interface LightpandaBrowserConfig {
   /**
@@ -110,6 +117,7 @@ export interface PqaConfig {
       autoLoad?: boolean;
     };
   };
+  auth?: Record<string, AuthProfileConfig>;
   agent: {
     maxTurns: number;
     bashTimeoutMs: number;
@@ -120,7 +128,6 @@ export interface PqaConfig {
      */
     parallel?: number;
   };
-  auth: Record<string, AuthProfileConfig>;
   healing?: HealingConfig;
   recorder?: RecorderConfig;
   cache?: CacheConfig;
@@ -128,13 +135,6 @@ export interface PqaConfig {
   extensions?: {
     hooks?: ExtensionHooks;
   };
-}
-
-export interface AuthProfileConfig {
-  /** frontmatter.name of the on-demand auth scenario */
-  scenario?: string;
-  /** agent-browser state file; defaults to .pqa/auth/<profile>.json */
-  statePath?: string;
 }
 
 export type ArtifactsMode = "on-failure" | "always" | "never";

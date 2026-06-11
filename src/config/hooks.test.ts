@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import type { PreScenarioHook } from "../types/hooks.js";
-import { resolveAllHookModules, resolveHookModules } from "./hooks.js";
+import type { PqaConfig } from "../types/config.js";
+import { ensureProfileHook } from "../hooks/ensure-profile.js";
+import {
+  resolveAllHookModules,
+  resolveConfigExtensionHooks,
+  resolveHookModules,
+} from "./hooks.js";
 
 describe("resolveHookModules", () => {
   it("keeps inline functions as-is", async () => {
@@ -138,5 +144,43 @@ export default function hook() {
     const resolved = await resolveAllHookModules(hooks as any, "/tmp");
     assert.equal(resolved.preScenario, undefined);
     assert.equal(resolved.preSystemPrompt, undefined);
+  });
+});
+
+describe("resolveConfigExtensionHooks", () => {
+  it("prepends ensureProfile when auth profiles are configured", async () => {
+    const config: PqaConfig = {
+      llm: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+      browser: {
+        headed: false,
+        sessionName: "pqa",
+        defaultTimeout: 25_000,
+        engine: "chrome",
+      },
+      skills: { dirs: [], preloads: [] },
+      agent: { maxTurns: 100, bashTimeoutMs: 120_000 },
+      auth: { admin: { scenario: "login-admin" } },
+    };
+
+    const resolved = await resolveConfigExtensionHooks(config, "/tmp");
+    assert.ok(resolved?.preScenario);
+    assert.equal(resolved!.preScenario![0], ensureProfileHook);
+  });
+
+  it("returns undefined when no auth and no user hooks", async () => {
+    const config: PqaConfig = {
+      llm: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
+      browser: {
+        headed: false,
+        sessionName: "pqa",
+        defaultTimeout: 25_000,
+        engine: "chrome",
+      },
+      skills: { dirs: [], preloads: [] },
+      agent: { maxTurns: 100, bashTimeoutMs: 120_000 },
+    };
+
+    const resolved = await resolveConfigExtensionHooks(config, "/tmp");
+    assert.equal(resolved, undefined);
   });
 });

@@ -327,7 +327,7 @@ export function matchesTags(
 export function selectRunnableScenarioSummaries(
   summaries: ScenarioSummary[],
   filters: ScenarioTagFilterExpression | string[] | undefined,
-  authScenarioNames: Set<string>,
+  authScenarioNames: Set<string> = new Set(),
 ): ScenarioSummary[] {
   return summaries
     .filter((s) => isRunnableScenario(s))

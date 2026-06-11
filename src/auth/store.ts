@@ -20,6 +20,10 @@ interface AuthStoreIndex {
   profiles: Record<string, Omit<AuthStoreEntry, "profile">>;
 }
 
+interface SavedBrowserState {
+  cookies?: unknown[];
+}
+
 function authDir(cwd: string): string {
   return path.resolve(cwd, ".pqa", "auth");
 }
@@ -71,19 +75,46 @@ export function resolveStatePath(
   profile: string,
   config: PqaConfig,
 ): string {
-  const entry = config.auth[profile];
+  const entry = config.auth?.[profile];
   if (entry?.statePath) {
     return path.resolve(cwd, entry.statePath);
   }
   return defaultStatePath(cwd, profile);
 }
 
+function stateFileHasCookies(statePath: string): boolean {
+  if (!existsSync(statePath)) return false;
+  try {
+    const parsed = JSON.parse(
+      readFileSync(statePath, "utf-8"),
+    ) as SavedBrowserState;
+    return Array.isArray(parsed.cookies) && parsed.cookies.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+/** Whether a persisted profile exists for the configured browser engine. */
 export function hasState(
   cwd: string,
   profile: string,
   config: PqaConfig,
 ): boolean {
-  return hasProfile(cwd, profile);
+  if (config.browser.engine === "chrome") {
+    return hasProfile(cwd, profile);
+  }
+  return stateFileHasCookies(resolveStatePath(cwd, profile, config));
+}
+
+export function resolveBrowserContextForProfile(
+  config: PqaConfig,
+  cwd: string,
+  profile: string,
+): { profilePath?: string; authStatePath?: string } {
+  if (config.browser.engine === "chrome") {
+    return { profilePath: resolveProfilePath(cwd, profile) };
+  }
+  return { authStatePath: resolveStatePath(cwd, profile, config) };
 }
 
 export function record(
@@ -135,7 +166,7 @@ export function clear(cwd: string, profile?: string): void {
 
 export function getAuthScenarioNames(config: PqaConfig): Set<string> {
   return new Set(
-    Object.values(config.auth)
+    Object.values(config.auth ?? {})
       .map((entry) => entry.scenario)
       .filter((name): name is string => Boolean(name)),
   );
@@ -145,14 +176,14 @@ export function getAuthEntry(
   config: PqaConfig,
   profile: string,
 ): AuthProfileConfig | undefined {
-  return config.auth[profile];
+  return config.auth?.[profile];
 }
 
 export function findProfileForAuthScenario(
   config: PqaConfig,
   scenarioName: string,
 ): string | undefined {
-  for (const [profile, entry] of Object.entries(config.auth)) {
+  for (const [profile, entry] of Object.entries(config.auth ?? {})) {
     if (entry.scenario === scenarioName) return profile;
   }
   return undefined;
