@@ -164,4 +164,8 @@ export interface RunOptions {
   reportOutputPath?: string;
   /** Override report.zip — emit report as zip instead of a directory */
   reportZip?: boolean;
+  /** Internal: skip preBatch (parallel workers after parent provisioning). */
+  skipPreBatch?: boolean;
+  /** Internal: skip postBatch (parallel workers). */
+  skipPostBatch?: boolean;
 }

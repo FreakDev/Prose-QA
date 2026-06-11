@@ -1,6 +1,5 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { ensureProfileHook } from "../hooks/ensure-profile.js";
 import type { PqaConfig } from "../types/config.js";
 import type { ExtensionHooks } from "../types/hooks.js";
 
@@ -61,19 +60,33 @@ export async function resolveAllHookModules(
   hooks: ExtensionHooks,
   cwd: string,
 ): Promise<ExtensionHooks> {
-  const [preScenario, preSystemPrompt, preLlmTurn, postLlmTurn, preTool, postTool, preVerdict, postScenario] =
-    await Promise.all([
-      resolveHookModules(hooks.preScenario, cwd),
-      resolveHookModules(hooks.preSystemPrompt, cwd),
-      resolveHookModules(hooks.preLlmTurn, cwd),
-      resolveHookModules(hooks.postLlmTurn, cwd),
-      resolveHookModules(hooks.preTool, cwd),
-      resolveHookModules(hooks.postTool, cwd),
-      resolveHookModules(hooks.preVerdict, cwd),
-      resolveHookModules(hooks.postScenario, cwd),
-    ]);
+  const [
+    preBatch,
+    postBatch,
+    preScenario,
+    preSystemPrompt,
+    preLlmTurn,
+    postLlmTurn,
+    preTool,
+    postTool,
+    preVerdict,
+    postScenario,
+  ] = await Promise.all([
+    resolveHookModules(hooks.preBatch, cwd),
+    resolveHookModules(hooks.postBatch, cwd),
+    resolveHookModules(hooks.preScenario, cwd),
+    resolveHookModules(hooks.preSystemPrompt, cwd),
+    resolveHookModules(hooks.preLlmTurn, cwd),
+    resolveHookModules(hooks.postLlmTurn, cwd),
+    resolveHookModules(hooks.preTool, cwd),
+    resolveHookModules(hooks.postTool, cwd),
+    resolveHookModules(hooks.preVerdict, cwd),
+    resolveHookModules(hooks.postScenario, cwd),
+  ]);
 
   return {
+    ...(preBatch.length > 0 ? { preBatch } : {}),
+    ...(postBatch.length > 0 ? { postBatch } : {}),
     ...(preScenario.length > 0 ? { preScenario } : {}),
     ...(preSystemPrompt.length > 0 ? { preSystemPrompt } : {}),
     ...(preLlmTurn.length > 0 ? { preLlmTurn } : {}),
@@ -85,32 +98,16 @@ export async function resolveAllHookModules(
   };
 }
 
-function hasAuthConfig(config: PqaConfig): boolean {
-  return Object.keys(config.auth ?? {}).length > 0;
-}
-
 /**
- * Resolve user hook modules and prepend the built-in ensureProfile hook when
- * auth profiles are configured.
+ * Resolve hook modules declared in config.extensions.hooks.
  */
 export async function resolveConfigExtensionHooks(
   config: PqaConfig,
   cwd: string,
 ): Promise<ExtensionHooks | undefined> {
   const userHooks = config.extensions?.hooks;
-  const resolvedUser = userHooks
-    ? await resolveAllHookModules(userHooks, cwd)
-    : {};
+  if (!userHooks) return undefined;
 
-  const preScenario = [
-    ...(hasAuthConfig(config) ? [ensureProfileHook] : []),
-    ...(resolvedUser.preScenario ?? []),
-  ];
-
-  const merged: ExtensionHooks = {
-    ...resolvedUser,
-    ...(preScenario.length > 0 ? { preScenario } : {}),
-  };
-
-  return Object.keys(merged).length > 0 ? merged : undefined;
+  const resolved = await resolveAllHookModules(userHooks, cwd);
+  return Object.keys(resolved).length > 0 ? resolved : undefined;
 }

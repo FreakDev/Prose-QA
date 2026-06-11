@@ -103,7 +103,6 @@ Refresh a stale profile:
 
 ```bash
 pqa run scenarios/checkout.md --auth-refresh
-pqa auth save admin
 pqa auth list
 pqa auth clear admin
 ```

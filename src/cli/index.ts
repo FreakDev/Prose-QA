@@ -5,7 +5,6 @@ import { loadEnv } from "../config/env.js";
 import {
   executeRun,
   executeScenarioWorker,
-  executeAuthSave,
   executeAuthList,
   executeAuthClear,
   executeClearCache,
@@ -124,6 +123,7 @@ program
   .option("--headed", "Run browser in headed mode")
   .option("--keep-browser", "Leave browser open after scenario")
   .option("--auth-refresh", "Re-run auth scenarios and refresh auth store")
+  .option("--skip-pre-batch", "Internal: skip preBatch hooks")
   .option("-v, --verbose", "Verbose output")
   .action(async (opts) => {
     const code = await executeScenarioWorker(opts.scenario, opts.runDir, {
@@ -137,6 +137,8 @@ program
       keepBrowser: opts.keepBrowser,
       noHealing: opts.noHealing,
       noCache: opts.noCache,
+      skipPreBatch: opts.skipPreBatch,
+      skipPostBatch: opts.skipPreBatch,
       retriesPolicy:
         opts.retriesPolicy === "always" || opts.retriesPolicy === "transient"
           ? opts.retriesPolicy
@@ -280,28 +282,6 @@ auth
   .description("Clear cached auth state (all profiles or one profile)")
   .action((profile?: string) => {
     process.exit(executeAuthClear(profile));
-  });
-
-auth
-  .command("save <name>")
-  .description("Run the configured auth scenario and save state to the auth store")
-  .option("-c, --config <path>", "Config file path")
-  .option("-v, --verbose", "Verbose output")
-  .option("--keep-browser", "Leave browser open after auth scenario")
-  .option(
-    "--artifacts <mode>",
-    "Artifact mode: on-failure|always|never",
-    "never",
-  )
-  .action(async (name: string, opts) => {
-    const code = await executeAuthSave(name, {
-      configPath: opts.config,
-      verbose: opts.verbose,
-      keepBrowser: opts.keepBrowser,
-      artifacts: (opts.artifacts as RunOptions["artifacts"]) ?? "never",
-      retries: 0,
-    });
-    process.exit(code);
   });
 
 const skills = program.command("skills").description("Manage skills");

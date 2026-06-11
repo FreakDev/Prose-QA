@@ -30,7 +30,6 @@ import {
   isRecoveryAllowed,
 } from "../healing/classify.js";
 import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
-import type { EnsureAuthContext } from "../auth/resolve.js";
 import { resolveStatePath } from "../auth/store.js";
 import { buildBrowserEnv, prepareBrowserSession, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
@@ -107,8 +106,6 @@ export interface RunScenarioOptions {
   authStatePath?: string;
   authProfile?: string;
   profilePath?: string;
-  ensureAuthContext?: EnsureAuthContext;
-  authRefresh?: boolean;
   provisioning?: boolean;
   onTurn?: () => Promise<void>;
   redactor?: EnvRedactor;
@@ -283,12 +280,6 @@ export async function runScenario(
     metadata: {
       ...(options.verbose !== undefined ? { verbose: options.verbose } : {}),
       ...(options.runDir ? { runDir: options.runDir } : {}),
-      ...(options.ensureAuthContext
-        ? { ensureAuthContext: options.ensureAuthContext }
-        : {}),
-      ...(options.authRefresh !== undefined
-        ? { authRefresh: options.authRefresh }
-        : {}),
       ...(options.provisioning ? { provisioning: true } : {}),
     },
     abort: (reason: string): never => {

@@ -1,5 +1,17 @@
 # Prose-QA glossary
 
+## Run unit
+
+A single harness invocation that may run one or more consumer scenarios: `pqa run`, an isolated worker (`_run-scenario`), or MCP `run_scenario`. Each run unit executes `preBatch` (when not skipped), consumer scenarios, then `postBatch`.
+
+## preBatch
+
+Lifecycle hook executed once per run unit before consumer scenarios. Built-in defaults provision auth profiles required by the selected scenarios.
+
+## postBatch
+
+Optional lifecycle hook executed once per run unit after all consumer scenarios complete. No built-in hook is configured by default.
+
 ## Profile
 
 Persisted user identity referenced by `auth: <key>` in a consumer scenario's frontmatter. A profile stores cookies and/or browser data so later runs can skip login. Profiles are keyed in `pqa.config` (for example `admin`).
@@ -18,4 +30,4 @@ Running an auth scenario directly (`pqa run scenarios/auth/login-admin.md`). Nor
 
 ## Mode provisioning
 
-Harness-driven execution of an auth scenario to create or refresh a profile before consumer scenarios run. Uses an isolated browser session and saves state when the scenario passes.
+Harness-driven execution of an auth scenario to create or refresh a profile before consumer scenarios run. Triggered by the `preBatch` hook (not a dedicated CLI command). Uses an isolated browser session and saves state when the scenario passes.

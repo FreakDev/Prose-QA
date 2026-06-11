@@ -2,10 +2,18 @@ import type { ModelMessage } from "ai";
 import type {
   ExtensionHooks,
   HookContext,
+  PostBatchParams,
+  PostBatchResult,
+  PostBatchResultAbort,
+  PostBatchResultContinue,
   PostLlmTurnParams,
   PostLlmTurnResult,
   PostScenarioResult,
   PostToolResult,
+  PreBatchParams,
+  PreBatchResult,
+  PreBatchResultAbort,
+  PreBatchResultContinue,
   PreLlmTurnParams,
   PreLlmTurnResult,
   PreScenarioResult,
@@ -61,6 +69,46 @@ export class HookRunner {
   constructor(extensionHooks: ExtensionHooks, ctx: HookContext) {
     this.hooks = extensionHooks;
     this.ctx = ctx;
+  }
+
+  // ── PreBatch ─────────────────────────────────
+
+  async runPreBatch(
+    params: PreBatchParams,
+  ): Promise<PreBatchResultContinue | PreBatchResultAbort> {
+    const hooks = this.hooks.preBatch ?? [];
+    for (let i = 0; i < hooks.length; i++) {
+      const result = await safeCall(
+        `preBatch[${i}]`,
+        this.ctx.logger,
+        () => hooks[i]!(params, this.ctx),
+        { action: "continue" } as PreBatchResult,
+      );
+      if (result.action === "abort") {
+        return result;
+      }
+    }
+    return { action: "continue" };
+  }
+
+  // ── PostBatch ────────────────────────────────
+
+  async runPostBatch(
+    params: PostBatchParams,
+  ): Promise<PostBatchResultContinue | PostBatchResultAbort> {
+    const hooks = this.hooks.postBatch ?? [];
+    for (let i = 0; i < hooks.length; i++) {
+      const result = await safeCall(
+        `postBatch[${i}]`,
+        this.ctx.logger,
+        () => hooks[i]!(params, this.ctx),
+        { action: "continue" } as PostBatchResult,
+      );
+      if (result.action === "abort") {
+        return result;
+      }
+    }
+    return { action: "continue" };
   }
 
   // ── PreScenario ──────────────────────────────

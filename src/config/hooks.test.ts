@@ -5,7 +5,6 @@ import path from "node:path";
 import { describe, it } from "node:test";
 import type { PreScenarioHook } from "../types/hooks.js";
 import type { PqaConfig } from "../types/config.js";
-import { ensureProfileHook } from "../hooks/ensure-profile.js";
 import {
   resolveAllHookModules,
   resolveConfigExtensionHooks,
@@ -148,7 +147,8 @@ export default function hook() {
 });
 
 describe("resolveConfigExtensionHooks", () => {
-  it("prepends ensureProfile when auth profiles are configured", async () => {
+  it("resolves only user-declared hooks", async () => {
+    const fn: PreScenarioHook = () => ({ action: "continue" });
     const config: PqaConfig = {
       llm: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
       browser: {
@@ -160,14 +160,21 @@ describe("resolveConfigExtensionHooks", () => {
       skills: { dirs: [], preloads: [] },
       agent: { maxTurns: 100, bashTimeoutMs: 120_000 },
       auth: { admin: { scenario: "login-admin" } },
+      extensions: {
+        hooks: {
+          preScenario: [fn],
+        },
+      },
     };
 
     const resolved = await resolveConfigExtensionHooks(config, "/tmp");
     assert.ok(resolved?.preScenario);
-    assert.equal(resolved!.preScenario![0], ensureProfileHook);
+    assert.equal(resolved!.preScenario!.length, 1);
+    assert.equal(resolved!.preScenario![0], fn);
+    assert.equal(resolved!.preBatch, undefined);
   });
 
-  it("returns undefined when no auth and no user hooks", async () => {
+  it("returns undefined when no hooks configured", async () => {
     const config: PqaConfig = {
       llm: { provider: "anthropic", model: "claude-sonnet-4-20250514" },
       browser: {

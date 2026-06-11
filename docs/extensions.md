@@ -1,30 +1,41 @@
 # Extensions / Hooks System
 
-Prose QA provides an extension system via **hooks** — lifecycle callbacks that let you observe, modify, or abort the scenario execution at 8 distinct points.
+Prose QA provides an extension system via **hooks** — lifecycle callbacks that let you observe, modify, or abort execution at distinct points in the run unit and per-scenario lifecycles.
 
 ## Configuration
 
-Hooks are configured in `pqa.config.ts` under `extensions.hooks`:
+Hooks are configured in `pqa.config.ts` under `extensions.hooks`. The bundled default config includes auth hooks via `defaultExtensionHooks`:
 
 ```ts
 import { defineConfig } from "prose-qa/define-config";
+import {
+  defaultExtensionHooks,
+  mergeExtensionHooks,
+} from "prose-qa/hooks";
 
 export default defineConfig({
-  // ... standard config ...
+  auth: { admin: { scenario: "login-admin" } },
   extensions: {
-    hooks: {
-      preScenario: [myPreScenarioHook],
-      preSystemPrompt: [myPreSystemPromptHook],
-      preLlmTurn: [myPreLlmTurnHook],
-      postLlmTurn: [myPostLlmTurnHook],
-      preTool: [myPreToolHook],
-      postTool: [myPostToolHook],
-      preVerdict: [myPreVerdictHook],
-      postScenario: [myPostScenarioHook],
-    },
+    hooks: mergeExtensionHooks(defaultExtensionHooks, {
+      postBatch: [notifySlack],
+    }),
   },
 });
 ```
+
+To extend defaults explicitly:
+
+```ts
+extensions: {
+  hooks: {
+    preBatch: [...(defaultExtensionHooks.preBatch ?? []), auditPreBatch],
+    preScenario: [...(defaultExtensionHooks.preScenario ?? [])],
+    postBatch: [myPostBatchHook],
+  },
+}
+```
+
+**Override is strict:** replacing `extensions.hooks` without spreading `defaultExtensionHooks` removes built-in auth provisioning.
 
 Each hook slot accepts an array of hook functions. Hooks are executed in order. You may mix inline functions and module paths:
 
@@ -43,7 +54,21 @@ Module files must export a default function. Supported extensions: `.ts`, `.js`,
 
 ## Available Hook Points
 
-### 1. `preScenario` — `PreScenarioHook`
+### 1. `preBatch` — `PreBatchHook`
+
+Runs once per run unit before consumer scenarios. Provisions auth profiles required by the selection (via default hook).
+
+**Result:**
+- `{ action: "continue" }` — proceed
+- `{ action: "abort", error: string }` — abort the run
+
+### 2. `postBatch` — `PostBatchHook`
+
+Runs once per run unit after all scenarios. No built-in hook by default.
+
+**Result:** same as `preBatch`.
+
+### 3. `preScenario` — `PreScenarioHook`
 
 **Signature:**
 ```ts

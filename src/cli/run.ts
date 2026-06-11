@@ -14,14 +14,23 @@ import {
   resolveSensitiveEnvVars,
 } from "../config/load.js";
 import {
-  ensureAuthProfiles,
-} from "../auth/resolve.js";
-import {
-  clear as clearAuthStore,
   getAuthEntry,
   getAuthScenarioNames,
   list as listAuthStore,
+  clear as clearAuthStore,
 } from "../auth/store.js";
+import {
+  authScenarioNamesForProfiles,
+  buildEnsureAuthContext,
+  collectRequiredProfiles,
+  toBatchScenarioSummaries,
+  toBatchScenarioSummary,
+} from "../batch/helpers.js";
+import {
+  aggregateBatchStatus,
+  runPostBatchPhase,
+  runPreBatchPhase,
+} from "../batch/lifecycle.js";
 import { runScenario } from "../agent/runner.js";
 import {
   closeAllBrowserSessions,
@@ -49,6 +58,7 @@ import type { ArtifactsMode, RunOptions } from "../types/config.js";
 import type { PqaConfig } from "../types/config.js";
 import type { Scenario } from "../types/scenario.js";
 import type { Skill } from "../types/skill.js";
+import type { BatchEntrypoint } from "../types/hooks.js";
 import type { ScenarioResult } from "../types/verdict.js";
 import {
   alignScenarioResults,
@@ -157,7 +167,6 @@ interface ScenarioRunContext {
   isolatedSessions: boolean;
   keepBrowser: boolean;
   artifacts: ArtifactsMode;
-  authRefresh?: boolean;
   redactor: EnvRedactor;
   noHealing?: boolean;
   retriesPolicy?: "transient" | "always";
@@ -231,6 +240,76 @@ function installScenarioWorkerShutdownHandlers(options: {
   process.once("SIGINT", () => void shutdown("SIGINT"));
 }
 
+async function invokePreBatchPhase(options: {
+  config: PqaConfig;
+  cwd: string;
+  runId: string;
+  runDir: string;
+  entrypoint: BatchEntrypoint;
+  batchScenarios: ReturnType<typeof toBatchScenarioSummaries>;
+  requiredProfiles: string[];
+  authScenarios: Scenario[];
+  allSkills: Skill[];
+  baseSkillNames: string[];
+  headed: boolean;
+  verbose?: boolean;
+  authRefresh?: boolean;
+  keepBrowser: boolean;
+  artifacts: ArtifactsMode;
+  redactor: EnvRedactor;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const spinner =
+    options.requiredProfiles.length > 0
+      ? ora("Ensuring auth profiles").start()
+      : undefined;
+
+  const preBatchResult = await runPreBatchPhase({
+    config: options.config,
+    cwd: options.cwd,
+    extensionHooks: options.config.extensions?.hooks,
+    runId: options.runId,
+    runDir: options.runDir,
+    entrypoint: options.entrypoint,
+    scenarios: options.batchScenarios,
+    requiredProfiles: options.requiredProfiles,
+    authRefresh: options.authRefresh,
+    verbose: options.verbose,
+    ensureAuthContext: buildEnsureAuthContext({
+      config: options.config,
+      allSkills: options.allSkills,
+      baseSkillNames: options.baseSkillNames,
+      cwd: options.cwd,
+      runDir: options.runDir,
+      headed: options.headed,
+      verbose: options.verbose,
+      allScenarios: options.authScenarios,
+      authRefresh: options.authRefresh,
+      keepBrowser: options.keepBrowser,
+      artifacts: options.artifacts,
+      redactor: options.redactor,
+    }),
+  });
+
+  if (!preBatchResult.ok) {
+    spinner?.fail(preBatchResult.error);
+    return preBatchResult;
+  }
+
+  if (options.requiredProfiles.length > 0) {
+    spinner?.succeed(`Auth ready: ${options.requiredProfiles.join(", ")}`);
+    await closeAllBrowserSessions({
+      cwd: options.cwd,
+      timeoutMs: options.config.agent.bashTimeoutMs,
+      headed: options.headed,
+      engine: options.config.browser.engine,
+      lightpanda: options.config.browser.lightpanda,
+      verbose: options.verbose,
+    });
+  }
+
+  return { ok: true };
+}
+
 async function runOneScenario(
   scenario: Scenario,
   ctx: ScenarioRunContext,
@@ -281,21 +360,6 @@ async function runOneScenario(
         ? "always"
         : (ctx.retriesPolicy ?? "transient");
 
-    const ensureAuthContext = {
-      config: ctx.config,
-      allSkills: ctx.allSkills,
-      baseSkillNames: ctx.baseSkillNames,
-      cwd: ctx.cwd,
-      runDir: ctx.runDir,
-      headed: ctx.headed,
-      verbose: ctx.verbose,
-      allScenarios: ctx.allScenarios,
-      authRefresh: ctx.authRefresh,
-      keepBrowser: ctx.keepBrowser,
-      artifacts: ctx.artifacts,
-      redactor: ctx.redactor,
-    };
-
     while (attempt <= ctx.retries) {
       try {
         result = await runScenario({
@@ -313,8 +377,6 @@ async function runOneScenario(
           redactor: ctx.redactor,
           noHealing: ctx.noHealing,
           scenarioCacheHints,
-          ensureAuthContext,
-          authRefresh: ctx.authRefresh,
           extensionHooks: ctx.config.extensions?.hooks,
         });
 
@@ -491,45 +553,29 @@ export async function executeRun(
   const failFast = options.failFast ?? false;
   const artifacts = options.artifacts ?? "on-failure";
 
-  const requiredProfiles = [
-    ...new Set(
-      selectedSummaries
-        .map((s) => s.frontmatter.auth)
-        .filter((profile): profile is string => Boolean(profile)),
-    ),
-  ];
+  const requiredProfiles = collectRequiredProfiles(selectedSummaries);
+  const batchScenarios = toBatchScenarioSummaries(selectedSummaries);
 
-  if (requiredProfiles.length > 0) {
-    const authSpinner = ora("Ensuring auth profiles").start();
-    try {
-      await ensureAuthProfiles(
-        {
-          config,
-          allSkills,
-          baseSkillNames,
-          cwd,
-          runDir,
-          headed,
-          verbose: options.verbose,
-          allScenarios: authScenarios,
-          authRefresh: options.authRefresh,
-          keepBrowser: options.keepBrowser ?? false,
-          artifacts,
-          redactor,
-        },
-        requiredProfiles,
-      );
-      authSpinner.succeed(`Auth ready: ${requiredProfiles.join(", ")}`);
-      await closeAllBrowserSessions({
-        cwd,
-        timeoutMs: config.agent.bashTimeoutMs,
-        headed,
-        engine: config.browser.engine,
-        lightpanda: config.browser.lightpanda,
-        verbose: options.verbose,
-      });
-    } catch (err) {
-      authSpinner.fail(String(err));
+  if (!options.skipPreBatch) {
+    const preBatch = await invokePreBatchPhase({
+      config,
+      cwd,
+      runId,
+      runDir,
+      entrypoint: "run",
+      batchScenarios,
+      requiredProfiles,
+      authScenarios,
+      allSkills,
+      baseSkillNames,
+      headed,
+      verbose: options.verbose,
+      authRefresh: options.authRefresh,
+      keepBrowser: options.keepBrowser ?? false,
+      artifacts,
+      redactor,
+    });
+    if (!preBatch.ok) {
       return 2;
     }
   }
@@ -547,7 +593,6 @@ export async function executeRun(
     isolatedSessions: parallel !== undefined,
     keepBrowser: options.keepBrowser ?? false,
     artifacts,
-    authRefresh: options.authRefresh,
     redactor,
     noHealing: options.noHealing,
     retriesPolicy: options.retriesPolicy,
@@ -582,6 +627,8 @@ export async function executeRun(
       noHealing: options.noHealing,
       retriesPolicy: options.retriesPolicy,
       noCache: options.noCache,
+      skipPreBatch: true,
+      skipPostBatch: true,
     };
 
     const partial = await mapWithConcurrency(
@@ -670,6 +717,26 @@ export async function executeRun(
     }
   }
 
+  if (!options.skipPostBatch) {
+    const postBatch = await runPostBatchPhase({
+      config,
+      cwd,
+      extensionHooks: config.extensions?.hooks,
+      runId,
+      runDir,
+      entrypoint: "run",
+      scenarios: batchScenarios,
+      requiredProfiles,
+      results,
+      status: aggregateBatchStatus(results),
+      verbose: options.verbose,
+    });
+    if (!postBatch.ok) {
+      console.error(chalk.red(postBatch.error));
+      return 2;
+    }
+  }
+
   const report = buildReport(runId, startedAt, results);
   writeReport(runDir, report, redactor);
 
@@ -715,30 +782,59 @@ export async function executeScenarioWorker(
   requireSkills(allSkills, baseSkillNames);
 
   const scenario = parseScenarioFile(scenarioFilePath);
+  const runId = path.basename(runDir);
+  const headed = resolveBrowserHeaded(config, options.headed);
+  const artifacts = options.artifacts ?? "on-failure";
+  const batchScenario = toBatchScenarioSummary(scenario);
+  const requiredProfiles = collectRequiredProfiles([scenario]);
 
   installScenarioWorkerShutdownHandlers({
     cwd,
     config,
     scenarioName: scenario.frontmatter.name,
-    headed: resolveBrowserHeaded(config, options.headed),
+    headed,
     keepBrowser: options.keepBrowser ?? false,
     verbose: options.verbose,
   });
 
-  const authProfile = scenario.frontmatter.auth;
   let authScenarios: Scenario[] = [];
-  if (authProfile) {
-    const authEntry = getAuthEntry(config, authProfile);
-    if (authEntry?.scenario) {
-      const { searchGlobs } = resolveRunGlobs(config, []);
-      const searchFiles = await fg(searchGlobs, { cwd, absolute: true });
-      const authSummaries = findScenarioSummariesByNames(
-        searchFiles,
-        new Set([authEntry.scenario]),
-      );
-      authScenarios = authSummaries.map((summary) =>
-        parseScenarioFile(summary.filePath),
-      );
+  if (requiredProfiles.length > 0) {
+    const { searchGlobs } = resolveRunGlobs(config, []);
+    const searchFiles = await fg(searchGlobs, { cwd, absolute: true });
+    const authNamesNeeded = authScenarioNamesForProfiles(
+      config,
+      requiredProfiles,
+    );
+    const authSummaries = findScenarioSummariesByNames(
+      searchFiles,
+      new Set(authNamesNeeded),
+    );
+    authScenarios = authSummaries.map((summary) =>
+      parseScenarioFile(summary.filePath),
+    );
+  }
+
+  if (!options.skipPreBatch) {
+    const preBatch = await invokePreBatchPhase({
+      config,
+      cwd,
+      runId,
+      runDir,
+      entrypoint: "worker",
+      batchScenarios: [batchScenario],
+      requiredProfiles,
+      authScenarios,
+      allSkills,
+      baseSkillNames,
+      headed,
+      verbose: options.verbose,
+      authRefresh: options.authRefresh,
+      keepBrowser: options.keepBrowser ?? false,
+      artifacts,
+      redactor,
+    });
+    if (!preBatch.ok) {
+      return 2;
     }
   }
 
@@ -749,13 +845,12 @@ export async function executeScenarioWorker(
     allScenarios: authScenarios,
     cwd,
     runDir,
-    headed: resolveBrowserHeaded(config, options.headed),
+    headed,
     retries: options.retries ?? 0,
     verbose: options.verbose,
     isolatedSessions: true,
     keepBrowser: options.keepBrowser ?? false,
-    artifacts: options.artifacts ?? "on-failure",
-    authRefresh: options.authRefresh,
+    artifacts,
     redactor,
     noHealing: options.noHealing,
     retriesPolicy: options.retriesPolicy,
@@ -767,6 +862,26 @@ export async function executeScenarioWorker(
     result.artifactDir ??
     scenarioArtifactDir(runDir, scenario.frontmatter.name);
   writeScenarioResult(artifactDir, result, redactor);
+
+  if (!options.skipPostBatch) {
+    const postBatch = await runPostBatchPhase({
+      config,
+      cwd,
+      extensionHooks: config.extensions?.hooks,
+      runId,
+      runDir,
+      entrypoint: "worker",
+      scenarios: [batchScenario],
+      requiredProfiles,
+      results: [result],
+      status: aggregateBatchStatus([result]),
+      verbose: options.verbose,
+    });
+    if (!postBatch.ok) {
+      console.error(chalk.red(postBatch.error));
+      return 2;
+    }
+  }
 
   return result.status === "pass" ? 0 : 1;
 }
@@ -815,113 +930,6 @@ export function executeSkillsShow(name: string, skillsDirs: string[]): number {
   }
   console.log(`--- ${skill.name} ---\n`);
   console.log(skill.body);
-  return 0;
-}
-
-export async function executeAuthSave(
-  authName: string,
-  options: RunOptions,
-): Promise<number> {
-  const cwd = process.cwd();
-  const config = await loadConfig(options.configPath, cwd);
-
-  try {
-    verifyBundledSkill(cwd);
-  } catch (err) {
-    console.error(chalk.red(String(err)));
-    return 2;
-  }
-
-  const llmError = missingLlmRequirements(config);
-  if (llmError) {
-    console.error(chalk.red(llmError));
-    return 2;
-  }
-
-  const envVarError = missingDeclaredEnvVars(config);
-  if (envVarError) {
-    console.error(chalk.red(envVarError));
-    return 2;
-  }
-
-  const authEntry = config.auth?.[authName];
-  if (!authEntry?.scenario) {
-    console.error(
-      chalk.red(
-        `Auth profile "${authName}" has no scenario in pqa.config.ts. ` +
-          `Add auth: { ${authName}: { scenario: "..." } } or pre-seed state manually.`,
-      ),
-    );
-    return 2;
-  }
-
-  const skillDirs = options.skillsDirs ?? config.skills.dirs ?? [];
-  const allSkills = discoverSkills(skillDirs, cwd);
-  const baseSkillNames = resolveBaseSkillNames(config.skills.preloads);
-  requireSkills(allSkills, baseSkillNames);
-
-  const { searchGlobs } = resolveRunGlobs(config, []);
-  const files = await fg(searchGlobs, { cwd, absolute: true });
-  const authSummaries = findScenarioSummariesByNames(
-    files,
-    new Set([authEntry.scenario]),
-  );
-  const authSummary = authSummaries[0];
-  if (!authSummary) {
-    console.error(chalk.red(`Auth scenario "${authEntry.scenario}" not found`));
-    return 2;
-  }
-  const authScenarios = [parseScenarioFile(authSummary.filePath)];
-
-  const statePath =
-    authEntry.statePath ?? path.join(".pqa", "auth", `${authName}.json`);
-  const runDir = ensureRunDir(cwd, createRunId());
-  const redactor = createEnvRedactor(
-    process.env,
-    resolveSensitiveEnvVars(config),
-  );
-  const spinner = ora(`Saving auth "${authName}"`).start();
-
-  try {
-    await ensureAuthProfiles(
-      {
-        config,
-        allSkills,
-        baseSkillNames,
-        cwd,
-        runDir,
-        headed: resolveBrowserHeaded(config, true),
-        verbose: options.verbose,
-        allScenarios: authScenarios,
-        authRefresh: true,
-        keepBrowser: options.keepBrowser ?? false,
-        artifacts: options.artifacts ?? "never",
-        redactor,
-      },
-      [authName],
-    );
-  } catch (err) {
-    spinner.fail(String(err));
-    return 1;
-  }
-
-  const updated = { ...config.auth, [authName]: { ...authEntry, statePath } };
-  writeFileSync(
-    path.resolve(cwd, "pqa.config.auth.json"),
-    JSON.stringify({ auth: updated }, null, 2),
-  );
-  spinner.succeed(`Auth saved to ${statePath}`);
-  console.log(
-    chalk.dim(
-      "Add to pqa.config.ts: auth: { " +
-        authName +
-        ': { scenario: "' +
-        authEntry.scenario +
-        '", statePath: "' +
-        statePath +
-        '" } }',
-    ),
-  );
   return 0;
 }
 

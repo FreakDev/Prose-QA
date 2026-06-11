@@ -3,6 +3,10 @@
   "version": "0.2.4",
   "description": "ProseQA — agent harness for NL E2E regression testing via agent-browser",
   "type": "module",
+  "exports": {
+    "./define-config": "./dist/config/define-config.js",
+    "./hooks": "./dist/hooks/defaults.js"
+  },
   "bin": {
     "pqa": "dist/cli/index.js"
   },
@@ -16,6 +20,7 @@
   ],
   "scripts": {
     "build": "tsc",
+    "pretest": "npm run build",
     "test": "node --import tsx --test src/**/*.test.ts",
     "dev": "tsx src/cli/index.ts",
     "mcp": "tsx src/cli/index.ts mcp",

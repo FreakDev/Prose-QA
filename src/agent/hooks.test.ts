@@ -56,6 +56,51 @@ function makeHookContext(overrides?: Partial<HookContext>): HookContext {
 }
 
 describe("HookRunner", () => {
+  describe("runPreBatch", () => {
+    it("returns continue when no hooks", async () => {
+      const runner = new HookRunner({}, makeHookContext());
+      const result = await runner.runPreBatch({
+        runId: "run-1",
+        runDir: "/tmp/run",
+        entrypoint: "run",
+        scenarios: [],
+        requiredProfiles: [],
+      });
+      assert.equal(result.action, "continue");
+    });
+
+    it("short-circuits on abort", async () => {
+      const hooks: ExtensionHooks = {
+        preBatch: [() => ({ action: "abort" as const, error: "batch failed" })],
+      };
+      const runner = new HookRunner(hooks, makeHookContext());
+      const result = await runner.runPreBatch({
+        runId: "run-1",
+        runDir: "/tmp/run",
+        entrypoint: "run",
+        scenarios: [],
+        requiredProfiles: [],
+      });
+      assert.equal(result.action, "abort");
+    });
+  });
+
+  describe("runPostBatch", () => {
+    it("returns continue when no hooks", async () => {
+      const runner = new HookRunner({}, makeHookContext());
+      const result = await runner.runPostBatch({
+        runId: "run-1",
+        runDir: "/tmp/run",
+        entrypoint: "run",
+        scenarios: [],
+        requiredProfiles: [],
+        results: [],
+        status: "pass",
+      });
+      assert.equal(result.action, "continue");
+    });
+  });
+
   describe("runPreScenario", () => {
     it("returns continue when no hooks", async () => {
       const runner = new HookRunner({}, makeHookContext());

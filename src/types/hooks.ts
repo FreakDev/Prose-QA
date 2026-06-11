@@ -202,10 +202,80 @@ export type PostScenarioHook = (
 ) => PostScenarioResult | Promise<PostScenarioResult>;
 
 // ──────────────────────────────────────────────
+// PreBatch
+// ──────────────────────────────────────────────
+
+export type BatchEntrypoint = "run" | "worker" | "mcp";
+
+export interface BatchScenarioSummary {
+  name: string;
+  auth?: string;
+}
+
+export interface PreBatchParams {
+  runId: string;
+  runDir: string;
+  entrypoint: BatchEntrypoint;
+  scenarios: BatchScenarioSummary[];
+  requiredProfiles: string[];
+  authRefresh?: boolean;
+}
+
+export interface PreBatchResultContinue {
+  action: "continue";
+}
+
+export interface PreBatchResultAbort {
+  action: "abort";
+  error: string;
+}
+
+export type PreBatchResult = PreBatchResultContinue | PreBatchResultAbort;
+
+export type PreBatchHook = (
+  params: PreBatchParams,
+  ctx: HookContext,
+) => PreBatchResult | Promise<PreBatchResult>;
+
+// ──────────────────────────────────────────────
+// PostBatch
+// ──────────────────────────────────────────────
+
+export type BatchStatus = "pass" | "fail" | "error";
+
+export interface PostBatchParams {
+  runId: string;
+  runDir: string;
+  entrypoint: BatchEntrypoint;
+  scenarios: BatchScenarioSummary[];
+  requiredProfiles: string[];
+  results: ScenarioResult[];
+  status: BatchStatus;
+}
+
+export interface PostBatchResultContinue {
+  action: "continue";
+}
+
+export interface PostBatchResultAbort {
+  action: "abort";
+  error: string;
+}
+
+export type PostBatchResult = PostBatchResultContinue | PostBatchResultAbort;
+
+export type PostBatchHook = (
+  params: PostBatchParams,
+  ctx: HookContext,
+) => PostBatchResult | Promise<PostBatchResult>;
+
+// ──────────────────────────────────────────────
 // Aggregate ExtensionHooks
 // ──────────────────────────────────────────────
 
 export interface ExtensionHooks {
+  preBatch?: PreBatchHook[];
+  postBatch?: PostBatchHook[];
   preScenario?: PreScenarioHook[];
   preSystemPrompt?: PreSystemPromptHook[];
   preLlmTurn?: PreLlmTurnHook[];

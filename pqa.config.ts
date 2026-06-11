@@ -3,6 +3,8 @@
  * Used when no pqa.config.* exists in the project cwd (e.g. pilar-ui).
  * Override locally by adding pqa.config.json (or .mjs / .ts / .js) in your project root.
  */
+import { defaultExtensionHooks } from "./dist/hooks/defaults.js";
+
 const config = {
   scenariosDir: "scenarios",
   llm: {
@@ -71,6 +73,9 @@ const config = {
   report: {
     outputPath: "",
     zip: false,
+  },
+  extensions: {
+    hooks: defaultExtensionHooks,
   },
 };
 

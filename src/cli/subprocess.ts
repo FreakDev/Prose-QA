@@ -115,6 +115,9 @@ function buildWorkerArgs(request: ScenarioWorkerRequest): string[] {
   if (options.authRefresh) {
     args.push("--auth-refresh");
   }
+  if (options.skipPreBatch) {
+    args.push("--skip-pre-batch");
+  }
 
   return args;
 }

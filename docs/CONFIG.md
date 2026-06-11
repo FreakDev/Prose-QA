@@ -147,7 +147,7 @@ Persistence depends on `browser.engine`:
 - **chrome** — Chrome profile directory (`.pqa/profiles/<key>/`)
 - **lightpanda** — agent-browser state JSON (`.pqa/auth/<key>.json`)
 
-CLI: `pqa auth save <name>`, `pqa auth list`, `pqa auth clear [profile]`, `--auth-refresh` on `pqa run`.
+CLI: `pqa auth list`, `pqa auth clear [profile]`, `--auth-refresh` on `pqa run`.
 
 ---
 

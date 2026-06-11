@@ -7,7 +7,7 @@ import type { PqaConfig } from "../types/config.js";
 import type { HookContext } from "../types/hooks.js";
 import type { Scenario } from "../types/scenario.js";
 import { resolveProfilePath } from "../auth/store.js";
-import { ensureProfileHook } from "./ensure-profile.js";
+import { resolveProfileHook } from "./resolve-profile.js";
 
 function makeScenario(auth?: string): Scenario {
   return {
@@ -52,11 +52,11 @@ const config: PqaConfig = {
   auth: { admin: { scenario: "login-admin" } },
 };
 
-describe("ensureProfileHook", () => {
+describe("resolveProfileHook", () => {
   it("continues without browserContext when scenario has no auth", async () => {
-    const result = await ensureProfileHook(
+    const result = await resolveProfileHook(
       makeScenario(),
-      makeContext("/tmp", config, { ensureAuthContext: {} }),
+      makeContext("/tmp", config),
     );
     assert.equal(result.action, "continue");
     if (result.action === "continue") {
@@ -65,7 +65,7 @@ describe("ensureProfileHook", () => {
   });
 
   it("continues during provisioning nested runs", async () => {
-    const result = await ensureProfileHook(
+    const result = await resolveProfileHook(
       makeScenario("admin"),
       makeContext("/tmp", config, { provisioning: true }),
     );
@@ -73,15 +73,15 @@ describe("ensureProfileHook", () => {
   });
 
   it("aborts when auth profile is missing from config", async () => {
-    const result = await ensureProfileHook(
+    const result = await resolveProfileHook(
       makeScenario("missing"),
-      makeContext("/tmp", config, { ensureAuthContext: {} }),
+      makeContext("/tmp", config),
     );
     assert.equal(result.action, "abort");
   });
 
   it("returns browserContext when chrome profile already exists", async () => {
-    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-ensure-profile-"));
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-resolve-profile-"));
     try {
       const profilePath = resolveProfilePath(cwd, "admin");
       mkdirSync(path.join(profilePath, "Default", "Network"), {
@@ -89,27 +89,28 @@ describe("ensureProfileHook", () => {
       });
       writeFileSync(path.join(profilePath, "Default", "Network", "Cookies"), "x");
 
-      const result = await ensureProfileHook(
+      const result = await resolveProfileHook(
         makeScenario("admin"),
-        makeContext(cwd, config, {
-          ensureAuthContext: {
-            config,
-            allSkills: [],
-            baseSkillNames: ["core"],
-            cwd,
-            runDir: path.join(cwd, ".pqa", "runs", "test"),
-            headed: false,
-            allScenarios: [],
-            artifacts: "never",
-            redactor: { redact: (s: string) => s } as never,
-          },
-        }),
+        makeContext(cwd, config),
       );
 
       assert.equal(result.action, "continue");
       if (result.action === "continue") {
         assert.equal(result.browserContext?.profilePath, profilePath);
       }
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  });
+
+  it("aborts when profile state is missing", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-resolve-profile-missing-"));
+    try {
+      const result = await resolveProfileHook(
+        makeScenario("admin"),
+        makeContext(cwd, config),
+      );
+      assert.equal(result.action, "abort");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
