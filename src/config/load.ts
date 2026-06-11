@@ -2,9 +2,11 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type { CacheConfig, HealingConfig, PqaConfig, ReportConfig } from "../types/config.js";
+import type { ExtensionHooks } from "../types/hooks.js";
 import { loadEnv } from "./env.js";
 import { resolveStatePath } from "../auth/store.js";
 import { getPackageRoot, resolveBundledPath } from "../paths.js";
+import { resolveAllHookModules } from "./hooks.js";
 
 const LOCAL_CONFIG_CANDIDATES = [
   "pqa.config.json",
@@ -108,11 +110,10 @@ async function loadBundledDefaultConfig(): Promise<PqaConfig> {
   return cachedBundledDefault;
 }
 
-export async function loadConfig(
-  configPath?: string,
-  cwd = process.cwd(),
+async function resolveBaseConfig(
+  configPath: string | undefined,
+  cwd: string,
 ): Promise<PqaConfig> {
-  loadEnv(cwd);
   const bundledDefault = await loadBundledDefaultConfig();
 
   if (configPath) {
@@ -120,9 +121,9 @@ export async function loadConfig(
     if (!existsSync(resolved)) {
       throw new Error(`Config file not found: ${resolved}`);
     }
-    const config = await importConfigModule(resolved);
+    const partial = await importConfigModule(resolved);
     return normalizeBundledPaths(
-      applyLlmEnvOverrides(mergeConfig(bundledDefault, config)),
+      applyLlmEnvOverrides(mergeConfig(bundledDefault, partial)),
       cwd,
     );
   }
@@ -131,9 +132,9 @@ export async function loadConfig(
     const resolved = path.resolve(cwd, candidate);
     if (!existsSync(resolved)) continue;
     try {
-      const config = await importConfigModule(resolved);
+      const partial = await importConfigModule(resolved);
       return normalizeBundledPaths(
-        applyLlmEnvOverrides(mergeConfig(bundledDefault, config)),
+        applyLlmEnvOverrides(mergeConfig(bundledDefault, partial)),
         cwd,
       );
     } catch {
@@ -142,6 +143,43 @@ export async function loadConfig(
   }
 
   return normalizeBundledPaths(applyLlmEnvOverrides(bundledDefault), cwd);
+}
+
+export async function loadConfig(
+  configPath?: string,
+  cwd = process.cwd(),
+): Promise<PqaConfig> {
+  loadEnv(cwd);
+
+  const config = await resolveBaseConfig(configPath, cwd);
+
+  // Resolve hook module paths into functions
+  if (!config.extensions?.hooks) return config;
+
+  try {
+    const resolvedHooks = await resolveAllHookModules(
+      config.extensions.hooks as ExtensionHooks,
+      cwd,
+    );
+    return {
+      ...config,
+      extensions: {
+        ...config.extensions,
+        hooks: resolvedHooks,
+      },
+    };
+  } catch (err) {
+    console.warn(
+      `[config] Failed to resolve hook modules: ${err instanceof Error ? err.message : String(err)}. Hooks will be skipped.`,
+    );
+    return {
+      ...config,
+      extensions: {
+        ...config.extensions,
+        hooks: undefined,
+      },
+    };
+  }
 }
 
 type LlmProvider = NonNullable<PqaConfig["llm"]["provider"]>;
@@ -197,6 +235,7 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
     report: override.report
       ? { ...base.report, ...override.report }
       : base.report,
+    extensions: override.extensions ?? base.extensions,
   };
 }
 

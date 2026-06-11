@@ -8,6 +8,8 @@ dist/
 .env.*
 !.env.example
 .cursor/
+.pi/
+.mypi/
 
 skills/agent-browser
 

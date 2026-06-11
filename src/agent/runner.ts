@@ -4,6 +4,7 @@ import {
   stepCountIs,
   tool,
   type GenerateTextResult,
+  type LanguageModelUsage,
   type ModelMessage,
   type ToolSet,
 } from "ai";
@@ -11,6 +12,7 @@ import {
 type TextGenerateOutput = ReturnType<typeof Output.text>;
 import { z } from "zod";
 import type { ArtifactsMode, PqaConfig } from "../types/config.js";
+import type { ExtensionHooks, PreSystemPromptParams } from "../types/hooks.js";
 import type { Scenario } from "../types/scenario.js";
 import type { Skill } from "../types/skill.js";
 import type {
@@ -21,6 +23,7 @@ import type {
   Verdict,
 } from "../types/verdict.js";
 import { resolveHealingConfig } from "../config/load.js";
+import { HookRunner, HookAbortError } from "./hooks.js";
 import {
   classifyFailure,
   isHealingEnabled,
@@ -106,6 +109,70 @@ export interface RunScenarioOptions {
   redactor?: EnvRedactor;
   noHealing?: boolean;
   scenarioCacheHints?: string;
+  extensionHooks?: ExtensionHooks;
+}
+
+async function callLlm(options: {
+  config: PqaConfig;
+  system: string;
+  messages: ModelMessage[];
+  tools?: ToolSet;
+  providerOptions: ReturnType<typeof buildProviderOptions>;
+  stopWhen: ReturnType<typeof stepCountIs>;
+  onStepFinish: (step: {
+    text: string;
+    reasoningText?: string;
+    toolCalls: Array<{ toolName: string; input: unknown }>;
+  }) => Promise<void>;
+  hookRunner?: HookRunner;
+  turn: number;
+  maxTurns: number;
+}): Promise<{
+  result: GenerateTextResult<ToolSet, TextGenerateOutput>;
+  text: string;
+  totalUsage: LanguageModelUsage | undefined;
+}> {
+  let messages = options.messages;
+
+  // Pre-LLM-turn hook
+  if (options.hookRunner) {
+    const preResult = await options.hookRunner.runPreLlmTurn({
+      messages,
+      turn: options.turn,
+      maxTurns: options.maxTurns,
+    });
+    if (preResult.extraMessages?.length) {
+      messages = [...messages, ...preResult.extraMessages];
+    }
+  }
+
+  const result = (await generateText({
+    model: createLlmModel(options.config),
+    system: options.system,
+    messages,
+    tools: options.tools,
+    providerOptions: options.providerOptions,
+    stopWhen: options.stopWhen,
+    onStepFinish: options.onStepFinish,
+  })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
+
+  let text = result.text || "";
+
+  // Post-LLM-turn hook
+  if (options.hookRunner) {
+    const postResult = await options.hookRunner.runPostLlmTurn({
+      text,
+      reasoningText: undefined,
+      toolCalls: [],
+      turn: options.turn,
+      durationMs: 0,
+    });
+    if (postResult.text !== undefined) {
+      text = postResult.text;
+    }
+  }
+
+  return { result, text, totalUsage: result.totalUsage };
 }
 
 async function retryVerdictCompletion(options: {
@@ -123,6 +190,7 @@ async function retryVerdictCompletion(options: {
   finalText: string;
   stepTiming: { startMs: number };
   tokenUsage: TokenUsageStats;
+  hookRunner?: HookRunner;
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   finalText: string;
@@ -135,6 +203,17 @@ async function retryVerdictCompletion(options: {
     !extractVerdict(finalText) && attempt < MAX_VERDICT_RETRIES;
     attempt++
   ) {
+    // Pre-verdict hook
+    if (options.hookRunner) {
+      const preVerdictResult = await options.hookRunner.runPreVerdict({
+        finalText,
+        transcript: options.transcript,
+      });
+      finalText = preVerdictResult.finalText ?? finalText;
+    }
+
+    if (extractVerdict(finalText)) break;
+
     removeLastAssistantMessage(options.transcript);
 
     const retryPrompt = buildVerdictRetryPrompt(options.runOptions.scenario);
@@ -147,17 +226,21 @@ async function retryVerdictCompletion(options: {
     ];
 
     options.stepTiming.startMs = Date.now();
-    result = await generateText({
-      model: createLlmModel(options.config),
+    const llmResult = await callLlm({
+      config: options.config,
       system: options.system,
       messages: retryMessages,
       providerOptions: options.providerOptions,
       stopWhen: stepCountIs(VERDICT_RETRY_MAX_STEPS),
       onStepFinish: options.onStepFinish,
+      hookRunner: options.hookRunner,
+      turn: -1,
+      maxTurns: -1,
     });
-    tokenUsage = addLanguageModelUsage(tokenUsage, result.totalUsage);
+    result = llmResult.result;
+    finalText = llmResult.text || finalText;
+    tokenUsage = addLanguageModelUsage(tokenUsage, llmResult.totalUsage);
 
-    finalText = result.text || finalText;
     appendFinalTextToTranscript(
       options.transcript,
       options.runOptions.redactor
@@ -182,6 +265,47 @@ export async function runScenario(
   const authSavePath = options.authProfile
     ? resolveStatePath(options.cwd, options.authProfile, options.config)
     : undefined;
+
+  // Setup HookRunner if extension hooks are provided
+  let hookRunner: HookRunner | undefined;
+  if (options.extensionHooks) {
+    const hookCtx = {
+      logger: {
+        info: (msg: string) => {
+          if (options.verbose) console.log(`[hook] ${msg}`);
+        },
+        warn: (msg: string) => console.warn(`[hook] ${msg}`),
+        error: (msg: string) => console.error(`[hook] ${msg}`),
+      },
+      cwd: options.cwd,
+      config: options.config,
+      transcript,
+      metadata: {},
+      abort: (reason: string): never => {
+        throw new HookAbortError(reason);
+      },
+    };
+    hookRunner = new HookRunner(options.extensionHooks, hookCtx);
+
+    // Pre-scenario hook
+    const preScenarioResult = await hookRunner.runPreScenario(options.scenario);
+    if (preScenarioResult.action === "skip") {
+      return {
+        scenario: options.scenario.frontmatter.name,
+        filePath: options.scenario.filePath,
+        status: "skipped",
+        durationMs: Date.now() - start,
+        verdict: null,
+        transcript,
+        artifactDir: options.artifactDir,
+        error: preScenarioResult.reason,
+      };
+    }
+    if (preScenarioResult.action === "abort") {
+      throw new HookAbortError(preScenarioResult.error);
+    }
+  }
+
   const bashEnv = buildBrowserEnv({
     cwd: options.cwd,
     headed: options.headed,
@@ -194,7 +318,7 @@ export async function runScenario(
     artifactDir: options.artifactDir,
   });
 
-  const system = buildSystemPrompt(
+  let system = buildSystemPrompt(
     options.config,
     options.skills,
     options.scenario,
@@ -211,6 +335,30 @@ export async function runScenario(
       preparedStartUrl: options.preparedStartUrl,
     },
   );
+
+  // Pre-system-prompt hook
+  if (hookRunner) {
+    const preSystemResult = await hookRunner.runPreSystemPrompt({
+      config: options.config,
+      skills: options.skills,
+      scenario: options.scenario,
+      runtime: {
+        cwd: options.cwd,
+        artifactDir: options.artifactDir,
+        authStatePath: options.authStatePath,
+        authProfile: options.authProfile,
+        profilePath: options.profilePath,
+        headed: options.headed,
+        sessionName,
+        artifacts: options.artifacts,
+        scenarioCacheHints: options.scenarioCacheHints,
+        preparedStartUrl: options.preparedStartUrl,
+      },
+    });
+    if (preSystemResult.extraInstructions) {
+      system += "\n" + preSystemResult.extraInstructions;
+    }
+  }
 
   let finalText = "";
   let turn = 0;
@@ -235,11 +383,48 @@ export async function runScenario(
         command: z.string().describe("Shell command to execute"),
       }),
       execute: async ({ command }) => {
-        const entry = await runBash(command, {
+        let resolvedCommand = command;
+        let resolvedTimeout = options.config.agent.bashTimeoutMs;
+        let resolvedEnv = { ...bashEnv } as Record<string, string>;
+        for (const [k, v] of Object.entries(bashEnv)) {
+          if (v !== undefined) resolvedEnv[k] = v;
+        }
+
+        // Pre-tool hook
+        if (hookRunner) {
+          const preToolResult = await hookRunner.runPreTool({
+            command: resolvedCommand,
+            timeoutMs: resolvedTimeout,
+            env: resolvedEnv,
+          });
+          if (preToolResult.action === "abort") {
+            throw new Error(preToolResult.abortError ?? "Hook aborted bash tool");
+          }
+          if (preToolResult.command !== undefined) {
+            resolvedCommand = preToolResult.command;
+          }
+          if (preToolResult.timeoutMs !== undefined) {
+            resolvedTimeout = preToolResult.timeoutMs;
+          }
+          if (preToolResult.extraEnv) {
+            Object.assign(resolvedEnv, preToolResult.extraEnv);
+          }
+        }
+
+        const entry = await runBash(resolvedCommand, {
           cwd: options.cwd,
-          timeoutMs: options.config.agent.bashTimeoutMs,
-          env: bashEnv,
+          timeoutMs: resolvedTimeout,
+          env: resolvedEnv as NodeJS.ProcessEnv,
         });
+
+        // Post-tool hook
+        if (hookRunner) {
+          const postToolResult = await hookRunner.runPostTool(entry);
+          if (postToolResult.action === "abort") {
+            throw new Error(postToolResult.error);
+          }
+        }
+
         const redacted = options.redactor
           ? options.redactor.redactBashEntry(entry)
           : entry;
@@ -372,18 +557,22 @@ export async function runScenario(
     const providerOptions = buildProviderOptions(options.config);
 
     stepTiming.startMs = Date.now();
-    let result = (await generateText({
-      model: createLlmModel(options.config),
+    const initialLlmResult = await callLlm({
+      config: options.config,
       system,
       messages: initialMessages,
       tools,
       providerOptions,
       stopWhen: stepCountIs(options.config.agent.maxTurns),
       onStepFinish,
-    })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
-    tokenUsage = addLanguageModelUsage(tokenUsage, result.totalUsage);
+      hookRunner,
+      turn: 0,
+      maxTurns: options.config.agent.maxTurns,
+    });
+    let result = initialLlmResult.result;
+    tokenUsage = addLanguageModelUsage(tokenUsage, initialLlmResult.totalUsage);
 
-    finalText = result.text || finalText;
+    finalText = initialLlmResult.text || finalText;
     appendFinalTextToTranscript(
       transcript,
       options.redactor ? options.redactor.redact(finalText) : finalText,
@@ -403,7 +592,17 @@ export async function runScenario(
       finalText,
       stepTiming,
       tokenUsage,
+      hookRunner,
     }));
+
+    // Pre-verdict hook
+    if (hookRunner) {
+      const preVerdictResult = await hookRunner.runPreVerdict({
+        finalText,
+        transcript,
+      });
+      finalText = preVerdictResult.finalText ?? finalText;
+    }
 
     let verdict = extractVerdict(finalText);
 
@@ -459,18 +658,22 @@ export async function runScenario(
           ];
 
           stepTiming.startMs = Date.now();
-          result = (await generateText({
-            model: createLlmModel(options.config),
+          const recoveryLlmResult = await callLlm({
+            config: options.config,
             system,
             messages: recoveryMessages,
             tools,
             providerOptions,
             stopWhen: stepCountIs(options.config.agent.maxTurns),
             onStepFinish,
-          })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
-          tokenUsage = addLanguageModelUsage(tokenUsage, result.totalUsage);
+            hookRunner,
+            turn,
+            maxTurns: options.config.agent.maxTurns,
+          });
+          result = recoveryLlmResult.result;
+          tokenUsage = addLanguageModelUsage(tokenUsage, recoveryLlmResult.totalUsage);
 
-          finalText = result.text || finalText;
+          finalText = recoveryLlmResult.text || finalText;
           appendFinalTextToTranscript(
             transcript,
             options.redactor ? options.redactor.redact(finalText) : finalText,
@@ -490,6 +693,7 @@ export async function runScenario(
             finalText,
             stepTiming,
             tokenUsage,
+            hookRunner,
           }));
           verdict = extractVerdict(finalText);
 
@@ -521,6 +725,14 @@ export async function runScenario(
       draftResult.status = "fail";
     }
 
+    // Post-scenario hook
+    if (hookRunner) {
+      const postScenarioResult = await hookRunner.runPostScenario(draftResult);
+      if (postScenarioResult.result) {
+        draftResult = { ...draftResult, ...postScenarioResult.result };
+      }
+    }
+
     return {
       ...draftResult,
       durationMs: Date.now() - start,
@@ -531,7 +743,7 @@ export async function runScenario(
       appendStepToTranscript(transcript, { text: "", toolCalls: [] }, pendingBashEntries.splice(0));
     }
     persistTranscript(options, transcript);
-    const error = String(err);
+    const error = err instanceof HookAbortError ? err.reason : String(err);
     return {
       scenario: options.scenario.frontmatter.name,
       filePath: options.scenario.filePath,

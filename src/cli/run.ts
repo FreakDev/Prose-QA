@@ -341,6 +341,7 @@ async function runOneScenario(
           redactor: ctx.redactor,
           noHealing: ctx.noHealing,
           scenarioCacheHints,
+          extensionHooks: ctx.config.extensions?.hooks,
         });
 
         if (result.healing) {

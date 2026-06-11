@@ -1,4 +1,5 @@
 import type { ScenarioTagFilterExpression } from "./scenario.js";
+import type { ExtensionHooks } from "./hooks.js";
 
 export interface HealingConfig {
   /** Master switch. Default: true */
@@ -124,6 +125,9 @@ export interface PqaConfig {
   recorder?: RecorderConfig;
   cache?: CacheConfig;
   report?: ReportConfig;
+  extensions?: {
+    hooks?: ExtensionHooks;
+  };
 }
 
 export interface AuthProfileConfig {
