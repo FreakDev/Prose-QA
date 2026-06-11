@@ -1,5 +1,5 @@
 import { execSync } from "node:child_process";
-import { writeFileSync } from "node:fs";
+import { writeFileSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import fg from "fast-glob";
 import chalk from "chalk";
@@ -70,7 +70,7 @@ import {
   isHealingEnabled,
   isScenarioRetryAllowed,
 } from "../healing/classify.js";
-import { spawnScenarioWorker } from "./subprocess.js";
+import { spawnScenarioWorker, cleanupRunDirHeartbeats } from "./subprocess.js";
 import {
   buildReport,
   createRunId,
@@ -85,6 +85,24 @@ import { generateOrMergeScenarioCacheHints } from "../cache/generate.js";
 import { isCacheEnabled } from "../cache/resolve.js";
 import { clearCache, loadScenarioCache } from "../cache/store.js";
 import { PACKAGE_VERSION } from "../version.js";
+
+let _heartbeatTimer: ReturnType<typeof setInterval> | undefined;
+let _heartbeatFilePath: string | undefined;
+
+function stopHeartbeat(): void {
+  if (_heartbeatTimer) {
+    clearInterval(_heartbeatTimer);
+    _heartbeatTimer = undefined;
+  }
+  if (_heartbeatFilePath) {
+    try {
+      unlinkSync(_heartbeatFilePath);
+    } catch {
+      /* ENOENT */
+    }
+    _heartbeatFilePath = undefined;
+  }
+}
 
 function safeScenarioName(name: string): string {
   return name.replace(/[^a-z0-9-]/gi, "-").toLowerCase();
@@ -233,6 +251,7 @@ function installScenarioWorkerShutdownHandlers(options: {
       }
     }
 
+    stopHeartbeat();
     process.exit(signal === "SIGINT" ? 130 : 128 + 15);
   };
 
@@ -629,6 +648,8 @@ export async function executeRun(
       noCache: options.noCache,
       skipPreBatch: true,
       skipPostBatch: true,
+      workerInactivityTimeoutMs: config.agent.workerInactivityTimeoutMs,
+      workerHeartbeatIntervalMs: config.agent.workerHeartbeatIntervalMs,
     };
 
     const partial = await mapWithConcurrency(
@@ -745,6 +766,9 @@ export async function executeRun(
   const reportPath = finalizeRunReport(runDir, zipDestination);
   console.log(`\nReport: ${reportPath}`);
 
+  // Safety net: remove any leftover heartbeat files from worker subprocesses
+  cleanupRunDirHeartbeats(runDir);
+
   const failed = results.some(
     (r) => r.status === "fail" || r.status === "error",
   );
@@ -857,33 +881,53 @@ export async function executeScenarioWorker(
     noCache: options.noCache,
   };
 
-  const result = await runOneScenario(scenario, scenarioCtx);
-  const artifactDir =
-    result.artifactDir ??
-    scenarioArtifactDir(runDir, scenario.frontmatter.name);
-  writeScenarioResult(artifactDir, result, redactor);
+  // Start heartbeat file writer
+  const heartbeatIntervalMs =
+    options.workerHeartbeatIntervalMs ??
+    config.agent.workerHeartbeatIntervalMs ??
+    15_000;
+  const heartbeatFile = path.join(
+    runDir,
+    ".heartbeat-" + String(process.pid),
+  );
+  writeFileSync(heartbeatFile, String(Date.now()));
+  const heartbeatTimer = setInterval(() => {
+    writeFileSync(heartbeatFile, String(Date.now()));
+  }, heartbeatIntervalMs);
+  _heartbeatTimer = heartbeatTimer;
+  _heartbeatFilePath = heartbeatFile;
 
-  if (!options.skipPostBatch) {
-    const postBatch = await runPostBatchPhase({
-      config,
-      cwd,
-      extensionHooks: config.extensions?.hooks,
-      runId,
-      runDir,
-      entrypoint: "worker",
-      scenarios: [batchScenario],
-      requiredProfiles,
-      results: [result],
-      status: aggregateBatchStatus([result]),
-      verbose: options.verbose,
-    });
-    if (!postBatch.ok) {
-      console.error(chalk.red(postBatch.error));
-      return 2;
+  try {
+    const result = await runOneScenario(scenario, scenarioCtx);
+    const artifactDir =
+      result.artifactDir ??
+      scenarioArtifactDir(runDir, scenario.frontmatter.name);
+    writeScenarioResult(artifactDir, result, redactor);
+
+    if (!options.skipPostBatch) {
+      const postBatch = await runPostBatchPhase({
+        config,
+        cwd,
+        extensionHooks: config.extensions?.hooks,
+        runId,
+        runDir,
+        entrypoint: "worker",
+        scenarios: [batchScenario],
+        requiredProfiles,
+        results: [result],
+        status: aggregateBatchStatus([result]),
+        verbose: options.verbose,
+      });
+      if (!postBatch.ok) {
+        console.error(chalk.red(postBatch.error));
+        return 2;
+      }
     }
-  }
 
-  return result.status === "pass" ? 0 : 1;
+    return result.status === "pass" ? 0 : 1;
+  } finally {
+    stopHeartbeat();
+  }
 }
 
 export async function executeClearCache(

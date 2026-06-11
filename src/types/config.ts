@@ -127,6 +127,10 @@ export interface PqaConfig {
      * Use -1 for unlimited (same as --parallel with no n).
      */
     parallel?: number;
+    /** Worker heartbeat watchdog timeout in ms. Default: 120000 (2 min) */
+    workerInactivityTimeoutMs?: number;
+    /** Worker heartbeat write interval in ms. Default: 15000 (15 s) */
+    workerHeartbeatIntervalMs?: number;
   };
   healing?: HealingConfig;
   recorder?: RecorderConfig;
@@ -168,4 +172,8 @@ export interface RunOptions {
   skipPreBatch?: boolean;
   /** Internal: skip postBatch (parallel workers). */
   skipPostBatch?: boolean;
+  /** Override agent.workerInactivityTimeoutMs */
+  workerInactivityTimeoutMs?: number;
+  /** Override agent.workerHeartbeatIntervalMs */
+  workerHeartbeatIntervalMs?: number;
 }

@@ -1,11 +1,13 @@
 import { spawn, type ChildProcess } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, unlinkSync } from "node:fs";
 import path from "node:path";
 import type { RunOptions } from "../types/config.js";
 import type { ScenarioResult } from "../types/verdict.js";
 import { scenarioArtifactDir } from "../reporter/index.js";
 
 const activeWorkers = new Set<ChildProcess>();
+const heartbeatWatchdogs = new Map<number, NodeJS.Timeout>();
+const heartbeatFilePaths = new Map<number, string>();
 let shutdownHandlersInstalled = false;
 
 function installParallelShutdownHandlers(): void {
@@ -40,6 +42,17 @@ export function killAllScenarioWorkers(
       /* already stopped */
     }
   }
+
+  // Clean up heartbeat files for all tracked workers
+  // (the child.on("close") handler won't fire because process.exit() runs right after)
+  for (const [, filePath] of heartbeatFilePaths) {
+    try {
+      unlinkSync(filePath);
+    } catch {
+      /* ENOENT */
+    }
+  }
+  heartbeatFilePaths.clear();
 }
 
 export function resolveCliInvocation(): {
@@ -150,6 +163,39 @@ export async function spawnScenarioWorker(
 
     trackScenarioWorker(child);
 
+    // Start heartbeat watchdog
+    const heartbeatFile = path.join(
+      request.runDir,
+      ".heartbeat-" + String(child.pid),
+    );
+    const inactivityTimeoutMs =
+      request.options.workerInactivityTimeoutMs ?? 120_000;
+    const checkIntervalMs =
+      request.options.workerHeartbeatIntervalMs ?? 15_000;
+    const watchTimer = setInterval(() => {
+      if (child.killed || child.exitCode !== null) {
+        clearInterval(watchTimer);
+        heartbeatWatchdogs.delete(child.pid!);
+        return;
+      }
+      try {
+        const content = readFileSync(heartbeatFile, "utf-8");
+        const lastHeartbeat = Number(content);
+        if (Date.now() - lastHeartbeat > inactivityTimeoutMs) {
+          console.error(
+            `[${name}] worker heartbeat expired, killing (SIGKILL)`,
+          );
+          child.kill("SIGKILL");
+          clearInterval(watchTimer);
+          heartbeatWatchdogs.delete(child.pid!);
+        }
+      } catch {
+        // Heartbeat file not yet written — worker still starting
+      }
+    }, checkIntervalMs);
+    heartbeatWatchdogs.set(child.pid!, watchTimer);
+    heartbeatFilePaths.set(child.pid!, heartbeatFile);
+
     child.stdout?.on("data", (chunk: Buffer) => {
       for (const line of chunk.toString().split("\n")) {
         if (line.trim()) process.stdout.write(`[${name}] ${line}\n`);
@@ -162,9 +208,35 @@ export async function spawnScenarioWorker(
       }
     });
 
-    child.on("error", reject);
+    child.on("error", (err) => {
+      // Clean up heartbeat watchdog
+      const timer = heartbeatWatchdogs.get(child.pid!);
+      if (timer) {
+        clearInterval(timer);
+        heartbeatWatchdogs.delete(child.pid!);
+      }
+      heartbeatFilePaths.delete(child.pid!);
+      try {
+        unlinkSync(heartbeatFile);
+      } catch {
+        /* ENOENT */
+      }
+      reject(err);
+    });
 
     child.on("close", (code) => {
+      // Clean up heartbeat watchdog
+      const timer = heartbeatWatchdogs.get(child.pid!);
+      if (timer) {
+        clearInterval(timer);
+        heartbeatWatchdogs.delete(child.pid!);
+      }
+      heartbeatFilePaths.delete(child.pid!);
+      try {
+        unlinkSync(heartbeatFile);
+      } catch {
+        /* ENOENT */
+      }
       try {
         const result = readWorkerResult(request.runDir, name);
         resolve(result);
@@ -179,3 +251,39 @@ export async function spawnScenarioWorker(
     });
   });
 }
+
+/**
+ * Delete a heartbeat file for a given runDir and PID.
+ * Silently ignores ENOENT.
+ */
+export function cleanupHeartbeatFile(runDir: string, pid: number): void {
+  const filePath = path.join(runDir, ".heartbeat-" + String(pid));
+  try {
+    unlinkSync(filePath);
+  } catch {
+    /* ENOENT */
+  }
+}
+
+/**
+ * Sweep a run directory and remove all leftover .heartbeat-* files.
+ * Safe to call at the end of a run as a safety net.
+ */
+export function cleanupRunDirHeartbeats(runDir: string): void {
+  let entries: string[];
+  try {
+    entries = readdirSync(runDir);
+  } catch {
+    return; // runDir doesn't exist
+  }
+  for (const entry of entries) {
+    if (entry.startsWith(".heartbeat-")) {
+      try {
+        unlinkSync(path.join(runDir, entry));
+      } catch {
+        /* ENOENT / race */
+      }
+    }
+  }
+}
+
