@@ -168,6 +168,7 @@ export async function spawnScenarioWorker(
       request.runDir,
       ".heartbeat-" + String(child.pid),
     );
+    const workerStartedAt = Date.now();
     const inactivityTimeoutMs =
       request.options.workerInactivityTimeoutMs ?? 120_000;
     const checkIntervalMs =
@@ -181,6 +182,9 @@ export async function spawnScenarioWorker(
       try {
         const content = readFileSync(heartbeatFile, "utf-8");
         const lastHeartbeat = Number(content);
+        if (!Number.isFinite(lastHeartbeat)) return;
+        // Ignore stale files left by a prior worker that reused this PID.
+        if (lastHeartbeat < workerStartedAt) return;
         if (Date.now() - lastHeartbeat > inactivityTimeoutMs) {
           console.error(
             `[${name}] worker heartbeat expired, killing (SIGKILL)`,

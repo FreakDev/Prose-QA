@@ -15,16 +15,16 @@ function makeEntry(overrides: Partial<BashEntry> = {}): BashEntry {
 }
 
 describe("browserHealthPostToolHook", () => {
-  it("continues on successful browser command", () => {
-    const result = browserHealthPostToolHook(
+  it("continues on successful browser command", async () => {
+    const result = await browserHealthPostToolHook(
       makeEntry({ exitCode: 0 }),
       {} as never,
     );
     assert.equal(result.action, "continue");
   });
 
-  it("continues on non-fatal browser issue", () => {
-    const result = browserHealthPostToolHook(
+  it("continues on non-fatal browser issue", async () => {
+    const result = await browserHealthPostToolHook(
       makeEntry({
         stderr: "Error: listen EADDRINUSE: address already in use :::9222",
       }),
@@ -33,8 +33,8 @@ describe("browserHealthPostToolHook", () => {
     assert.equal(result.action, "continue");
   });
 
-  it("aborts on fatal browser issue", () => {
-    const result = browserHealthPostToolHook(
+  it("aborts on fatal browser issue", async () => {
+    const result = await browserHealthPostToolHook(
       makeEntry({
         stderr: "agent-browser: command not found",
       }),

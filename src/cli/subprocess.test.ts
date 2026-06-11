@@ -30,6 +30,7 @@ function startWatchdog(
   heartbeatFile: string,
   inactivityTimeoutMs: number,
   checkIntervalMs: number,
+  workerStartedAt: number,
   onKill?: () => void,
 ): { pid: number; timer: NodeJS.Timeout } {
   const pid = child.pid!;
@@ -41,6 +42,8 @@ function startWatchdog(
     try {
       const content = readFileSync(heartbeatFile, "utf-8");
       const lastHeartbeat = Number(content);
+      if (!Number.isFinite(lastHeartbeat)) return;
+      if (lastHeartbeat < workerStartedAt) return;
       if (Date.now() - lastHeartbeat > inactivityTimeoutMs) {
         child.kill("SIGKILL");
         clearInterval(timer);
@@ -51,6 +54,22 @@ function startWatchdog(
     }
   }, checkIntervalMs);
   return { pid, timer };
+}
+
+async function waitForHeartbeatFile(
+  heartbeatFile: string,
+  timeoutMs = 5000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      readFileSync(heartbeatFile, "utf-8");
+      return;
+    } catch {
+      await new Promise<void>((resolve) => setTimeout(resolve, 25));
+    }
+  }
+  throw new Error(`heartbeat file was not created: ${heartbeatFile}`);
 }
 
 describe("killAllScenarioWorkers", () => {
@@ -195,16 +214,20 @@ describe("heartbeat watchdog (integration)", () => {
       "setInterval(() => {}, 1_000_000)",
     ]);
 
-    // Once the child is running, create a stale heartbeat file for its PID
+    const workerStartedAt = Date.now();
     const heartbeatFile = path.join(dir, ".heartbeat-" + String(child.pid));
-    writeFileSync(heartbeatFile, String(Date.now() - 10_000)); // stale
+
+    // Simulate a worker that wrote once at start then hung (post-start, but expired).
+    await new Promise<void>((resolve) => setTimeout(resolve, 150));
+    writeFileSync(heartbeatFile, String(workerStartedAt));
 
     let killed = false;
     const { timer } = startWatchdog(
       child,
       heartbeatFile,
-      100, // very short inactivity timeout (stale file is older)
-      50,  // check every 50ms
+      100, // very short inactivity timeout
+      50, // check every 50ms
+      workerStartedAt,
       () => {
         killed = true;
       },
@@ -231,7 +254,7 @@ describe("heartbeat watchdog (integration)", () => {
     const dir = tmpDir();
     dirs.push(dir);
 
-    // Spawn a child that writes the heartbeat file every 30 ms.
+    // Spawn a child that writes the heartbeat file every 50 ms.
     // The file path uses the child's own PID (just like run.ts does).
     const child = spawn(process.execPath, [
       "-e",
@@ -239,21 +262,23 @@ describe("heartbeat watchdog (integration)", () => {
 const fs = require("fs");
 const pid = process.pid;
 const hb = ${JSON.stringify(dir)} + "/.heartbeat-" + pid;
-// Write immediately, then every 30ms
 fs.writeFileSync(hb, String(Date.now()));
-setInterval(() => fs.writeFileSync(hb, String(Date.now())), 30);
+setInterval(() => fs.writeFileSync(hb, String(Date.now())), 50);
 setInterval(() => {}, 1_000_000);
       `.trim(),
     ]);
 
     const heartbeatFile = path.join(dir, ".heartbeat-" + String(child.pid));
+    await waitForHeartbeatFile(heartbeatFile);
 
+    const workerStartedAt = Date.now();
     let killed = false;
     const { timer } = startWatchdog(
       child,
       heartbeatFile,
-      200,  // inactivity timeout (longer than write interval)
-      50,   // check every 50ms
+      500, // generous inactivity timeout for loaded CI hosts
+      100, // check every 100ms
+      workerStartedAt,
       () => {
         killed = true;
       },
