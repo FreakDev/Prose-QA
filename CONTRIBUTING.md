@@ -12,16 +12,19 @@ npm run build
 npm test
 ```
 
-Run the CLI locally (bundled scenarios need the demo app on port 8080):
+Run the CLI locally (bundled scenarios need the demo site on port 8080):
 
 ```bash
-npm run demo:server   # separate terminal; serves http://127.0.0.1:8080/
+npm run demo:server   # separate terminal; serves demo-site/ at http://127.0.0.1:8080/
 
 export PQA_LLM_API_KEY=...
 pqa config llm.provider anthropic
 pqa config llm.model claude-sonnet-4-20250514
-npm run dev -- run scenarios/0_hello-world.md --verbose
+npm run dev -- run scenarios/**/*.md --tags example --verbose   # CI smoke
+npm run dev -- run scenarios/**/*.md --tags demo --verbose      # full demo suite
 ```
+
+Demo site pages live in [`demo-site/`](demo-site/). Example scenarios in [`scenarios/`](scenarios/) cover smoke, forms, auth, navigation, and partials.
 
 ## Pull requests
 

@@ -51,15 +51,17 @@ const config = {
     transientPatterns: [
       "timeout",
       "timed out",
-      "not found",
       "waiting for",
       "navigation",
       "net::",
-      "target closed",
       "detached",
       "stale",
       "interrupted",
+      "networkidle",
     ],
+  },
+  browserHealth: {
+    circuitBreakerThreshold: 3,
   },
   recorder: {
     bridgePort: 17_321,

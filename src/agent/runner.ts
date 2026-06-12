@@ -31,6 +31,7 @@ import {
 } from "../healing/classify.js";
 import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
 import { resolveStatePath } from "../auth/store.js";
+import { assertNoDoomedRun } from "./browser-health.js";
 import { buildBrowserEnv, prepareBrowserSession, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
 import {
@@ -129,11 +130,21 @@ async function callLlm(options: {
   hookRunner?: HookRunner;
   turn: number;
   maxTurns: number;
+  transcript?: AgentTranscript;
+  withinTurnFingerprints?: string[];
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   text: string;
   totalUsage: LanguageModelUsage | undefined;
 }> {
+  if (options.transcript) {
+    assertNoDoomedRun(
+      options.transcript,
+      options.config,
+      options.withinTurnFingerprints ?? [],
+    );
+  }
+
   let messages = options.messages;
 
   // Pre-LLM-turn hook
@@ -238,6 +249,7 @@ async function retryVerdictCompletion(options: {
       hookRunner: options.hookRunner,
       turn: -1,
       maxTurns: -1,
+      transcript: options.transcript,
     });
     result = llmResult.result;
     finalText = llmResult.text || finalText;
@@ -281,7 +293,7 @@ export async function runScenario(
       ...(options.verbose !== undefined ? { verbose: options.verbose } : {}),
       ...(options.runDir ? { runDir: options.runDir } : {}),
       ...(options.provisioning ? { provisioning: true } : {}),
-    },
+    } as Record<string, unknown>,
     abort: (reason: string): never => {
       throw new HookAbortError(reason);
     },
@@ -352,6 +364,13 @@ export async function runScenario(
     authStatePath: profilePath ? undefined : authStatePath,
     authSavePath,
     artifactDir: options.artifactDir,
+  });
+
+  Object.assign(hookCtx.metadata, {
+    bashEnv,
+    bashTimeoutMs: options.config.agent.bashTimeoutMs,
+    preparedStartUrl,
+    browserFailureFingerprints: [] as string[],
   });
 
   let system = buildSystemPrompt(
@@ -551,6 +570,7 @@ export async function runScenario(
     toolCalls: Array<{ toolName: string; input: unknown }>;
   }) => {
     turn += 1;
+    hookCtx.metadata.browserFailureFingerprints = [];
     const recordedAt = new Date();
     const durationMs = recordedAt.getTime() - stepTiming.startMs;
     stepTiming.startMs = recordedAt.getTime();
@@ -600,6 +620,9 @@ export async function runScenario(
       hookRunner,
       turn: 0,
       maxTurns: options.config.agent.maxTurns,
+      transcript,
+      withinTurnFingerprints:
+        (hookCtx.metadata.browserFailureFingerprints as string[]) ?? [],
     });
     let result = initialLlmResult.result;
     tokenUsage = addLanguageModelUsage(tokenUsage, initialLlmResult.totalUsage);
@@ -701,6 +724,9 @@ export async function runScenario(
             hookRunner,
             turn,
             maxTurns: options.config.agent.maxTurns,
+            transcript,
+            withinTurnFingerprints:
+              (hookCtx.metadata.browserFailureFingerprints as string[]) ?? [],
           });
           result = recoveryLlmResult.result;
           tokenUsage = addLanguageModelUsage(tokenUsage, recoveryLlmResult.totalUsage);

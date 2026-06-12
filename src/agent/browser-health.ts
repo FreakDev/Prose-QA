@@ -1,4 +1,8 @@
 import type { BashEntry } from "../types/verdict.js";
+import type { PqaConfig } from "../types/config.js";
+import { resolveBrowserHealthConfig } from "../config/load.js";
+import { getTranscriptBashEntries } from "./verdict.js";
+import type { AgentTranscript } from "../types/verdict.js";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -9,11 +13,16 @@ export type BrowserHealthCategory =
   | "dns_resolution"
   | "connection_refused"
   | "connection_timeout"
+  | "connection_reset"
+  | "network_offline"
   | "ssl_tls_error"
   | "port_conflict"
   | "permission_denied"
   | "disk_space"
   | "version_mismatch"
+  | "browser_closed"
+  | "chrome_error_page"
+  | "repeated_failure"
   | "unknown_browser_error";
 
 export type Severity = "error" | "warn" | "info";
@@ -35,6 +44,27 @@ interface Rule {
   buildMessage: (excerpt: string) => string;
   buildHint: () => string;
 }
+
+/** Categories treated as non-recoverable infrastructure failures. */
+export const INFRASTRUCTURE_CATEGORIES: readonly BrowserHealthCategory[] = [
+  "agent_browser_missing",
+  "chrome_missing",
+  "lightpanda_missing",
+  "dns_resolution",
+  "connection_refused",
+  "connection_timeout",
+  "connection_reset",
+  "network_offline",
+  "ssl_tls_error",
+  "permission_denied",
+  "disk_space",
+  "version_mismatch",
+  "browser_closed",
+  "chrome_error_page",
+  "repeated_failure",
+] as const;
+
+const BROWSER_HEALTH_ERROR_RE = /\[([A-Z_]+)\]/;
 
 // ─── Error class ─────────────────────────────────────────────────────────────
 
@@ -105,6 +135,35 @@ const RULES: Rule[] = [
       `Check pqa.config.ts → browser.lightpanda.executablePath.`,
   },
 
+  // ── Browser / session closed ─────────────────────────────────────────────
+  {
+    category: "browser_closed",
+    severity: "error",
+    fatal: true,
+    patterns: [
+      /target page, context or browser has been closed/i,
+      /browser has been closed/i,
+      /session closed/i,
+    ],
+    buildMessage: () => `Browser session is closed — cannot continue UI interactions.`,
+    buildHint: () =>
+      `Restart the scenario. Check for crashes, OOM, or premature agent-browser close.`,
+  },
+
+  // ── Chrome error page ────────────────────────────────────────────────────
+  {
+    category: "chrome_error_page",
+    severity: "error",
+    fatal: true,
+    patterns: [
+      /chrome-error:\/\//i,
+      /about:neterror/i,
+    ],
+    buildMessage: () => `Browser is showing a network error page.`,
+    buildHint: () =>
+      `Verify the target URL is reachable and returns a valid response.`,
+  },
+
   // ── DNS resolution errors ────────────────────────────────────────────────
   {
     category: "dns_resolution",
@@ -117,7 +176,7 @@ const RULES: Rule[] = [
       /name or service not known/i,
       /ERR_NAME_NOT_RESOLVED/i,
     ],
-    buildMessage: (excerpt) => `DNS resolution failed — the domain name could not be resolved.`,
+    buildMessage: () => `DNS resolution failed — the domain name could not be resolved.`,
     buildHint: () =>
       `Check your network connection and DNS settings. Verify the URL is correct. ` +
       `Try: curl -I <url> to confirm reachability.`,
@@ -157,6 +216,36 @@ const RULES: Rule[] = [
       `Try increasing browser.timeout in pqa.config.ts.`,
   },
 
+  // ── Connection reset ─────────────────────────────────────────────────────
+  {
+    category: "connection_reset",
+    severity: "error",
+    fatal: true,
+    patterns: [
+      /ERR_CONNECTION_RESET/i,
+      /ECONNRESET/i,
+      /connection reset/i,
+    ],
+    buildMessage: () => `Connection reset — the server closed the connection unexpectedly.`,
+    buildHint: () =>
+      `Check server stability and network proxies. Retry when the service is healthy.`,
+  },
+
+  // ── Network offline ──────────────────────────────────────────────────────
+  {
+    category: "network_offline",
+    severity: "error",
+    fatal: true,
+    patterns: [
+      /ERR_INTERNET_DISCONNECTED/i,
+      /ERR_NETWORK_CHANGED/i,
+      /network.*offline/i,
+    ],
+    buildMessage: () => `Network is offline or unavailable.`,
+    buildHint: () =>
+      `Restore network connectivity before re-running the scenario.`,
+  },
+
   // ── SSL/TLS errors ────────────────────────────────────────────────────────
   {
     category: "ssl_tls_error",
@@ -174,7 +263,7 @@ const RULES: Rule[] = [
       /ssl.*error/i,
       /tls.*error/i,
     ],
-    buildMessage: (excerpt) =>
+    buildMessage: () =>
       `SSL/TLS certificate error — the server certificate is invalid or untrusted.`,
     buildHint: () =>
       `Check the server's SSL configuration. For local/staging servers with self-signed certs, ` +
@@ -241,13 +330,201 @@ const RULES: Rule[] = [
       /version.*(mismatch|incompatible|not supported)/i,
       /agent-browser.*update.*required/i,
     ],
-    buildMessage: (excerpt) =>
+    buildMessage: () =>
       `Version mismatch — agent-browser or browser engine version is incompatible.`,
     buildHint: () =>
       `Update agent-browser and ensure your browser engine matches the expected version. ` +
       `Run: npm update -g agent-browser. Check AGENT_BROWSER_ENGINE config.`,
   },
 ];
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function normalizeStderrExcerpt(stderr: string): string {
+  return stderr.slice(0, 120).trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function normalizeCommand(command: string): string {
+  return command
+    .trim()
+    .toLowerCase()
+    .replace(/@e\d+/g, "@eN");
+}
+
+export function buildFailureFingerprint(entry: BashEntry): string {
+  return [
+    normalizeCommand(entry.command),
+    String(entry.exitCode),
+    normalizeStderrExcerpt(entry.stderr),
+  ].join("|");
+}
+
+function isAgentBrowserFailure(entry: BashEntry): boolean {
+  return entry.command.includes("agent-browser") && entry.exitCode !== 0;
+}
+
+function hasRepeatedFingerprints(fingerprints: string[], threshold: number): boolean {
+  if (fingerprints.length < threshold || threshold < 2) return false;
+  const recent = fingerprints.slice(-threshold);
+  const first = recent[0];
+  return recent.every((fp) => fp === first);
+}
+
+export function isCriticalBrowserCommand(command: string): boolean {
+  return /\bagent-browser\s+(open|navigate)\b/i.test(command);
+}
+
+export function isOpenBrowserCommand(command: string): boolean {
+  return /\bagent-browser\s+open\b/i.test(command);
+}
+
+export function parseBrowserHealthCategoryFromError(
+  error: string,
+): BrowserHealthCategory | null {
+  const match = error.match(BROWSER_HEALTH_ERROR_RE);
+  if (!match) return null;
+  const category = match[1]!.toLowerCase() as BrowserHealthCategory;
+  if ((INFRASTRUCTURE_CATEGORIES as readonly string[]).includes(category)) {
+    return category;
+  }
+  return null;
+}
+
+export function isInfrastructureCategory(
+  category: BrowserHealthCategory,
+): boolean {
+  return (INFRASTRUCTURE_CATEGORIES as readonly string[]).includes(category);
+}
+
+function matchRules(blob: string): BrowserHealthIssue | null {
+  for (const rule of RULES) {
+    for (const pattern of rule.patterns) {
+      const match = blob.match(pattern);
+      if (match) {
+        return {
+          category: rule.category,
+          severity: rule.severity,
+          fatal: rule.fatal,
+          message: rule.buildMessage(match[0]),
+          excerpt: match[0],
+          hint: rule.buildHint(),
+        };
+      }
+    }
+  }
+  return null;
+}
+
+function buildRepeatedFailureIssue(fingerprint: string): BrowserHealthIssue {
+  return {
+    category: "repeated_failure",
+    severity: "error",
+    fatal: true,
+    message: `The same agent-browser command failed repeatedly — aborting to avoid wasted turns.`,
+    excerpt: fingerprint.slice(0, 120),
+    hint: `Fix the underlying browser or UI issue before retrying. Check stderr in the transcript.`,
+  };
+}
+
+/**
+ * Detect when the last N agent-browser failures share the same fingerprint.
+ */
+export function detectRepeatedFailure(
+  entries: BashEntry[],
+  threshold: number,
+): BrowserHealthIssue | null {
+  if (threshold < 2) return null;
+
+  const fingerprints = entries
+    .filter(isAgentBrowserFailure)
+    .map(buildFailureFingerprint);
+
+  if (!hasRepeatedFingerprints(fingerprints, threshold)) return null;
+  return buildRepeatedFailureIssue(fingerprints[fingerprints.length - 1]!);
+}
+
+/**
+ * Inspect a URL returned by `agent-browser get url` for error pages.
+ */
+export function checkUrlForBrowserError(
+  url: string,
+  expectedStartUrl?: string,
+): BrowserHealthIssue | null {
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  const blob = trimmed;
+  const fromRules = matchRules(blob);
+  if (fromRules) return fromRules;
+
+  if (
+    trimmed === "about:blank" &&
+    expectedStartUrl &&
+    expectedStartUrl !== "about:blank"
+  ) {
+    return {
+      category: "chrome_error_page",
+      severity: "error",
+      fatal: true,
+      message: `Navigation did not reach the expected page (still on about:blank).`,
+      excerpt: trimmed,
+      hint: `Verify the open URL is valid and the server is reachable.`,
+    };
+  }
+
+  return null;
+}
+
+function collectFailureFingerprints(
+  transcript: AgentTranscript,
+  withinTurnFingerprints: string[],
+  currentEntry?: BashEntry,
+): string[] {
+  const historical = getTranscriptBashEntries(transcript)
+    .filter(isAgentBrowserFailure)
+    .map(buildFailureFingerprint);
+
+  const combined = [...historical, ...withinTurnFingerprints];
+  if (currentEntry && isAgentBrowserFailure(currentEntry)) {
+    const fp = buildFailureFingerprint(currentEntry);
+    if (combined[combined.length - 1] !== fp) {
+      combined.push(fp);
+    }
+  }
+  return combined;
+}
+
+/**
+ * Throw when the transcript shows an unrecoverable browser failure pattern.
+ */
+export function assertNoDoomedRun(
+  transcript: AgentTranscript,
+  config: PqaConfig,
+  withinTurnFingerprints: string[] = [],
+): void {
+  const threshold = resolveBrowserHealthConfig(config).circuitBreakerThreshold;
+  const fingerprints = collectFailureFingerprints(
+    transcript,
+    withinTurnFingerprints,
+  );
+
+  if (hasRepeatedFingerprints(fingerprints, threshold)) {
+    throw new BrowserHealthError(
+      buildRepeatedFailureIssue(fingerprints[fingerprints.length - 1]!),
+    );
+  }
+
+  const failedEntries = getTranscriptBashEntries(transcript).filter(
+    isAgentBrowserFailure,
+  );
+  const lastFailed = failedEntries[failedEntries.length - 1];
+  if (lastFailed) {
+    const issue = checkBashResult(lastFailed);
+    if (issue?.fatal) {
+      throw new BrowserHealthError(issue);
+    }
+  }
+}
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -279,34 +556,47 @@ export function checkBashResult(entry: BashEntry): BrowserHealthIssue | null {
   if (exitCode === 0) return null;
 
   const blob = `${stderr}\n${stdout}`;
-
-  for (const rule of RULES) {
-    for (const pattern of rule.patterns) {
-      const match = blob.match(pattern);
-      if (match) {
-        return {
-          category: rule.category,
-          severity: rule.severity,
-          fatal: rule.fatal,
-          message: rule.buildMessage(match[0]),
-          excerpt: match[0],
-          hint: rule.buildHint(),
-        };
-      }
-    }
-  }
+  const matched = matchRules(blob);
+  if (matched) return matched;
 
   // Generic catch-all for agent-browser commands that fail with a non-zero
   // exit code but no known pattern.
   if (command.includes("agent-browser") && exitCode !== 0) {
+    const fatal = isCriticalBrowserCommand(command);
     return {
       category: "unknown_browser_error",
       severity: "error",
-      fatal: false,
+      fatal,
       message: `agent-browser command failed with exit code ${exitCode}.`,
       excerpt: stderr.slice(0, 200).trim(),
-      hint: `Review the stderr output above. If this persists, check agent-browser installation and network.`,
+      hint: fatal
+        ? `Critical navigation command failed. Check agent-browser installation, URL, and network.`
+        : `Review the stderr output above. If this persists, check agent-browser installation and network.`,
     };
+  }
+
+  return null;
+}
+
+export function evaluateBrowserHealthAfterBash(options: {
+  entry: BashEntry;
+  transcript: AgentTranscript;
+  config: PqaConfig;
+  withinTurnFingerprints: string[];
+}): BrowserHealthIssue | null {
+  const { entry, transcript, config, withinTurnFingerprints } = options;
+  const threshold = resolveBrowserHealthConfig(config).circuitBreakerThreshold;
+
+  const issue = checkBashResult(entry);
+  if (issue?.fatal) return issue;
+
+  const fingerprints = collectFailureFingerprints(
+    transcript,
+    withinTurnFingerprints,
+    entry,
+  );
+  if (hasRepeatedFingerprints(fingerprints, threshold)) {
+    return buildRepeatedFailureIssue(fingerprints[fingerprints.length - 1]!);
   }
 
   return null;

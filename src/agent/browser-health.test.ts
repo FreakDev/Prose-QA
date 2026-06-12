@@ -1,9 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  assertNoDoomedRun,
+  buildFailureFingerprint,
   checkBashResult,
+  checkUrlForBrowserError,
+  detectRepeatedFailure,
   BrowserHealthError,
+  parseBrowserHealthCategoryFromError,
 } from "./browser-health.js";
+import type { AgentTranscript } from "../types/verdict.js";
 
 describe("checkBashResult", () => {
   it("returns null for successful commands", () => {
@@ -222,7 +228,7 @@ describe("checkBashResult", () => {
     assert.equal(result!.fatal, true);
   });
 
-  it("falls back to unknown_browser_error for unmatched agent-browser failures", () => {
+  it("falls back to fatal unknown_browser_error for critical open failures", () => {
     const result = checkBashResult({
       command: "agent-browser open about:blank",
       stdout: "",
@@ -232,8 +238,75 @@ describe("checkBashResult", () => {
     });
     assert.notEqual(result, null);
     assert.equal(result!.category, "unknown_browser_error");
-    assert.equal(result!.fatal, false);
+    assert.equal(result!.fatal, true);
     assert.match(result!.message, /exit code 1/);
+  });
+
+  it("falls back to non-fatal unknown_browser_error for click failures", () => {
+    const result = checkBashResult({
+      command: "agent-browser click @e1",
+      stdout: "",
+      stderr: "Some weird error we do not have a pattern for",
+      exitCode: 1,
+      durationMs: 50,
+    });
+    assert.notEqual(result, null);
+    assert.equal(result!.category, "unknown_browser_error");
+    assert.equal(result!.fatal, false);
+  });
+
+  it("detects browser session closed", () => {
+    const result = checkBashResult({
+      command: "agent-browser click @e1",
+      stdout: "",
+      stderr: "Error: Target page, context or browser has been closed",
+      exitCode: 1,
+      durationMs: 10,
+    });
+    assert.notEqual(result, null);
+    assert.equal(result!.category, "browser_closed");
+    assert.equal(result!.fatal, true);
+  });
+
+  it("detects connection reset", () => {
+    const result = checkBashResult({
+      command: "agent-browser open https://example.com",
+      stdout: "",
+      stderr: "Error: ERR_CONNECTION_RESET",
+      exitCode: 1,
+      durationMs: 10,
+    });
+    assert.notEqual(result, null);
+    assert.equal(result!.category, "connection_reset");
+    assert.equal(result!.fatal, true);
+  });
+
+  it("detects network offline", () => {
+    const result = checkBashResult({
+      command: "agent-browser open https://example.com",
+      stdout: "",
+      stderr: "Error: ERR_INTERNET_DISCONNECTED",
+      exitCode: 1,
+      durationMs: 10,
+    });
+    assert.notEqual(result, null);
+    assert.equal(result!.category, "network_offline");
+    assert.equal(result!.fatal, true);
+  });
+
+  it("detects chrome error page in output", () => {
+    const result = checkBashResult({
+      command: "agent-browser get url",
+      stdout: "chrome-error://dnserror/",
+      stderr: "",
+      exitCode: 0,
+      durationMs: 10,
+    });
+    assert.equal(result, null);
+    const urlIssue = checkUrlForBrowserError("chrome-error://dnserror/");
+    assert.notEqual(urlIssue, null);
+    assert.equal(urlIssue!.category, "chrome_error_page");
+    assert.equal(urlIssue!.fatal, true);
   });
 
   it("returns null for unmatched non-agent-browser commands", () => {
@@ -245,6 +318,120 @@ describe("checkBashResult", () => {
       durationMs: 50,
     });
     assert.equal(result, null);
+  });
+});
+
+describe("buildFailureFingerprint", () => {
+  it("normalizes refs and stderr for stable matching", () => {
+    const a = buildFailureFingerprint({
+      command: "agent-browser click @e1",
+      stdout: "",
+      stderr: "Element  not   found",
+      exitCode: 1,
+      durationMs: 1,
+    });
+    const b = buildFailureFingerprint({
+      command: "agent-browser click @e99",
+      stdout: "",
+      stderr: "Element not found",
+      exitCode: 1,
+      durationMs: 1,
+    });
+    assert.equal(a, b);
+  });
+});
+
+describe("detectRepeatedFailure", () => {
+  const failedEntry = {
+    command: "agent-browser click @e1",
+    stdout: "",
+    stderr: "Element not found",
+    exitCode: 1,
+    durationMs: 1,
+  };
+
+  it("returns null before threshold is reached", () => {
+    assert.equal(detectRepeatedFailure([failedEntry, failedEntry], 3), null);
+  });
+
+  it("returns repeated_failure at threshold", () => {
+    const issue = detectRepeatedFailure(
+      [failedEntry, failedEntry, failedEntry],
+      3,
+    );
+    assert.notEqual(issue, null);
+    assert.equal(issue!.category, "repeated_failure");
+    assert.equal(issue!.fatal, true);
+  });
+});
+
+describe("parseBrowserHealthCategoryFromError", () => {
+  it("parses infrastructure categories from BrowserHealthError messages", () => {
+    const error = new BrowserHealthError({
+      category: "connection_timeout",
+      severity: "error",
+      fatal: true,
+      message: "Connection timed out",
+      excerpt: "ETIMEDOUT",
+      hint: "retry later",
+    });
+    assert.equal(
+      parseBrowserHealthCategoryFromError(error.message),
+      "connection_timeout",
+    );
+  });
+});
+
+describe("assertNoDoomedRun", () => {
+  it("throws when repeated failures are present in the transcript", () => {
+    const transcript: AgentTranscript = {
+      entries: [
+        {
+          type: "bash",
+          command: "agent-browser click @e1",
+          stdout: "",
+          stderr: "fail",
+          exitCode: 1,
+          durationMs: 1,
+          at: "2026-01-01T00:00:00.000Z",
+        },
+        {
+          type: "bash",
+          command: "agent-browser click @e2",
+          stdout: "",
+          stderr: "fail",
+          exitCode: 1,
+          durationMs: 1,
+          at: "2026-01-01T00:00:01.000Z",
+        },
+        {
+          type: "bash",
+          command: "agent-browser click @e3",
+          stdout: "",
+          stderr: "fail",
+          exitCode: 1,
+          durationMs: 1,
+          at: "2026-01-01T00:00:02.000Z",
+        },
+      ],
+    };
+
+    assert.throws(
+      () =>
+        assertNoDoomedRun(transcript, {
+          llm: {},
+          browser: {
+            headed: false,
+            sessionName: "pqa",
+            defaultTimeout: 25_000,
+            engine: "chrome",
+          },
+          skills: { dirs: [], preloads: [] },
+          agent: { maxTurns: 10, bashTimeoutMs: 60_000 },
+          browserHealth: { circuitBreakerThreshold: 3 },
+        }),
+      BrowserHealthError,
+    );
   });
 });
 

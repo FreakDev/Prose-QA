@@ -1,22 +1,24 @@
 ---
 name: demo-calculator-form
-tags: [example]
-url: http://127.0.0.1:8080/
+tags: [demo]
+url: http://127.0.0.1:8080/playground/form
 ---
 
 # Goal
 
-Verify the demo home page calculator updates the result when the user enters a value for A and selects an option for B.
+Verify the human-check captcha accepts values for **A** and **B** that satisfy the equation **10 − A + B = 13**.
 
 # Steps
 
-1. Confirm the Hello World page has loaded.
-2. Enter **3** in the **A** field.
-3. Select the **5** option for **B**.
-4. Confirm the result updates to show the sum.
+1. Confirm the form playground page has loaded.
+2. Scroll to the **Human check** section.
+3. Confirm the equation shows **10**, **−**, **+**, and **13**.
+4. Enter **2** in **A**.
+5. Select radio **5** for **B**.
+6. Confirm the status message shows **Equation satisfied**.
 
 # Then
 
-- url contains "127.0.0.1:8080"
-- page shows "Hello World"
-- page shows "8"
+- page shows "Form playground"
+- page shows "Human check"
+- page shows "Equation satisfied"

@@ -1,0 +1,207 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  line-height: 1.5;
+  margin: 0;
+  color: #1a1a1a;
+  background: #f8f9fa;
+}
+
+a {
+  color: #0b5fff;
+}
+
+.site-header {
+  background: #fff;
+  border-bottom: 1px solid #dee2e6;
+  padding: 0.75rem 1.5rem;
+}
+
+.site-nav {
+  display: flex;
+  gap: 1.25rem;
+  align-items: center;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.site-nav a {
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.site-nav a[aria-current="page"] {
+  color: #1a1a1a;
+  font-weight: 700;
+}
+
+.site-brand {
+  font-weight: 700;
+  margin-right: auto;
+  color: #1a1a1a;
+  text-decoration: none;
+}
+
+main {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 1.5rem;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+}
+
+.alert {
+  background: #fde8e8;
+  border: 1px solid #f5c2c7;
+  border-radius: 6px;
+  color: #842029;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.alert[role="alert"] {
+  margin-top: 0;
+}
+
+.form-field {
+  margin-bottom: 1rem;
+}
+
+.form-field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.form-field input[type="text"],
+.form-field input[type="email"],
+.form-field input[type="number"],
+.form-field input[type="date"],
+.form-field select,
+.form-field textarea {
+  width: 100%;
+  max-width: 28rem;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+}
+
+.form-field textarea {
+  min-height: 5rem;
+  resize: vertical;
+}
+
+.radio-group,
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.radio-group label,
+.checkbox-group label {
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.calculator {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.calculator-b-radios {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.calculator-b-radios p {
+  margin: 0;
+}
+
+#result {
+  font-weight: 700;
+  font-size: 1.25rem;
+}
+
+.success-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.success-list li {
+  padding: 0.35rem 0;
+  border-bottom: 1px solid #eee;
+}
+
+.success-list li:last-child {
+  border-bottom: none;
+}
+
+button[type="submit"],
+.btn {
+  display: inline-block;
+  background: #0b5fff;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.captcha-equation-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.captcha-equation-line input[type="number"] {
+  width: 4rem;
+  font: inherit;
+  padding: 0.25rem 0.4rem;
+}
+
+.captcha-b-inline {
+  display: inline-flex;
+  flex-direction: row;
+  gap: 0.75rem;
+}
+
+.captcha-b-inline label {
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#captcha-status {
+  margin: 0.5rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #495057;
+}
+
+#captcha-status.is-satisfied {
+  color: #0f5132;
+}

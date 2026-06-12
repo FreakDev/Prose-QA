@@ -1,7 +1,13 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { CacheConfig, HealingConfig, PqaConfig, ReportConfig } from "../types/config.js";
+import type {
+  BrowserHealthConfig,
+  CacheConfig,
+  HealingConfig,
+  PqaConfig,
+  ReportConfig,
+} from "../types/config.js";
 import { loadEnv } from "./env.js";
 import { getPackageRoot, resolveBundledPath } from "../paths.js";
 import { resolveStatePath } from "../auth/store.js";
@@ -45,14 +51,13 @@ const MINIMAL_FALLBACK_CONFIG: PqaConfig = {
 export const DEFAULT_TRANSIENT_PATTERNS = [
   "timeout",
   "timed out",
-  "not found",
   "waiting for",
   "navigation",
   "net::",
-  "target closed",
   "detached",
   "stale",
   "interrupted",
+  "networkidle",
 ] as const;
 
 let cachedBundledDefault: PqaConfig | undefined;
@@ -216,6 +221,9 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
     },
     auth: { ...(base.auth ?? {}), ...(override.auth ?? {}) },
     agent: { ...base.agent, ...override.agent },
+    browserHealth: override.browserHealth
+      ? { ...base.browserHealth, ...override.browserHealth }
+      : base.browserHealth,
     healing: {
       ...base.healing,
       ...override.healing,
@@ -271,6 +279,15 @@ export function resolveReportConfig(
   return {
     outputPath: outputPath?.trim() ? outputPath : undefined,
     zip: options?.reportZip ?? report.zip ?? false,
+  };
+}
+
+export function resolveBrowserHealthConfig(
+  config: PqaConfig,
+): Required<BrowserHealthConfig> {
+  const browserHealth = config.browserHealth ?? {};
+  return {
+    circuitBreakerThreshold: browserHealth.circuitBreakerThreshold ?? 3,
   };
 }
 

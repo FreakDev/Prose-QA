@@ -190,6 +190,28 @@ describe("classifyFailure", () => {
     );
   });
 
+  it("classifies BrowserHealthError aborts as infrastructure", () => {
+    const result: ScenarioResult = {
+      scenario: "dns-fail",
+      filePath: "/dns.md",
+      status: "error",
+      durationMs: 100,
+      verdict: null,
+      transcript: { entries: [] },
+      error:
+        "[CONNECTION_TIMEOUT] Connection timed out — the server did not respond in time.\n" +
+        "Hint: Check network\nExcerpt: ETIMEDOUT",
+    };
+    const classified = classifyFailure(result, undefined, baseConfig);
+    assert.equal(classified.kind, "infrastructure");
+    assert.ok(classified.signals.includes("infra:connection_timeout"));
+    assert.equal(isRecoveryAllowed(classified, baseConfig), false);
+    assert.equal(
+      isScenarioRetryAllowed(classified, "transient", baseConfig),
+      false,
+    );
+  });
+
   it("retries all failures when retriesPolicy is always", () => {
     const classified = classifyFailure(
       pilarSmokeFailResult(),

@@ -31,3 +31,15 @@ Running an auth scenario directly (`pqa run scenarios/auth/login-admin.md`). Nor
 ## Mode provisioning
 
 Harness-driven execution of an auth scenario to create or refresh a profile before consumer scenarios run. Triggered by the `preBatch` hook (not a dedicated CLI command). Uses an isolated browser session and saves state when the scenario passes.
+
+## Demo site
+
+Fictional HTML application served locally (`npm run demo:server`) to exercise bundled PQA scenarios without an external app.
+
+## Playground
+
+Page on the demo site (`/playground/form`) that groups common form widgets for targeted QA scenarios.
+
+## Consumer scenario
+
+Scenario that declares `auth: <profile-key>` in frontmatter and runs as an already-signed-in user. Distinct from an auth scenario, which performs login itself.

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PQA Demo — Form playground</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="site-nav" aria-label="Main">
+      <a class="site-brand" href="/">PQA Demo</a>
+      <a href="/">Home</a>
+      <a href="/playground/form" aria-current="page">Form playground</a>
+      <a href="/login">Sign in</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h1>Form playground</h1>
+      <p>Fill in the fields below to exercise common HTML form widgets.</p>
+      <!--ERRORS-->
+      <form method="post" action="/playground/form" novalidate>
+        <div class="form-field">
+          <label for="full_name">Full name</label>
+          <input id="full_name" name="full_name" type="text" autocomplete="name" required value="">
+        </div>
+        <div class="form-field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required value="">
+        </div>
+        <div class="form-field">
+          <label for="age">Age</label>
+          <input id="age" name="age" type="number" min="18" required value="">
+        </div>
+        <div class="form-field">
+          <label for="contact_date">Contact date</label>
+          <input id="contact_date" name="contact_date" type="date" value="">
+        </div>
+        <div class="form-field">
+          <label for="department">Department</label>
+          <select id="department" name="department" required>
+            <option value="">Select a department</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Sales">Sales</option>
+            <option value="Support">Support</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <span id="priority-label">Priority</span>
+          <div class="radio-group" role="radiogroup" aria-labelledby="priority-label">
+            <label><input type="radio" name="priority" value="Low" required> Low</label>
+            <label><input type="radio" name="priority" value="Medium"> Medium</label>
+            <label><input type="radio" name="priority" value="High"> High</label>
+          </div>
+        </div>
+        <div class="form-field">
+          <span id="notify-label">Notify via</span>
+          <div class="checkbox-group" aria-labelledby="notify-label">
+            <label><input type="checkbox" name="notify_email" value="yes"> Email</label>
+            <label><input type="checkbox" name="notify_sms" value="yes"> SMS</label>
+          </div>
+        </div>
+        <div class="form-field">
+          <label><input type="checkbox" name="accept_terms" value="yes" required> Accept terms</label>
+        </div>
+        <div class="form-field">
+          <label for="comments">Comments</label>
+          <textarea id="comments" name="comments"></textarea>
+        </div>
+        <div class="form-field" id="captcha-field">
+          <span id="captcha-label">Human check</span>
+          <p>Complete the equation by filling in <strong>A</strong> and selecting <strong>B</strong>.</p>
+          <div class="calculator captcha-equation" aria-labelledby="captcha-label">
+            <p class="captcha-equation-line">
+              <span id="captcha-left">10</span>
+              <span aria-hidden="true">−</span>
+              <input id="captcha-a" name="captcha_a" type="number" aria-label="A" placeholder="A" value="" />
+              <span aria-hidden="true">+</span>
+              <span>B:</span>
+              <span class="captcha-b-inline">
+                <label>4 <input type="radio" name="captcha_b" aria-label="B" value="4" /></label>
+                <label>5 <input type="radio" name="captcha_b" aria-label="B" value="5" /></label>
+                <label>6 <input type="radio" name="captcha_b" aria-label="B" value="6" /></label>
+              </span>
+              <span aria-hidden="true">=</span>
+              <span id="captcha-target">13</span>
+            </p>
+            <p id="captcha-status" aria-live="polite">Complete A and B to satisfy the equation.</p>
+          </div>
+        </div>
+        <p><button type="submit">Submit</button></p>
+      </form>
+    </div>
+  </main>
+  <script>
+    (function () {
+      const CAPTCHA_LEFT = 10;
+      const CAPTCHA_TARGET = 13;
+      const inputA = document.getElementById("captcha-a");
+      const radiosB = document.querySelectorAll('input[aria-label="B"]');
+      const statusEl = document.getElementById("captcha-status");
+      function updateStatus() {
+        const aRaw = inputA.value;
+        const selectedB = Array.from(radiosB).find((r) => r.checked);
+        if (aRaw === "" || !selectedB) {
+          statusEl.textContent = "Complete A and B to satisfy the equation.";
+          statusEl.classList.remove("is-satisfied");
+          return;
+        }
+        const result = CAPTCHA_LEFT - Number(aRaw) + Number(selectedB.value);
+        if (result === CAPTCHA_TARGET) {
+          statusEl.textContent = "Equation satisfied";
+          statusEl.classList.add("is-satisfied");
+        } else {
+          statusEl.textContent =
+            "Current result: " + result + " (expected " + CAPTCHA_TARGET + ")";
+          statusEl.classList.remove("is-satisfied");
+        }
+      }
+      inputA.addEventListener("input", updateStatus);
+      radiosB.forEach((r) => r.addEventListener("change", updateStatus));
+      updateStatus();
+    })();
+  </script>
+</body>
+</html>

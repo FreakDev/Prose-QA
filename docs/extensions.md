@@ -162,6 +162,12 @@ type PostToolHook = (
 
 **Use cases:** Abort on command failure (non-zero exit), enforce strict policies.
 
+The bundled `defaultExtensionHooks` includes `browserHealthPostToolHook`, which:
+
+- Aborts on fatal infrastructure errors (DNS, SSL, missing browser, etc.)
+- Trips a **circuit breaker** after `browserHealth.circuitBreakerThreshold` identical `agent-browser` failures (default: 3)
+- After a successful `agent-browser open`, runs `agent-browser get url` and aborts on `chrome-error://` pages
+
 ### 7. `preVerdict` — `PreVerdictHook`
 
 **Signature:**

@@ -81,6 +81,14 @@ describe("runner transcript persistence contract", () => {
     );
   });
 
+  it("guards LLM calls against doomed browser runs", () => {
+    assert.match(runnerSource, /assertNoDoomedRun\(/);
+    assert.match(
+      runnerSource,
+      /withinTurnFingerprints:\s*\n\s*\(hookCtx\.metadata\.browserFailureFingerprints as string\[\]\)/,
+    );
+  });
+
   it("persists during verdict retry and recovery flows", () => {
     assert.match(
       runnerSource,

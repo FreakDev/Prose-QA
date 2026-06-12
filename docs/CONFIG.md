@@ -162,6 +162,16 @@ Agent loop limits.
 
 ---
 
+### `browserHealth` (object, optional)
+
+Fail-fast checks for unrecoverable browser errors (via the default `postTool` hook).
+
+| Key                       | Type   | Default | Description                                                          |
+| ------------------------- | ------ | ------- | -------------------------------------------------------------------- |
+| `circuitBreakerThreshold` | number | `3`     | Abort after N identical consecutive `agent-browser` command failures |
+
+---
+
 ### `healing` (object, optional)
 
 Conservative self-healing: in-run recovery and transient-only scenario retries. See [HOWTO §11 — Healing / retries](HOWTO.md#11-healing--retries).
@@ -173,7 +183,9 @@ Conservative self-healing: in-run recovery and transient-only scenario retries. 
 | `recoverOnUnknown`  | boolean  | `false`   | Allow recovery when failure class is unknown but bash output looks transient                 |
 | `transientPatterns` | string[] | see below | Substrings matched against bash output and checkpoint reasons to classify transient failures |
 
-Default `transientPatterns`: `timeout`, `timed out`, `not found`, `waiting for`, `navigation`, `net::`, `target closed`, `detached`, `stale`, `interrupted`.
+Default `transientPatterns`: `timeout`, `timed out`, `waiting for`, `navigation`, `net::`, `detached`, `stale`, `interrupted`, `networkidle`.
+
+Failures classified as `infrastructure` (DNS, SSL, browser crash, repeated identical errors, etc.) are never retried when `--retries-policy transient`.
 
 CLI equivalents: `--no-healing`, `--retries N`, `--retries-policy transient|always`, `--no-cache`.
 

@@ -1,13 +1,13 @@
 ---
 name: example-authenticated
-tags: [example, auth-demo]
+tags: [demo]
 auth: admin
 url: http://127.0.0.1:8080/projects
 ---
 
 # Goal
 
-Verify that an authenticated user can load a protected page.
+As a signed-in user, open the protected projects page without performing login in this scenario.
 
 # Steps
 
@@ -16,4 +16,5 @@ Verify that an authenticated user can load a protected page.
 # Then
 
 - url contains "/projects"
-- page shows "Welcome"
+- page shows "You are viewing a protected page."
+- page shows "Welcome, demo@pqa.local"

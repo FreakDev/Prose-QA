@@ -113,7 +113,11 @@ export PQA_LLM_API_KEY=...
 
 npm run demo:server   # terminal 1 — http://127.0.0.1:8080/
 npm run dev -- debug scenarios/0_hello-world.md
+npm run dev -- run scenarios/**/*.md --tags example   # CI smoke subset
+npm run dev -- run scenarios/**/*.md --tags demo       # full demo suite
 ```
+
+Bundled demo scenarios cover smoke tests, calculator widgets, auth profiles, multi-field forms, validation errors, navigation, and partials — see [`scenarios/`](scenarios/) and [`demo-site/`](demo-site/).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/HOWTO.md](docs/HOWTO.md) for the full walkthrough.
 

@@ -6,13 +6,14 @@ url: http://127.0.0.1:8080/login
 
 # Goal
 
-Authenticate as an admin test user. This scenario is not run in batch — it runs on demand when a consumer scenario needs `auth: admin`.
+Sign in to the demo site as the admin test user so a profile can be provisioned.
 
 # Steps
 
-1. Open the login page.
-2. Sign in using `$PQA_TEST_EMAIL` and `$PQA_TEST_PASSWORD` from the environment.
-3. Confirm you reach an authenticated area (projects page).
+1. Confirm the sign-in page has loaded.
+2. Enter **$PQA_TEST_EMAIL** in the **Email** field.
+3. Enter **$PQA_TEST_PASSWORD** in the **Password** field.
+4. Click **Sign in**.
 
 # Then
 

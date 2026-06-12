@@ -358,9 +358,11 @@ export function formatHeuristicSummary(report: AnalyzeReport): string {
         ? chalk.yellow
         : f.failureKind === "product"
           ? chalk.red
-          : f.failureKind === "transient"
-            ? chalk.cyan
-            : chalk.gray;
+          : f.failureKind === "infrastructure"
+            ? chalk.magenta
+            : f.failureKind === "transient"
+              ? chalk.cyan
+              : chalk.gray;
 
     lines.push(
       `• ${chalk.bold(f.scenario)} — ${kindColor(f.failureKind)} [${f.confidence}]`,

@@ -17,4 +17,9 @@ scenarios/*
 !scenarios/0_hello-world.md
 !scenarios/1_demo-calculator-form.md
 !scenarios/2_example-authenticated.md
+!scenarios/3_demo-form-playground-happy.md
+!scenarios/4_demo-form-validation-errors.md
+!scenarios/5_demo-multi-page-nav.md
+!scenarios/6_demo-form-with-partial.md
 !scenarios/auth/login-admin.md
+!scenarios/partials/fill-playground-minimal.md

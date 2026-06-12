@@ -1,8 +1,14 @@
 import { resolveHealingConfig } from "../config/load.js";
+import {
+  checkBashResult,
+  isCriticalBrowserCommand,
+  parseBrowserHealthCategoryFromError,
+} from "../agent/browser-health.js";
 import { getTranscriptBashEntries, getTranscriptMessages } from "../agent/verdict.js";
 import type { PqaConfig } from "../types/config.js";
 import type { Scenario, ParsedCheckpoint } from "../types/scenario.js";
 import type { ScenarioResult, FailureKind, Verdict } from "../types/verdict.js";
+import type { BashEntry } from "../types/verdict.js";
 
 export type { FailureKind };
 
@@ -45,14 +51,31 @@ function matchesPatterns(text: string, patterns: string[]): string[] {
   });
 }
 
+function shouldIgnoreTransientBashEntry(entry: BashEntry): boolean {
+  const issue = checkBashResult(entry);
+  if (issue?.fatal) return true;
+  if (
+    issue?.category === "unknown_browser_error" &&
+    isCriticalBrowserCommand(entry.command)
+  ) {
+    return true;
+  }
+  return false;
+}
+
 function collectTransientSignals(
   result: ScenarioResult,
   patterns: string[],
 ): string[] {
   const hits = new Set<string>();
 
+  if (result.error && parseBrowserHealthCategoryFromError(result.error)) {
+    return [];
+  }
+
   for (const entry of getTranscriptBashEntries(result.transcript)) {
     if (!entry.command.includes("agent-browser")) continue;
+    if (shouldIgnoreTransientBashEntry(entry)) continue;
     const blob = `${entry.stdout}\n${entry.stderr}`;
     const matched = matchesPatterns(blob, patterns);
     if (entry.exitCode !== 0 && matched.length > 0) {
@@ -174,6 +197,18 @@ export function classifyFailure(
   );
 
   if (result.status === "error") {
+    const infraCategory = result.error
+      ? parseBrowserHealthCategoryFromError(result.error)
+      : null;
+    if (infraCategory) {
+      return {
+        kind: "infrastructure",
+        confidence: "high",
+        signals: [`infra:${infraCategory}`],
+        failedCheckpoints,
+      };
+    }
+
     const transientSignals = collectTransientSignals(result, healing.transientPatterns);
     if (transientSignals.length > 0) {
       return {
@@ -253,6 +288,7 @@ export function isRecoveryAllowed(
 ): boolean {
   if (!isHealingEnabled(config, noHealing)) return false;
   if (classified.failedCheckpoints.length === 0) return false;
+  if (classified.kind === "infrastructure") return false;
 
   const healing = resolveHealingConfig(config);
 
@@ -270,6 +306,7 @@ export function isScenarioRetryAllowed(
   noHealing?: boolean,
 ): boolean {
   if (retriesPolicy === "always") return true;
+  if (classified.kind === "infrastructure") return false;
   if (!isHealingEnabled(config, noHealing)) {
     return true;
   }

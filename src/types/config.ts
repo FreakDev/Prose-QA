@@ -1,6 +1,11 @@
 import type { ScenarioTagFilterExpression } from "./scenario.js";
 import type { ExtensionHooks } from "./hooks.js";
 
+export interface BrowserHealthConfig {
+  /** Abort after N identical agent-browser failures. Default: 3 */
+  circuitBreakerThreshold?: number;
+}
+
 export interface HealingConfig {
   /** Master switch. Default: true */
   enabled?: boolean;
@@ -132,6 +137,7 @@ export interface PqaConfig {
     /** Worker heartbeat write interval in ms. Default: 15000 (15 s) */
     workerHeartbeatIntervalMs?: number;
   };
+  browserHealth?: BrowserHealthConfig;
   healing?: HealingConfig;
   recorder?: RecorderConfig;
   cache?: CacheConfig;

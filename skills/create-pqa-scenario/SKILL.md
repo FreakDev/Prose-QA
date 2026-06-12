@@ -202,4 +202,16 @@ Parser errors (`missing 'name'`, `Circular scenario include`) mean fix frontmatt
 
 ## When unsure
 
-Read bundled examples in `scenarios/` (`0_hello-world.md`, `1_demo-calculator-form.md`) and mirror their structure. For browser mechanics, the run uses the `agent-browser` skill from Prose-QA — scenarios should not re-document CLI flags.
+Read bundled examples in `scenarios/` and mirror their structure:
+
+| File | Demonstrates |
+| ---- | ------------ |
+| `0_hello-world.md` | Minimal smoke |
+| `1_demo-calculator-form.md` | Equation captcha (`10 − A + B = 13`) |
+| `3_demo-form-playground-happy.md` | Multi-field form submission |
+| `4_demo-form-validation-errors.md` | Server validation + semantic Then |
+| `auth/login-admin.md` | Auth provisioning |
+| `2_example-authenticated.md` | Consumer scenario with `auth:` |
+| `6_demo-form-with-partial.md` | Reusable partial include |
+
+For browser mechanics, the run uses the `agent-browser` skill from Prose-QA — scenarios should not re-document CLI flags.

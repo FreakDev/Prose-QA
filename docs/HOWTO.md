@@ -16,10 +16,34 @@ pqa config llm.provider anthropic
 pqa config llm.model claude-sonnet-4-20250514
 ```
 
-**Thread scenario**: [`scenarios/0_hello-world.md`](../scenarios/0_hello-world.md) and the local server:
+**Thread scenario**: [`scenarios/0_hello-world.md`](../scenarios/0_hello-world.md) and the local demo site:
 
 ```bash
-npm run demo:server   # http://127.0.0.1:8080/ → "Hello World" (keep running in another terminal)
+npm run demo:server   # http://127.0.0.1:8080/ (keep running in another terminal)
+```
+
+Demo site routes:
+
+| Route | Purpose |
+| ----- | ------- |
+| `/` | Home — Hello World |
+| `/playground/form` | Form playground (text, email, number, date, select, radio, checkboxes, textarea, equation captcha `10 − A + B = 13`) |
+| `/login` | Sign in (`PQA_TEST_EMAIL` / `PQA_TEST_PASSWORD`) |
+| `/projects` | Protected page (requires session) |
+
+Bundled example scenarios:
+
+| Tag | Scenarios |
+| --- | --------- |
+| `example` | CI smoke — `hello-world`, `demo-form-playground-happy` |
+| `demo` | Full demo suite — calculator, auth, navigation, validation, partials |
+| `forms` | Form-focused scenarios |
+| `auth` | Auth provisioning (`login-admin`; excluded from batch when referenced in config) |
+
+```bash
+pqa run scenarios/**/*.md --tags example    # CI subset
+pqa run scenarios/**/*.md --tags demo         # full demo suite
+pqa run scenarios/**/*.md --tags demo,forms   # forms only
 ```
 
 ---
@@ -365,6 +389,8 @@ Config: `cache.dir`, `cache.enabled` in `pqa.config.*`.
 
 1. **In-run recovery** — after a failed verdict, re-verify failed checkpoints only (same session), for **transient** errors (timeout, stale ref, navigation).
 2. **Scenario retry** — full scenario rerun when failure is classified transient.
+
+**Infrastructure failures** (DNS/SSL errors, browser session closed, repeated identical `agent-browser` failures, `chrome-error://` pages) abort immediately via the default browser-health hook and are classified `infrastructure` — they are **not** retried with `--retries-policy transient`.
 
 Checkpoints are **never** relaxed automatically.
 

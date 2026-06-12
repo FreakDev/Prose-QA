@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>PQA Demo — Sign in</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <header class="site-header">
+    <nav class="site-nav" aria-label="Main">
+      <a class="site-brand" href="/">PQA Demo</a>
+      <a href="/">Home</a>
+      <a href="/playground/form">Form playground</a>
+      <a href="/login" aria-current="page">Sign in</a>
+    </nav>
+  </header>
+  <main>
+    <div class="card">
+      <h1>Sign in</h1>
+      <p id="login-error" class="alert" role="alert" hidden>Invalid email or password. Try again.</p>
+      <form method="post" action="/login">
+        <div class="form-field">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="username" required>
+        </div>
+        <div class="form-field">
+          <label for="password">Password</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+        </div>
+        <p><button type="submit">Sign in</button></p>
+      </form>
+    </div>
+  </main>
+  <script>
+    if (new URLSearchParams(location.search).get("error") === "1") {
+      document.getElementById("login-error").hidden = false;
+    }
+  </script>
+</body>
+</html>

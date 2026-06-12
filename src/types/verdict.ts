@@ -45,7 +45,12 @@ export type VerdictStats = z.infer<typeof VerdictStatsSchema>;
 /** Harness-enriched verdict written to verdict.json and report.json. */
 export type Verdict = ParsedVerdict & { stats?: VerdictStats };
 
-export type FailureKind = "transient" | "scenario_issue" | "product" | "unknown";
+export type FailureKind =
+  | "transient"
+  | "scenario_issue"
+  | "product"
+  | "infrastructure"
+  | "unknown";
 
 export interface HealingMeta {
   used: boolean;
