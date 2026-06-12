@@ -73,26 +73,24 @@ async function waitForHeartbeatFile(
 }
 
 describe("killAllScenarioWorkers", () => {
-  it("sends the signal to tracked workers", () => {
-    const signals: NodeJS.Signals[] = [];
-    let killed = false;
-    const child = {
-      get killed() {
-        return killed;
-      },
-      exitCode: null,
-      once() {
-        return child;
-      },
-      kill(signal: NodeJS.Signals) {
-        signals.push(signal);
-        killed = true;
-      },
-    } as unknown as ChildProcess;
+  it("terminates a real child process on SIGINT (SIGKILL tree)", async () => {
+    if (process.platform === "win32") return;
 
+    const child = spawn(
+      process.execPath,
+      ["-e", "setInterval(() => {}, 1_000_000)"],
+      { detached: true },
+    );
     trackScenarioWorker(child);
     killAllScenarioWorkers("SIGINT");
-    assert.deepEqual(signals, ["SIGINT"]);
+
+    await new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error("child did not exit")), 5000);
+      child.once("exit", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
   });
 
   it("terminates a real child process", async () => {

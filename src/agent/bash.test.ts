@@ -5,7 +5,25 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, it } from "node:test";
 import { getPackageRoot } from "../paths.js";
-import { buildBrowserEnv, withAgentBrowserPath } from "./bash.js";
+import { buildBrowserEnv, killAllBashProcesses, runBash, withAgentBrowserPath } from "./bash.js";
+
+describe("killAllBashProcesses", () => {
+  it("terminates a tracked runBash child", async () => {
+    if (process.platform === "win32") return;
+
+    const promise = runBash("sleep 60", {
+      cwd: process.cwd(),
+      timeoutMs: 60_000,
+      env: {},
+    });
+
+    await new Promise<void>((resolve) => setTimeout(resolve, 100));
+    killAllBashProcesses("SIGKILL");
+
+    const entry = await promise;
+    assert.notEqual(entry.exitCode, 0);
+  });
+});
 
 describe("withAgentBrowserPath", () => {
   it("prepends prose-qa node_modules/.bin when cwd has no local install", () => {

@@ -4,6 +4,7 @@ import path from "node:path";
 import type { RunOptions } from "../types/config.js";
 import type { ScenarioResult } from "../types/verdict.js";
 import { scenarioArtifactDir } from "../reporter/index.js";
+import { killProcessTree } from "../process-tree.js";
 
 const activeWorkers = new Set<ChildProcess>();
 const heartbeatWatchdogs = new Map<number, NodeJS.Timeout>();
@@ -34,13 +35,10 @@ export function trackScenarioWorker(child: ChildProcess): void {
 export function killAllScenarioWorkers(
   signal: NodeJS.Signals = "SIGTERM",
 ): void {
+  const effectiveSignal = signal === "SIGINT" ? "SIGKILL" : signal;
   for (const child of activeWorkers) {
     if (child.killed || child.exitCode !== null) continue;
-    try {
-      child.kill(signal);
-    } catch {
-      /* already stopped */
-    }
+    killProcessTree(child.pid, effectiveSignal);
   }
 
   // Clean up heartbeat files for all tracked workers
@@ -159,6 +157,8 @@ export async function spawnScenarioWorker(
       cwd: request.cwd,
       env: process.env,
       stdio: ["ignore", "pipe", "pipe"],
+      // Own process group so kill(-pid) tears down bash grandchildren too.
+      detached: process.platform !== "win32",
     });
 
     trackScenarioWorker(child);
@@ -189,7 +189,7 @@ export async function spawnScenarioWorker(
           console.error(
             `[${name}] worker heartbeat expired, killing (SIGKILL)`,
           );
-          child.kill("SIGKILL");
+          killProcessTree(child.pid, "SIGKILL");
           clearInterval(watchTimer);
           heartbeatWatchdogs.delete(child.pid!);
         }

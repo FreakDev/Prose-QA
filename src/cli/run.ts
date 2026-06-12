@@ -35,6 +35,7 @@ import { runScenario } from "../agent/runner.js";
 import {
   closeAllBrowserSessions,
   closeBrowserSession,
+  killAllBashProcesses,
 } from "../agent/bash.js";
 import {
   discoverSkills,
@@ -215,6 +216,25 @@ function writeScenarioResult(
 }
 
 
+let sequentialShutdownHandlersInstalled = false;
+
+/** Sequential run: kill in-flight bash on interrupt. */
+function installSequentialRunShutdownHandlers(): void {
+  if (sequentialShutdownHandlersInstalled) return;
+  sequentialShutdownHandlersInstalled = true;
+
+  let shuttingDown = false;
+  const shutdown = (signal: NodeJS.Signals) => {
+    if (shuttingDown) return;
+    shuttingDown = true;
+    killAllBashProcesses("SIGKILL");
+    process.exit(signal === "SIGINT" ? 130 : 128 + 15);
+  };
+
+  process.once("SIGTERM", () => shutdown("SIGTERM"));
+  process.once("SIGINT", () => shutdown("SIGINT"));
+}
+
 /** Parallel worker subprocess: close browser before exit on interrupt. */
 function installScenarioWorkerShutdownHandlers(options: {
   cwd: string;
@@ -230,7 +250,10 @@ function installScenarioWorkerShutdownHandlers(options: {
     if (shuttingDown) return;
     shuttingDown = true;
 
-    if (!options.keepBrowser) {
+    // Stop in-flight agent-browser/bash before any new cleanup command.
+    killAllBashProcesses("SIGKILL");
+
+    if (!options.keepBrowser && signal !== "SIGINT") {
       const sessionName = resolveScenarioSessionName(
         options.config,
         options.scenarioName,
@@ -680,6 +703,7 @@ export async function executeRun(
     );
     results = alignScenarioResults(scenarioStubs, partial);
   } else {
+    installSequentialRunShutdownHandlers();
     results = [];
     for (const summary of selectedSummaries) {
       const spinner = ora(`Running ${summary.frontmatter.name}`).start();

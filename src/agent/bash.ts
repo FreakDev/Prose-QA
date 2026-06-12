@@ -1,6 +1,6 @@
-import { exec } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import path from "node:path";
-import { promisify } from "node:util";
+import { killProcessTree } from "../process-tree.js";
 import {
   lightpandaBrowserEnv,
   resolveLightpandaBinDirs,
@@ -9,7 +9,17 @@ import { resolveAgentBrowserBinDirs } from "../paths.js";
 import type { BrowserEngine, LightpandaBrowserConfig } from "../types/config.js";
 import type { BashEntry } from "../types/verdict.js";
 
-const execAsync = promisify(exec);
+const activeBashChildren = new Set<ChildProcess>();
+
+/** Kill every in-flight bash shell (e.g. on Ctrl+C while runBash is blocked). */
+export function killAllBashProcesses(
+  signal: NodeJS.Signals = "SIGKILL",
+): void {
+  for (const child of activeBashChildren) {
+    if (child.killed || child.exitCode !== null) continue;
+    killProcessTree(child.pid, signal);
+  }
+}
 
 function prependPathDirs(
   env: NodeJS.ProcessEnv,
@@ -51,7 +61,7 @@ export function withAgentBrowserPath(
   return prependPathDirs(env, binDirs);
 }
 
-export async function runBash(
+function runBashSpawn(
   command: string,
   options: {
     cwd: string;
@@ -60,39 +70,78 @@ export async function runBash(
   },
 ): Promise<BashEntry> {
   const start = Date.now();
-  try {
-    const { stdout, stderr } = await execAsync(command, {
+  const env = withAgentBrowserPath(options.cwd, {
+    ...process.env,
+    ...options.env,
+  });
+
+  return new Promise((resolve) => {
+    const child = spawn("/bin/bash", ["-c", command], {
       cwd: options.cwd,
-      timeout: options.timeoutMs,
-      env: withAgentBrowserPath(options.cwd, {
-        ...process.env,
-        ...options.env,
-      }),
-      maxBuffer: 10 * 1024 * 1024,
-      shell: "/bin/bash",
+      env,
+      stdio: ["ignore", "pipe", "pipe"],
+      detached: process.platform !== "win32",
     });
-    return {
-      command,
-      stdout: stdout ?? "",
-      stderr: stderr ?? "",
-      exitCode: 0,
-      durationMs: Date.now() - start,
+    activeBashChildren.add(child);
+
+    let stdout = "";
+    let stderr = "";
+    let timedOut = false;
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killProcessTree(child.pid, "SIGKILL");
+    }, options.timeoutMs);
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
+
+    const finish = (exitCode: number) => {
+      clearTimeout(timer);
+      activeBashChildren.delete(child);
+      resolve({
+        command,
+        stdout,
+        stderr: timedOut ? "Command timed out" : stderr,
+        exitCode,
+        durationMs: Date.now() - start,
+      });
     };
-  } catch (err: unknown) {
-    const e = err as {
-      stdout?: string;
-      stderr?: string;
-      code?: number;
-      killed?: boolean;
-    };
-    return {
-      command,
-      stdout: e.stdout ?? "",
-      stderr: e.stderr ?? (e.killed ? "Command timed out" : String(err)),
-      exitCode: typeof e.code === "number" ? e.code : 1,
-      durationMs: Date.now() - start,
-    };
-  }
+
+    child.on("error", (err) => {
+      if (!timedOut) {
+        stderr = stderr || String(err);
+      }
+      finish(1);
+    });
+
+    child.on("close", (code, signal) => {
+      if (timedOut) {
+        finish(1);
+        return;
+      }
+      if (signal === "SIGKILL" || signal === "SIGTERM") {
+        finish(128 + (signal === "SIGKILL" ? 9 : 15));
+        return;
+      }
+      finish(code ?? 1);
+    });
+  });
+}
+
+export async function runBash(
+  command: string,
+  options: {
+    cwd: string;
+    timeoutMs: number;
+    env: NodeJS.ProcessEnv;
+  },
+): Promise<BashEntry> {
+  return runBashSpawn(command, options);
 }
 
 export async function closeBrowserSession(options: {
