@@ -58,8 +58,8 @@ function buildEvalPayload(
   intent?: string,
 ): string {
   const hud = {
+    command: action.label,
     intent: intent?.trim() ?? "",
-    detail: action.label,
   };
   if (action.category === "mutation" && box) {
     return `window.__pqaOverlay.showMutation(${JSON.stringify({
@@ -68,6 +68,21 @@ function buildEvalPayload(
     })})`;
   }
   return `window.__pqaOverlay.showHud(${JSON.stringify(hud)})`;
+}
+
+async function scrollTargetIntoView(
+  target: string,
+  options: {
+    cwd: string;
+    env: NodeJS.ProcessEnv;
+    timeoutMs: number;
+  },
+  execBash: RunBashFn,
+): Promise<void> {
+  await execBash(
+    `agent-browser scrollintoview ${shellQuote(target)}`,
+    options,
+  );
 }
 
 async function fetchElementBox(
@@ -127,6 +142,7 @@ export async function previewAction(
 
   let box: ElementBox | null = null;
   if (action.category === "mutation" && action.target) {
+    await scrollTargetIntoView(action.target, bashOpts, execBash);
     box = await fetchElementBox(action.target, bashOpts, execBash);
   }
 

@@ -50,11 +50,19 @@ Harness mechanism that limits agent effort when `agent-browser` bash commands fa
 
 ## Action overlay
 
-In-page visual overlay shown during local Chrome headed runs to preview the agent's next browser action (cursor, highlight, intent banner). Distinct from verbose terminal logging. Enabled via `--action-overlay` or `extensions.actionOverlay.enabled`; on by default for `pqa debug`.
+In-page visual overlay shown during local Chrome headed runs to preview the agent's next browser action (ephemeral cursor and highlight) and a persistent stacked HUD panel. Distinct from verbose terminal logging. Enabled via `--action-overlay` or `extensions.actionOverlay.enabled`; on by default for `pqa debug`.
+
+## HUD entry
+
+One slot in the action overlay stack, tied to a single tool call preview: assistant text on top, parsed command label below in smaller type. Consecutive entries are separated by a subtle divider. Up to three entries are kept; the oldest is dropped when a fourth arrives. Entries persist until pushed out — no time-based fade or expiry. Stack order: oldest at top, newest at bottom.
+
+## Action overlay panel
+
+Fixed-size draggable rectangle (320 × 280 px) hosting the HUD entry stack. Drag via a top handle bar; panel body scrolls internally when content overflows; auto-scrolls to the newest entry on each append. Background opacity 0.7 by default, fully opaque on hover. Default position: top-right (12 px margin); user-dragged position is remembered for the rest of the browser session. Remains visible after the scenario ends until the browser window closes.
 
 ## Agent intent
 
-Short assistant narration (`step.text`) emitted by the LLM in the same turn as a browser action — for example « Click the Sign in button — @e6 ». Distinct from extended thinking (`reasoningText`) and from the parsed command label shown in the action overlay HUD.
+Assistant text (`step.text`) captured from the LLM response in the same agent step as a browser action. Shown in full (never truncated) above the command label in each HUD entry. Distinct from extended thinking (`reasoningText`) and from the parsed command label itself.
 
 ## Nudge
 

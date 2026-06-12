@@ -31,7 +31,7 @@ describe("previewAction", () => {
     assert.equal(runBash.mock.calls.length, 0);
   });
 
-  it("runs get box, eval, and sleeps for mutation with target", async () => {
+  it("runs scrollintoview, get box, eval, and sleeps for mutation with target", async () => {
     const calls: string[] = [];
     const runBash = mock.fn(async (command: string) => {
       calls.push(command);
@@ -60,9 +60,10 @@ describe("previewAction", () => {
     );
     const elapsed = Date.now() - start;
 
-    assert.equal(calls.length, 2);
-    assert.match(calls[0]!, /get box '@e2'/);
-    assert.match(calls[1]!, /agent-browser eval -b/);
+    assert.equal(calls.length, 3);
+    assert.match(calls[0]!, /scrollintoview '@e2'/);
+    assert.match(calls[1]!, /get box '@e2'/);
+    assert.match(calls[2]!, /agent-browser eval -b/);
     assert.ok(elapsed >= 25);
   });
 
@@ -89,7 +90,7 @@ describe("previewAction", () => {
     const encoded = /eval -b '([^']+)'/.exec(calls[0]!)?.[1];
     assert.ok(encoded);
     const js = Buffer.from(encoded, "base64").toString("utf-8");
-    assert.match(js, /"detail":"Snapshot -i"/);
+    assert.match(js, /"command":"Snapshot -i"/);
   });
 
   it("includes LLM intent in eval payload when provided", async () => {
@@ -120,12 +121,13 @@ describe("previewAction", () => {
       runBash,
     );
 
+    assert.match(calls[0]!, /scrollintoview '@e2'/);
     const evalCall = calls.find((c) => c.includes("agent-browser eval -b"));
     assert.ok(evalCall);
     const encoded = /eval -b '([^']+)'/.exec(evalCall!)?.[1];
     assert.ok(encoded);
     const js = Buffer.from(encoded!, "base64").toString("utf-8");
     assert.match(js, /Submit the login form — @e2/);
-    assert.match(js, /"detail":"Click @e2"/);
+    assert.match(js, /"command":"Click @e2"/);
   });
 });
