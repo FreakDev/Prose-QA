@@ -23,7 +23,7 @@ const config = {
       telemetry: false,
     },
   },
-  envVars: ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
+  envVars: [],
   sensitiveEnvVars: [],
   skills: {
     dirs: [".pqa/skills"],
@@ -41,8 +41,8 @@ const config = {
   },
   agent: {
     parallel: 0,
-    maxTurns: 300,
-    bashTimeoutMs: 120_000,
+    maxTurns: 80,
+    bashTimeoutMs: 10_000,
     guard: {
       nudgeFailedToolCalls: 10,
       maxFailedToolCalls: 20,

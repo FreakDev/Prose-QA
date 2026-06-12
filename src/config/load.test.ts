@@ -107,10 +107,7 @@ describe("loadConfig", () => {
       assert.equal(config.llm.thinking?.enabled, true);
       assert.equal(config.healing?.enabled, true);
       assert.equal(config.healing?.maxRecoveryTurns, 2);
-      assert.deepEqual(config.envVars, [
-        "PQA_TEST_EMAIL",
-        "PQA_TEST_PASSWORD",
-      ]);
+      assert.deepEqual(config.envVars, []);
       assert.deepEqual(config.auth?.admin, { scenario: "login-admin" });
       assert.equal(config.recorder?.bridgePort, 17_321);
       assert.equal(config.scenariosDir, "scenarios");

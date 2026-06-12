@@ -6,6 +6,7 @@ export default {
       enabled: true,
     },
   },
+  envVars: ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
   // llm: {
   //   provider: "google",
   //   model: "gemini-2.5-flash",
