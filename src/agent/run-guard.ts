@@ -23,6 +23,23 @@ export class RunGuardSyntheticFailError extends Error {
   }
 }
 
+/** Duck-type guard for errors thrown across duplicate ESM instances (e.g. jiti-loaded hooks). */
+export function isRunGuardSyntheticFailError(
+  err: unknown,
+): err is RunGuardSyntheticFailError {
+  if (err instanceof RunGuardSyntheticFailError) return true;
+  if (!(err instanceof Error) || err.name !== "RunGuardSyntheticFailError") {
+    return false;
+  }
+  const verdict = (err as RunGuardSyntheticFailError).verdict;
+  return (
+    typeof verdict === "object" &&
+    verdict !== null &&
+    verdict.status === "fail" &&
+    Array.isArray(verdict.checkpoints)
+  );
+}
+
 export function isAgentBrowserFailure(entry: BashEntry): boolean {
   return entry.command.includes("agent-browser") && entry.exitCode !== 0;
 }

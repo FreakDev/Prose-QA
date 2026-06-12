@@ -44,9 +44,9 @@ const config = {
     maxTurns: 80,
     bashTimeoutMs: 10_000,
     guard: {
-      nudgeFailedToolCalls: 10,
-      maxFailedToolCalls: 20,
-      maxRecoverySteps: 10,
+      nudgeFailedToolCalls: 5,
+      maxFailedToolCalls: 8,
+      maxRecoverySteps: 5,
     },
   },
   healing: {

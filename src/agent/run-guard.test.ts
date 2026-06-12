@@ -9,6 +9,7 @@ import {
   buildSyntheticGuardVerdict,
   countFailedAgentBrowserCalls,
   evaluateRunGuard,
+  isRunGuardSyntheticFailError,
   RunGuardSyntheticFailError,
 } from "./run-guard.js";
 
@@ -133,6 +134,17 @@ describe("run-guard", () => {
         }),
       RunGuardSyntheticFailError,
     );
+  });
+
+  it("detects RunGuardSyntheticFailError across duplicate class instances", () => {
+    const verdict = buildSyntheticGuardVerdict(scenario, 20, 20, transcriptWithFailed(20));
+    const foreign = Object.assign(new Error(`Run guard: ${verdict.summary}`), {
+      name: "RunGuardSyntheticFailError",
+      verdict,
+    });
+
+    assert.equal(foreign instanceof RunGuardSyntheticFailError, false);
+    assert.equal(isRunGuardSyntheticFailError(foreign), true);
   });
 
   it("builds a generic nudge message", () => {

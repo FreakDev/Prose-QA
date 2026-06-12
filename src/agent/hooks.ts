@@ -30,7 +30,7 @@ import type {
 } from "../types/hooks.js";
 import type { Scenario } from "../types/scenario.js";
 import type { BashEntry, ScenarioResult } from "../types/verdict.js";
-import { RunGuardSyntheticFailError } from "./run-guard.js";
+import { isRunGuardSyntheticFailError } from "./run-guard.js";
 
 export class HookAbortError extends Error {
   readonly reason: string;
@@ -57,7 +57,7 @@ function safeCall<T>(
     try {
       return await fn();
     } catch (err) {
-      if (err instanceof RunGuardSyntheticFailError) {
+      if (isRunGuardSyntheticFailError(err)) {
         throw err;
       }
       logger.error(`[hooks] ${label} threw: ${err instanceof Error ? err.message : String(err)}`);

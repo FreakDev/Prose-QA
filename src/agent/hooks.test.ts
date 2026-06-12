@@ -433,6 +433,45 @@ describe("HookRunner", () => {
       assert.equal(result.action, "abort");
       assert.equal(secondCalled, false);
     });
+
+    it("re-throws foreign RunGuardSyntheticFailError without logging", async () => {
+      const logs: string[] = [];
+      const hooks: ExtensionHooks = {
+        postTool: [
+          async () => {
+            const err = new Error("Run guard: stopped");
+            err.name = "RunGuardSyntheticFailError";
+            (err as Error & { verdict: unknown }).verdict = {
+              status: "fail",
+              summary: "stopped",
+              checkpoints: [],
+            };
+            throw err;
+          },
+        ],
+      };
+      const runner = new HookRunner(hooks, {
+        ...makeHookContext(),
+        logger: {
+          info: () => {},
+          warn: () => {},
+          error: (msg) => logs.push(msg),
+        },
+      });
+      const entry: BashEntry = {
+        command: "agent-browser click @e1",
+        stdout: "",
+        stderr: "x",
+        exitCode: 1,
+        durationMs: 10,
+      };
+
+      await assert.rejects(() => runner.runPostTool(entry), (err: unknown) => {
+        assert.equal((err as Error).name, "RunGuardSyntheticFailError");
+        return true;
+      });
+      assert.deepEqual(logs, []);
+    });
   });
 
   describe("runPreVerdict", () => {

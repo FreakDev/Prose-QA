@@ -34,7 +34,7 @@ import { resolveStatePath } from "../auth/store.js";
 import { assertNoDoomedRun } from "./browser-health.js";
 import {
   assertNoRunGuard,
-  RunGuardSyntheticFailError,
+  isRunGuardSyntheticFailError,
   type RunGuardMetadata,
 } from "./run-guard.js";
 import { buildBrowserEnv, prepareBrowserSession, runBash } from "./bash.js";
@@ -875,7 +875,7 @@ export async function runScenario(
     }
     persistTranscript(options, transcript);
 
-    if (err instanceof RunGuardSyntheticFailError) {
+    if (isRunGuardSyntheticFailError(err)) {
       const guardHealing: HealingMeta = {
         used: false,
         recoveryTurns: 0,

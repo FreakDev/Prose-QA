@@ -99,7 +99,7 @@ describe("runner transcript persistence contract", () => {
     assert.match(runnerSource, /guard:max_failed_tool_calls/);
     assert.match(
       runnerSource,
-      /if \(err instanceof RunGuardSyntheticFailError\)/,
+      /if \(isRunGuardSyntheticFailError\(err\)\)/,
     );
   });
 
