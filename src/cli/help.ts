@@ -83,6 +83,15 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         description: "Run the browser in headed (visible) mode",
       },
       {
+        flags: "--action-overlay",
+        description:
+          "Show in-page overlay before agent-browser actions (Chrome headed only)",
+      },
+      {
+        flags: "--no-action-overlay",
+        description: "Disable in-page action overlay",
+      },
+      {
         flags: "--keep-browser",
         description:
           "Leave the browser open after each scenario for inspection",
@@ -188,6 +197,11 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         flags: "--no-headed",
         description:
           "Run the browser headless instead of the debug default (headed)",
+      },
+      {
+        flags: "--no-action-overlay",
+        description:
+          "Disable in-page action overlay (enabled by default in debug)",
       },
       {
         flags: "--report-output <path>",

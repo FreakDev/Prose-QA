@@ -62,6 +62,16 @@ import type { TokenUsageStats } from "../types/verdict.js";
 import type { EnvRedactor } from "../redact/env-secrets.js";
 import { createLlmModel } from "./llm-model.js";
 import { buildProviderOptions } from "./provider-options.js";
+import {
+  isActionOverlayEnabled,
+  resolveActionOverlayPreviewMs,
+} from "../action-overlay/enabled.js";
+import { maybePreviewAction } from "../action-overlay/preview.js";
+import {
+  createStepIntentCapture,
+  wrapModelForStepIntent,
+  type StepIntentCapture,
+} from "../action-overlay/step-intent.js";
 
 const MAX_VERDICT_RETRIES = 5;
 /** Extra steps when re-emitting a verdict after an invalid completion. */
@@ -106,6 +116,7 @@ export interface RunScenarioOptions {
   runDir?: string;
   headed: boolean;
   verbose?: boolean;
+  actionOverlay?: boolean;
   artifacts: ArtifactsMode;
   sessionName?: string;
   preparedStartUrl?: string;
@@ -139,6 +150,7 @@ async function callLlm(options: {
   withinTurnFingerprints?: string[];
   scenario?: Scenario;
   guardMetadata?: RunGuardMetadata;
+  stepIntentCapture?: StepIntentCapture;
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   text: string;
@@ -174,8 +186,12 @@ async function callLlm(options: {
     }
   }
 
+  const model = options.stepIntentCapture
+    ? wrapModelForStepIntent(createLlmModel(options.config), options.stepIntentCapture)
+    : createLlmModel(options.config);
+
   const result = (await generateText({
-    model: createLlmModel(options.config),
+    model,
     system: options.system,
     messages,
     tools: options.tools,
@@ -318,6 +334,15 @@ export async function runScenario(
   };
   const hookRunner = new HookRunner(options.extensionHooks ?? {}, hookCtx);
 
+  const overlayActive = isActionOverlayEnabled({
+    actionOverlay: options.actionOverlay,
+    config: options.config,
+    headed: options.headed,
+    engine: options.config.browser.engine,
+  });
+  const overlayPreviewMs = resolveActionOverlayPreviewMs(options.config);
+  const stepIntentCapture = overlayActive ? createStepIntentCapture() : undefined;
+
   // Pre-scenario hook
   const preScenarioResult = await hookRunner.runPreScenario(options.scenario);
   if (preScenarioResult.action === "skip") {
@@ -365,6 +390,7 @@ export async function runScenario(
       authStatePath: profilePath ? undefined : authStatePath,
       startUrl: scenarioStartUrl,
       verbose: options.verbose,
+      actionOverlay: overlayActive,
     }));
   }
 
@@ -482,6 +508,23 @@ export async function runScenario(
           if (preToolResult.extraEnv) {
             Object.assign(resolvedEnv, preToolResult.extraEnv);
           }
+        }
+
+        if (overlayActive) {
+          const rawIntent = stepIntentCapture?.text ?? "";
+          const intent =
+            rawIntent && options.redactor
+              ? options.redactor.redact(rawIntent)
+              : rawIntent;
+          await maybePreviewAction({
+            command: resolvedCommand,
+            cwd: options.cwd,
+            env: resolvedEnv as NodeJS.ProcessEnv,
+            timeoutMs: resolvedTimeout,
+            previewMs: overlayPreviewMs,
+            intent: intent || undefined,
+            verbose: options.verbose,
+          });
         }
 
         const entry = await runBash(resolvedCommand, {
@@ -646,6 +689,7 @@ export async function runScenario(
         (hookCtx.metadata.browserFailureFingerprints as string[]) ?? [],
       scenario: options.scenario,
       guardMetadata,
+      stepIntentCapture,
     });
     let result = initialLlmResult.result;
     tokenUsage = addLanguageModelUsage(tokenUsage, initialLlmResult.totalUsage);
@@ -755,8 +799,8 @@ export async function runScenario(
               (hookCtx.metadata.browserFailureFingerprints as string[]) ?? [],
             scenario: options.scenario,
             guardMetadata,
+            stepIntentCapture,
           });
-          result = recoveryLlmResult.result;
           tokenUsage = addLanguageModelUsage(tokenUsage, recoveryLlmResult.totalUsage);
 
           finalText = recoveryLlmResult.text || finalText;

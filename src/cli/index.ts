@@ -65,6 +65,7 @@ function baseRunOptions(opts: {
   retriesPolicy?: string;
   reportOutput?: string;
   reportZip?: boolean;
+  actionOverlay?: boolean;
 }): RunOptions {
   const retriesPolicy =
     opts.retriesPolicy === "always" || opts.retriesPolicy === "transient"
@@ -88,6 +89,7 @@ function baseRunOptions(opts: {
     retriesPolicy,
     reportOutputPath: opts.reportOutput,
     reportZip: opts.reportZip,
+    actionOverlay: opts.actionOverlay,
   };
 }
 
@@ -121,6 +123,7 @@ program
     "on-failure",
   )
   .option("--headed", "Run browser in headed mode")
+  .option("--action-overlay", "Show in-page overlay before agent-browser actions")
   .option("--keep-browser", "Leave browser open after scenario")
   .option("--auth-refresh", "Re-run auth scenarios and refresh auth store")
   .option("--skip-pre-batch", "Internal: skip preBatch hooks")
@@ -135,6 +138,7 @@ program
       headed: opts.headed,
       authRefresh: opts.authRefresh,
       keepBrowser: opts.keepBrowser,
+      actionOverlay: opts.actionOverlay,
       noHealing: opts.noHealing,
       noCache: opts.noCache,
       skipPreBatch: opts.skipPreBatch,
@@ -183,6 +187,14 @@ program
   )
   .option("--headed", "Run browser in headed mode")
   .option(
+    "--action-overlay",
+    "Show in-page overlay before agent-browser actions (Chrome headed)",
+  )
+  .option(
+    "--no-action-overlay",
+    "Disable in-page action overlay",
+  )
+  .option(
     "--keep-browser",
     "Leave browser open after each scenario (for local inspection)",
   )
@@ -202,7 +214,12 @@ program
   )
   .option("--report-zip", "Emit report as zip instead of a directory")
   .action(async (patterns: string[], opts) => {
-    const code = await executeRun(patterns, baseRunOptions(opts));
+    const code = await executeRun(patterns, {
+      ...baseRunOptions({
+        ...opts,
+        actionOverlay: opts.noActionOverlay ? false : opts.actionOverlay,
+      }),
+    });
     process.exit(code);
   });
 
@@ -252,6 +269,10 @@ program
   )
   .option("--no-headed", "Run browser headless")
   .option(
+    "--no-action-overlay",
+    "Disable in-page action overlay (enabled by default in debug)",
+  )
+  .option(
     "--report-output <path>",
     "Report output path (trailing / creates runId inside; otherwise full path)",
   )
@@ -262,6 +283,9 @@ program
         ...opts,
         verbose: true,
         headed: opts.headed !== false,
+        actionOverlay: opts.noActionOverlay
+          ? false
+          : opts.actionOverlay !== false,
       }),
       pause: opts.pause,
     });

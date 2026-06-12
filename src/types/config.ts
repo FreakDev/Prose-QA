@@ -39,6 +39,13 @@ export interface CacheConfig {
   enabled?: boolean;
 }
 
+export interface ActionOverlayConfig {
+  /** Enable in-page action overlay (Chrome headed only). Default: false */
+  enabled?: boolean;
+  /** Blocking preview duration before each action (ms). Default: 800 */
+  previewMs?: number;
+}
+
 export interface ReportConfig {
   /**
    * Directory or file path for the execution report.
@@ -155,6 +162,7 @@ export interface PqaConfig {
   report?: ReportConfig;
   extensions?: {
     hooks?: ExtensionHooks;
+    actionOverlay?: ActionOverlayConfig;
   };
 }
 
@@ -193,4 +201,6 @@ export interface RunOptions {
   workerInactivityTimeoutMs?: number;
   /** Override agent.workerHeartbeatIntervalMs */
   workerHeartbeatIntervalMs?: number;
+  /** In-page visual overlay before agent-browser actions (Chrome headed only) */
+  actionOverlay?: boolean;
 }

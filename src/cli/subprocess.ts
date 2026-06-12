@@ -117,6 +117,9 @@ function buildWorkerArgs(request: ScenarioWorkerRequest): string[] {
   if (options.headed) {
     args.push("--headed");
   }
+  if (options.actionOverlay) {
+    args.push("--action-overlay");
+  }
   if (options.verbose) {
     args.push("--verbose");
   }

@@ -183,6 +183,7 @@ interface ScenarioRunContext {
   headed: boolean;
   retries: number;
   verbose?: boolean;
+  actionOverlay?: boolean;
   isolatedSessions: boolean;
   keepBrowser: boolean;
   artifacts: ArtifactsMode;
@@ -413,6 +414,7 @@ async function runOneScenario(
           runDir: ctx.runDir,
           headed: ctx.headed,
           verbose: ctx.verbose,
+          actionOverlay: ctx.actionOverlay,
           artifacts: ctx.artifacts,
           sessionName,
           onTurn: hooks?.onTurn,
@@ -632,6 +634,7 @@ export async function executeRun(
     headed,
     retries,
     verbose: options.verbose,
+    actionOverlay: options.actionOverlay,
     isolatedSessions: parallel !== undefined,
     keepBrowser: options.keepBrowser ?? false,
     artifacts,
@@ -664,6 +667,7 @@ export async function executeRun(
       retries,
       artifacts,
       headed,
+      actionOverlay: options.actionOverlay,
       authRefresh: options.authRefresh,
       keepBrowser: options.keepBrowser,
       noHealing: options.noHealing,
@@ -896,6 +900,7 @@ export async function executeScenarioWorker(
     headed,
     retries: options.retries ?? 0,
     verbose: options.verbose,
+    actionOverlay: options.actionOverlay,
     isolatedSessions: true,
     keepBrowser: options.keepBrowser ?? false,
     artifacts,

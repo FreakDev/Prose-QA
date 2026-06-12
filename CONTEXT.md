@@ -48,6 +48,14 @@ Scenario that declares `auth: <profile-key>` in frontmatter and runs as an alrea
 
 Harness mechanism that limits agent effort when `agent-browser` bash commands fail repeatedly. Uses configurable thresholds to nudge the agent toward an early verdict, then stop with a synthetic fail verdict.
 
+## Action overlay
+
+In-page visual overlay shown during local Chrome headed runs to preview the agent's next browser action (cursor, highlight, intent banner). Distinct from verbose terminal logging. Enabled via `--action-overlay` or `extensions.actionOverlay.enabled`; on by default for `pqa debug`.
+
+## Agent intent
+
+Short assistant narration (`step.text`) emitted by the LLM in the same turn as a browser action — for example « Click the Sign in button — @e6 ». Distinct from extended thinking (`reasoningText`) and from the parsed command label shown in the action overlay HUD.
+
 ## Nudge
 
 One-time harness message injected before a hard run-guard stop, prompting the agent to conclude instead of looping on failed commands.

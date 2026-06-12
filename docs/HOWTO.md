@@ -206,7 +206,9 @@ npm run demo:server &
 npm run dev -- debug scenarios/0_hello-world.md --verbose
 ```
 
-Useful options: `--headed` / `--no-headed`, `--tag` / `--tags`.
+The **action overlay** (in-page cursor and highlight before each agent-browser command) is enabled by default in debug. Disable with `--no-action-overlay`.
+
+Useful options: `--headed` / `--no-headed`, `--tag` / `--tags`, `--no-action-overlay`.
 
 ### Run (batch, CI)
 

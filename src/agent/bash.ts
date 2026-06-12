@@ -1,6 +1,8 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 import { killProcessTree } from "../process-tree.js";
+import { writeActionOverlayScript } from "../action-overlay/page-script.js";
 import {
   lightpandaBrowserEnv,
   resolveLightpandaBinDirs,
@@ -221,6 +223,7 @@ export async function prepareBrowserSession(options: {
   authStatePath?: string;
   startUrl?: string;
   verbose?: boolean;
+  actionOverlay?: boolean;
 }): Promise<{ startUrl: string }> {
   const env = buildBrowserEnv({
     cwd: options.cwd,
@@ -234,17 +237,33 @@ export async function prepareBrowserSession(options: {
   });
   const startUrl = options.startUrl ?? "about:blank";
 
+  let overlayScriptPath: string | undefined;
+  if (options.actionOverlay) {
+    overlayScriptPath = path.join(
+      os.tmpdir(),
+      `pqa-overlay-${options.sessionName.replace(/[^a-zA-Z0-9_-]/g, "_")}.js`,
+    );
+    writeActionOverlayScript(overlayScriptPath);
+  }
+
+  const initScriptArg = overlayScriptPath
+    ? ` --init-script "${overlayScriptPath}"`
+    : "";
+
   await runBash("agent-browser close 2>/dev/null || true", {
     cwd: options.cwd,
     timeoutMs: options.timeoutMs,
     env,
   });
 
-  let entry = await runBash(`agent-browser open "${startUrl}"`, {
-    cwd: options.cwd,
-    timeoutMs: options.timeoutMs,
-    env,
-  });
+  let entry = await runBash(
+    `agent-browser open${initScriptArg} "${startUrl}"`,
+    {
+      cwd: options.cwd,
+      timeoutMs: options.timeoutMs,
+      env,
+    },
+  );
 
   if (stateWasIgnored(entry)) {
     await runBash("agent-browser close --all 2>/dev/null || true", {
@@ -252,11 +271,14 @@ export async function prepareBrowserSession(options: {
       timeoutMs: options.timeoutMs,
       env,
     });
-    entry = await runBash(`agent-browser open "${startUrl}"`, {
-      cwd: options.cwd,
-      timeoutMs: options.timeoutMs,
-      env,
-    });
+    entry = await runBash(
+      `agent-browser open${initScriptArg} "${startUrl}"`,
+      {
+        cwd: options.cwd,
+        timeoutMs: options.timeoutMs,
+        env,
+      },
+    );
   }
 
   if (entry.exitCode !== 0 || stateWasIgnored(entry)) {
