@@ -159,6 +159,17 @@ Agent loop limits.
 | --------------- | ------ | -------- | ------------------------------------------------------------- |
 | `maxTurns`      | number | `200`    | Maximum agent turns per scenario                              |
 | `bashTimeoutMs` | number | `120000` | Timeout for each bash (agent-browser) command in milliseconds |
+| `guard`         | object | see below | Generic effort limits (failed bash budget, recovery step cap) |
+
+#### `agent.guard` (object, optional)
+
+Limits agent effort when bash commands fail repeatedly. Enforced by the default `preLlmTurn` and `postTool` hooks.
+
+| Key                    | Type   | Default | Description                                                                 |
+| ---------------------- | ------ | ------- | --------------------------------------------------------------------------- |
+| `nudgeFailedToolCalls` | number | `10`    | Inject a harness nudge once this many failed `agent-browser` calls occur. `0` disables |
+| `maxFailedToolCalls`   | number | `20`    | Abort with a synthetic `fail` verdict at this count. `0` disables           |
+| `maxRecoverySteps`     | number | `10`    | Max LLM steps per recovery loop (separate from `maxTurns`)                  |
 
 ---
 
@@ -181,7 +192,7 @@ Conservative self-healing: in-run recovery and transient-only scenario retries. 
 | `enabled`           | boolean  | `true`    | Master switch for in-run recovery and transient retry gating                                 |
 | `maxRecoveryTurns`  | number   | `2`       | Extra agent turns after a failed verdict (same browser session)                              |
 | `recoverOnUnknown`  | boolean  | `false`   | Allow recovery when failure class is unknown but bash output looks transient                 |
-| `transientPatterns` | string[] | see below | Substrings matched against bash output and checkpoint reasons to classify transient failures |
+| `transientPatterns` | string[] | see below | Substrings matched against agent-browser bash stderr/stdout to classify transient failures |
 
 Default `transientPatterns`: `timeout`, `timed out`, `waiting for`, `navigation`, `net::`, `detached`, `stale`, `interrupted`, `networkidle`.
 

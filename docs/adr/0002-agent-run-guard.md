@@ -1,0 +1,3 @@
+# Agent run guard
+
+Prose-QA limits wasted LLM turns when the agent accumulates failed `agent-browser` bash calls without making progress. The guard lives under `agent.guard` (separate from `browserHealth`, which handles infrastructure failures) and uses two tiers: a one-time **nudge** message, then a **synthetic fail verdict** when a hard failed-call budget is reached. Recovery loops use `maxRecoverySteps`, not the full `maxTurns` budget. We chose `status: fail` with a harness-built verdict (rather than `status: error`) so these stops read as “scenario could not be verified” rather than “browser stack broke”; infra failures still abort via `browserHealth` as errors.

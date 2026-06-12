@@ -83,9 +83,23 @@ describe("runner transcript persistence contract", () => {
 
   it("guards LLM calls against doomed browser runs", () => {
     assert.match(runnerSource, /assertNoDoomedRun\(/);
+    assert.match(runnerSource, /assertNoRunGuard\(/);
     assert.match(
       runnerSource,
       /withinTurnFingerprints:\s*\n\s*\(hookCtx\.metadata\.browserFailureFingerprints as string\[\]\)/,
+    );
+  });
+
+  it("caps recovery loops with agent.guard.maxRecoverySteps", () => {
+    assert.match(runnerSource, /resolveAgentGuardConfig\(options\.config\)\.maxRecoverySteps/);
+  });
+
+  it("returns synthetic fail verdict when run guard aborts", () => {
+    assert.match(runnerSource, /RunGuardSyntheticFailError/);
+    assert.match(runnerSource, /guard:max_failed_tool_calls/);
+    assert.match(
+      runnerSource,
+      /if \(err instanceof RunGuardSyntheticFailError\)/,
     );
   });
 

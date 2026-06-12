@@ -22,7 +22,7 @@ import type {
   ScenarioResult,
   Verdict,
 } from "../types/verdict.js";
-import { resolveHealingConfig } from "../config/load.js";
+import { resolveAgentGuardConfig, resolveHealingConfig } from "../config/load.js";
 import { HookRunner, HookAbortError } from "./hooks.js";
 import {
   classifyFailure,
@@ -32,6 +32,11 @@ import {
 import { buildRecoveryPrompt } from "../healing/recovery-prompt.js";
 import { resolveStatePath } from "../auth/store.js";
 import { assertNoDoomedRun } from "./browser-health.js";
+import {
+  assertNoRunGuard,
+  RunGuardSyntheticFailError,
+  type RunGuardMetadata,
+} from "./run-guard.js";
 import { buildBrowserEnv, prepareBrowserSession, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
 import {
@@ -132,6 +137,8 @@ async function callLlm(options: {
   maxTurns: number;
   transcript?: AgentTranscript;
   withinTurnFingerprints?: string[];
+  scenario?: Scenario;
+  guardMetadata?: RunGuardMetadata;
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   text: string;
@@ -143,6 +150,14 @@ async function callLlm(options: {
       options.config,
       options.withinTurnFingerprints ?? [],
     );
+    if (options.scenario && options.guardMetadata) {
+      assertNoRunGuard({
+        transcript: options.transcript,
+        config: options.config,
+        metadata: options.guardMetadata,
+        scenario: options.scenario,
+      });
+    }
   }
 
   let messages = options.messages;
@@ -204,6 +219,7 @@ async function retryVerdictCompletion(options: {
   stepTiming: { startMs: number };
   tokenUsage: TokenUsageStats;
   hookRunner?: HookRunner;
+  guardMetadata: RunGuardMetadata;
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   finalText: string;
@@ -250,6 +266,8 @@ async function retryVerdictCompletion(options: {
       turn: -1,
       maxTurns: -1,
       transcript: options.transcript,
+      scenario: options.runOptions.scenario,
+      guardMetadata: options.guardMetadata,
     });
     result = llmResult.result;
     finalText = llmResult.text || finalText;
@@ -371,6 +389,8 @@ export async function runScenario(
     bashTimeoutMs: options.config.agent.bashTimeoutMs,
     preparedStartUrl,
     browserFailureFingerprints: [] as string[],
+    guardNudgeSent: false,
+    scenario: options.scenario,
   });
 
   let system = buildSystemPrompt(
@@ -417,6 +437,7 @@ export async function runScenario(
   let tokenUsage = emptyTokenUsage();
   const stepTiming = { startMs: Date.now() };
   const pendingBashEntries: BashEntry[] = [];
+  const guardMetadata = hookCtx.metadata as RunGuardMetadata;
 
   const onDemandEnabled = options.config.skills.onDemand?.enabled !== false;
   const autoLoadEnabled =
@@ -623,6 +644,8 @@ export async function runScenario(
       transcript,
       withinTurnFingerprints:
         (hookCtx.metadata.browserFailureFingerprints as string[]) ?? [],
+      scenario: options.scenario,
+      guardMetadata,
     });
     let result = initialLlmResult.result;
     tokenUsage = addLanguageModelUsage(tokenUsage, initialLlmResult.totalUsage);
@@ -648,6 +671,7 @@ export async function runScenario(
       stepTiming,
       tokenUsage,
       hookRunner,
+      guardMetadata,
     }));
 
     // Pre-verdict hook
@@ -719,14 +743,18 @@ export async function runScenario(
             messages: recoveryMessages,
             tools,
             providerOptions,
-            stopWhen: stepCountIs(options.config.agent.maxTurns),
+            stopWhen: stepCountIs(
+              resolveAgentGuardConfig(options.config).maxRecoverySteps,
+            ),
             onStepFinish,
             hookRunner,
             turn,
-            maxTurns: options.config.agent.maxTurns,
+            maxTurns: resolveAgentGuardConfig(options.config).maxRecoverySteps,
             transcript,
             withinTurnFingerprints:
               (hookCtx.metadata.browserFailureFingerprints as string[]) ?? [],
+            scenario: options.scenario,
+            guardMetadata,
           });
           result = recoveryLlmResult.result;
           tokenUsage = addLanguageModelUsage(tokenUsage, recoveryLlmResult.totalUsage);
@@ -752,6 +780,7 @@ export async function runScenario(
             stepTiming,
             tokenUsage,
             hookRunner,
+            guardMetadata,
           }));
           verdict = extractVerdict(finalText);
 
@@ -801,6 +830,32 @@ export async function runScenario(
       appendStepToTranscript(transcript, { text: "", toolCalls: [] }, pendingBashEntries.splice(0));
     }
     persistTranscript(options, transcript);
+
+    if (err instanceof RunGuardSyntheticFailError) {
+      const guardHealing: HealingMeta = {
+        used: false,
+        recoveryTurns: 0,
+        scenarioRetries: 0,
+        failureKind: "unknown",
+        signals: ["guard:max_failed_tool_calls"],
+      };
+      return {
+        scenario: options.scenario.frontmatter.name,
+        filePath: options.scenario.filePath,
+        status: "fail",
+        durationMs: Date.now() - start,
+        verdict: finalizeVerdict(err.verdict, transcript, {
+          durationMs: Date.now() - start,
+          healing: guardHealing,
+          redactor: options.redactor,
+          tokens: tokenUsage,
+        }),
+        transcript,
+        artifactDir: options.artifactDir,
+        healing: guardHealing,
+      };
+    }
+
     const error = err instanceof HookAbortError ? err.reason : String(err);
     return {
       scenario: options.scenario.frontmatter.name,

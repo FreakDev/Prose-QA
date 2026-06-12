@@ -113,6 +113,31 @@ describe("classifyFailure", () => {
     assert.ok(classified.signals.some((s) => s.startsWith("bash:")));
   });
 
+  it("does not classify checkpoint reasons alone as transient", () => {
+    const result: ScenarioResult = {
+      scenario: "blocked",
+      filePath: "/blocked.md",
+      status: "fail",
+      durationMs: 500,
+      verdict: {
+        status: "fail",
+        summary: "Could not reach target page",
+        checkpoints: [
+          {
+            assertion: 'url contains "/target"',
+            pass: false,
+            reason:
+              "Preventing navigation to the target tab because the entity was not found in the list.",
+          },
+        ],
+      },
+      transcript: { entries: [] },
+    };
+    const classified = classifyFailure(result, undefined, baseConfig);
+    assert.notEqual(classified.kind, "transient");
+    assert.equal(isRecoveryAllowed(classified, baseConfig), false);
+  });
+
   it("classifies product business rule failures", () => {
     const result: ScenarioResult = {
       scenario: "incomplete-client",

@@ -86,12 +86,6 @@ function collectTransientSignals(
     }
   }
 
-  for (const cp of failedCheckpointResults(result.verdict)) {
-    for (const m of matchesPatterns(cp.reason, patterns)) {
-      hits.add(`reason:${m}`);
-    }
-  }
-
   if (result.error) {
     for (const m of matchesPatterns(result.error, patterns)) {
       hits.add(`error:${m}`);

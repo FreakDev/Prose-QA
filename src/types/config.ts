@@ -6,12 +6,21 @@ export interface BrowserHealthConfig {
   circuitBreakerThreshold?: number;
 }
 
+export interface AgentGuardConfig {
+  /** Inject a nudge message once failed agent-browser calls reach this count. 0 disables. Default: 10 */
+  nudgeFailedToolCalls?: number;
+  /** Abort with a synthetic fail verdict at this count. 0 disables. Default: 20 */
+  maxFailedToolCalls?: number;
+  /** Max generateText steps during recovery loop (separate from maxTurns). Default: 10 */
+  maxRecoverySteps?: number;
+}
+
 export interface HealingConfig {
   /** Master switch. Default: true */
   enabled?: boolean;
   /** Extra agent turns after a failed verdict (same session). Default: 2 */
   maxRecoveryTurns?: number;
-  /** Regex strings matched against bash output + checkpoint reasons */
+  /** Regex strings matched against agent-browser bash stderr/stdout */
   transientPatterns?: string[];
   /** If true, allow recovery when class is unknown but bash looks transient. Default: false */
   recoverOnUnknown?: boolean;
@@ -136,6 +145,8 @@ export interface PqaConfig {
     workerInactivityTimeoutMs?: number;
     /** Worker heartbeat write interval in ms. Default: 15000 (15 s) */
     workerHeartbeatIntervalMs?: number;
+    /** Generic agent effort limits (failed bash budget, recovery step cap). */
+    guard?: AgentGuardConfig;
   };
   browserHealth?: BrowserHealthConfig;
   healing?: HealingConfig;

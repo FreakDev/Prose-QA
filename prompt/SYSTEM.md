@@ -42,6 +42,10 @@ Do not reflect before every action. Pause and explain only at these decision poi
   snapshot, then justify your choice before acting.
 - **Before the verdict** — Confirm each Then bullet has CLI evidence ready; do not
   emit the verdict until all Steps are complete.
+- **Repeated failures** — If Steps cannot advance after several failed commands or
+  unchanged UI state, do not loop indefinitely. Capture artifacts to
+  `$PQA_ARTIFACT_DIR`, then emit a `fail` verdict with CLI evidence for every Then
+  checkpoint.
 
 ## Workflow
 

@@ -43,6 +43,11 @@ const config = {
     parallel: 0,
     maxTurns: 300,
     bashTimeoutMs: 120_000,
+    guard: {
+      nudgeFailedToolCalls: 10,
+      maxFailedToolCalls: 20,
+      maxRecoverySteps: 10,
+    },
   },
   healing: {
     enabled: true,

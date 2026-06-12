@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import type {
+  AgentGuardConfig,
   BrowserHealthConfig,
   CacheConfig,
   HealingConfig,
@@ -47,6 +48,12 @@ const MINIMAL_FALLBACK_CONFIG: PqaConfig = {
     bashTimeoutMs: 120_000,
   },
 };
+
+export const DEFAULT_AGENT_GUARD = {
+  nudgeFailedToolCalls: 10,
+  maxFailedToolCalls: 20,
+  maxRecoverySteps: 10,
+} as const;
 
 export const DEFAULT_TRANSIENT_PATTERNS = [
   "timeout",
@@ -220,7 +227,13 @@ function mergeConfig(base: PqaConfig, override: Partial<PqaConfig>): PqaConfig {
         : base.skills.onDemand,
     },
     auth: { ...(base.auth ?? {}), ...(override.auth ?? {}) },
-    agent: { ...base.agent, ...override.agent },
+    agent: {
+      ...base.agent,
+      ...override.agent,
+      guard: override.agent?.guard
+        ? { ...base.agent.guard, ...override.agent.guard }
+        : base.agent.guard,
+    },
     browserHealth: override.browserHealth
       ? { ...base.browserHealth, ...override.browserHealth }
       : base.browserHealth,
@@ -288,6 +301,20 @@ export function resolveBrowserHealthConfig(
   const browserHealth = config.browserHealth ?? {};
   return {
     circuitBreakerThreshold: browserHealth.circuitBreakerThreshold ?? 3,
+  };
+}
+
+export function resolveAgentGuardConfig(
+  config: PqaConfig,
+): Required<AgentGuardConfig> {
+  const guard = config.agent.guard ?? {};
+  return {
+    nudgeFailedToolCalls:
+      guard.nudgeFailedToolCalls ?? DEFAULT_AGENT_GUARD.nudgeFailedToolCalls,
+    maxFailedToolCalls:
+      guard.maxFailedToolCalls ?? DEFAULT_AGENT_GUARD.maxFailedToolCalls,
+    maxRecoverySteps:
+      guard.maxRecoverySteps ?? DEFAULT_AGENT_GUARD.maxRecoverySteps,
   };
 }
 

@@ -43,3 +43,11 @@ Page on the demo site (`/playground/form`) that groups common form widgets for t
 ## Consumer scenario
 
 Scenario that declares `auth: <profile-key>` in frontmatter and runs as an already-signed-in user. Distinct from an auth scenario, which performs login itself.
+
+## Run guard
+
+Harness mechanism that limits agent effort when `agent-browser` bash commands fail repeatedly. Uses configurable thresholds to nudge the agent toward an early verdict, then stop with a synthetic fail verdict.
+
+## Nudge
+
+One-time harness message injected before a hard run-guard stop, prompting the agent to conclude instead of looping on failed commands.

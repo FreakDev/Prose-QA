@@ -11,6 +11,7 @@ import {
   missingLlmApiKey,
   missingLlmConfig,
   PQA_LLM_API_KEY,
+  resolveAgentGuardConfig,
   resolveAgentParallel,
   resolveBrowserHeaded,
   resolveSensitiveEnvVars,
@@ -26,6 +27,29 @@ const minimalConfig = (engine: PqaConfig["browser"]["engine"]): PqaConfig => ({
   },
   skills: { dirs: [], preloads: [] },
   agent: { maxTurns: 30, bashTimeoutMs: 120_000 },
+});
+
+describe("resolveAgentGuardConfig", () => {
+  it("returns bundled defaults when agent.guard is omitted", () => {
+    const config = minimalConfig("chrome");
+    assert.deepEqual(resolveAgentGuardConfig(config), {
+      nudgeFailedToolCalls: 10,
+      maxFailedToolCalls: 20,
+      maxRecoverySteps: 10,
+    });
+  });
+
+  it("merges agent.guard overrides", () => {
+    const config = {
+      ...minimalConfig("chrome"),
+      agent: {
+        ...minimalConfig("chrome").agent,
+        guard: { maxFailedToolCalls: 5 },
+      },
+    };
+    assert.equal(resolveAgentGuardConfig(config).maxFailedToolCalls, 5);
+    assert.equal(resolveAgentGuardConfig(config).nudgeFailedToolCalls, 10);
+  });
 });
 
 describe("resolveAgentParallel", () => {

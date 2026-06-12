@@ -168,6 +168,16 @@ The bundled `defaultExtensionHooks` includes `browserHealthPostToolHook`, which:
 - Trips a **circuit breaker** after `browserHealth.circuitBreakerThreshold` identical `agent-browser` failures (default: 3)
 - After a successful `agent-browser open`, runs `agent-browser get url` and aborts on `chrome-error://` pages
 
+It also includes `runGuardPreLlmTurnHook` and `runGuardPostToolHook`, which enforce `agent.guard`:
+
+- **Nudge** (default: 10 failed `agent-browser` calls) — injects a one-time user message asking the agent to conclude with a fail verdict
+- **Abort** (default: 20 failed calls) — stops the scenario with a synthetic `fail` verdict (not `status: error`)
+- Recovery loops are capped by `agent.guard.maxRecoverySteps` (default: 10), separate from `agent.maxTurns`
+
+Configure thresholds in `pqa.config.*` under `agent.guard`. Set `nudgeFailedToolCalls` or `maxFailedToolCalls` to `0` to disable a tier.
+
+Healing classifies **transient** failures from agent-browser bash output only (not checkpoint reasons). See [`docs/CONFIG.md`](CONFIG.md) and [ADR-0002](adr/0002-agent-run-guard.md).
+
 ### 7. `preVerdict` — `PreVerdictHook`
 
 **Signature:**
