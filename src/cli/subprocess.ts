@@ -146,9 +146,15 @@ function readWorkerResult(
   return JSON.parse(raw) as ScenarioResult;
 }
 
+export interface ScenarioWorkerOutcome {
+  result: ScenarioResult;
+  /** Prefixed worker log lines, buffered until the scenario completes. */
+  bufferedLines: string[];
+}
+
 export async function spawnScenarioWorker(
   request: ScenarioWorkerRequest,
-): Promise<ScenarioResult> {
+): Promise<ScenarioWorkerOutcome> {
   const { command, baseArgs: _baseArgs } = resolveCliInvocation();
   const args = buildWorkerArgs(request);
   const name = request.scenarioName;
@@ -203,15 +209,17 @@ export async function spawnScenarioWorker(
     heartbeatWatchdogs.set(child.pid!, watchTimer);
     heartbeatFilePaths.set(child.pid!, heartbeatFile);
 
+    const bufferedLines: string[] = [];
+
     child.stdout?.on("data", (chunk: Buffer) => {
       for (const line of chunk.toString().split("\n")) {
-        if (line.trim()) process.stdout.write(`[${name}] ${line}\n`);
+        if (line.trim()) bufferedLines.push(`[${name}] ${line}`);
       }
     });
 
     child.stderr?.on("data", (chunk: Buffer) => {
       for (const line of chunk.toString().split("\n")) {
-        if (line.trim()) process.stderr.write(`[${name}] ${line}\n`);
+        if (line.trim()) bufferedLines.push(`[${name}] ${line}`);
       }
     });
 
@@ -246,7 +254,7 @@ export async function spawnScenarioWorker(
       }
       try {
         const result = readWorkerResult(request.runDir, name);
-        resolve(result);
+        resolve({ result, bufferedLines });
       } catch (err) {
         reject(
           new Error(

@@ -72,6 +72,7 @@ import {
   isScenarioRetryAllowed,
 } from "../healing/classify.js";
 import { spawnScenarioWorker, cleanupRunDirHeartbeats } from "./subprocess.js";
+import { ParallelScenarioDisplay } from "./parallel-display.js";
 import {
   buildReport,
   createRunId,
@@ -128,21 +129,27 @@ function logScenarioFailureReason(result: ScenarioResult): void {
   }
 }
 
-function logRunSummary(report: {
-  results: ScenarioResult[];
-  summary: {
-    total: number;
-    passed: number;
-    failed: number;
-    errors: number;
-    skipped: number;
-  };
-}): void {
+function logRunSummary(
+  report: {
+    results: ScenarioResult[];
+    summary: {
+      total: number;
+      passed: number;
+      failed: number;
+      errors: number;
+      skipped: number;
+    };
+  },
+  options?: { compact?: boolean },
+): void {
   if (report.results.length === 0) {
     return;
   }
   console.log("\nRun summary:");
   for (const result of report.results) {
+    if (options?.compact && result.status === "pass") {
+      continue;
+    }
     const duration = `${(result.durationMs / 1000).toFixed(1)}s`;
     if (result.status === "pass") {
       console.log(chalk.green(`  ✓ ${result.scenario} — pass (${duration})`));
@@ -679,25 +686,22 @@ export async function executeRun(
       workerHeartbeatIntervalMs: config.agent.workerHeartbeatIntervalMs,
     };
 
+    const display = new ParallelScenarioDisplay();
+
     const partial = await mapWithConcurrency(
       selectedSummaries,
       parallel,
       async (summary) => {
         const name = summary.frontmatter.name;
-        console.log(`[${name}] running...`);
-        const result = await spawnScenarioWorker({
+        display.start(name);
+        const { result, bufferedLines } = await spawnScenarioWorker({
           scenarioFilePath: summary.filePath,
           scenarioName: name,
           runDir,
           cwd,
           options: workerOptions,
         });
-        if (result.status === "pass") {
-          console.log(chalk.green(`[${name}] passed`));
-        } else {
-          console.log(chalk.red(`[${name}] ${result.status}`));
-          logScenarioFailureReason(result);
-        }
+        display.finish(name, result, bufferedLines, logScenarioFailureReason);
         return result;
       },
       {
@@ -789,7 +793,7 @@ export async function executeRun(
   const report = buildReport(runId, startedAt, results);
   writeReport(runDir, report, redactor);
 
-  logRunSummary(report);
+  logRunSummary(report, { compact: parallel !== undefined });
 
   const reportPath = finalizeRunReport(runDir, zipDestination);
   console.log(`\nReport: ${reportPath}`);
