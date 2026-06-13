@@ -42,7 +42,7 @@ const config = {
   agent: {
     parallel: 0,
     maxTurns: 80,
-    bashTimeoutMs: 10_000,
+    bashTimeoutMs: 60_000,
     guard: {
       nudgeFailedToolCalls: 5,
       maxFailedToolCalls: 8,
