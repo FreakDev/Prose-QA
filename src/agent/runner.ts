@@ -22,7 +22,10 @@ import type {
   ScenarioResult,
   Verdict,
 } from "../types/verdict.js";
-import { resolveAgentGuardConfig, resolveHealingConfig } from "../config/load.js";
+import {
+  resolveAgentGuardConfig,
+  resolveHealingConfig,
+} from "../config/load.js";
 import { HookRunner, HookAbortError } from "./hooks.js";
 import {
   classifyFailure,
@@ -39,6 +42,7 @@ import {
 } from "./run-guard.js";
 import { buildBrowserEnv, prepareBrowserSession, runBash } from "./bash.js";
 import { buildInitialPrompt, buildSystemPrompt } from "./prompt.js";
+import { addAnthropicCacheControlToMessages } from "./prompt-cache.js";
 import {
   SkillLoadRegistry,
   formatAutoLoadedMessage,
@@ -187,7 +191,10 @@ async function callLlm(options: {
   }
 
   const model = options.stepIntentCapture
-    ? wrapModelForStepIntent(createLlmModel(options.config), options.stepIntentCapture)
+    ? wrapModelForStepIntent(
+        createLlmModel(options.config),
+        options.stepIntentCapture,
+      )
     : createLlmModel(options.config);
 
   const result = (await generateText({
@@ -198,6 +205,17 @@ async function callLlm(options: {
     providerOptions: options.providerOptions,
     stopWhen: options.stopWhen,
     onStepFinish: options.onStepFinish,
+    ...(options.config.llm.provider === "anthropic"
+      ? {
+          prepareStep: ({
+            messages: stepMessages,
+          }: {
+            messages: ModelMessage[];
+          }) => ({
+            messages: addAnthropicCacheControlToMessages(stepMessages),
+          }),
+        }
+      : {}),
   })) as unknown as GenerateTextResult<ToolSet, TextGenerateOutput>;
 
   let text = result.text || "";
@@ -308,8 +326,7 @@ export async function runScenario(
 ): Promise<ScenarioResult> {
   const start = Date.now();
   const transcript: AgentTranscript = { entries: [] };
-  const sessionName =
-    options.sessionName ?? options.config.browser.sessionName;
+  const sessionName = options.sessionName ?? options.config.browser.sessionName;
 
   // Setup HookRunner (always created; hooks supplied via extensionHooks from caller)
   const hookCtx = {
@@ -341,7 +358,9 @@ export async function runScenario(
     engine: options.config.browser.engine,
   });
   const overlayPreviewMs = resolveActionOverlayPreviewMs(options.config);
-  const stepIntentCapture = overlayActive ? createStepIntentCapture() : undefined;
+  const stepIntentCapture = overlayActive
+    ? createStepIntentCapture()
+    : undefined;
 
   // Pre-scenario hook
   const preScenarioResult = await hookRunner.runPreScenario(options.scenario);
@@ -367,18 +386,14 @@ export async function runScenario(
     preScenarioResult.action === "continue" &&
     preScenarioResult.browserContext
   ) {
-    profilePath =
-      preScenarioResult.browserContext.profilePath ?? profilePath;
+    profilePath = preScenarioResult.browserContext.profilePath ?? profilePath;
     authStatePath =
       preScenarioResult.browserContext.authStatePath ?? authStatePath;
   }
 
   let preparedStartUrl = options.preparedStartUrl;
   const scenarioStartUrl = options.scenario.frontmatter.url;
-  if (
-    !preparedStartUrl &&
-    (profilePath || authStatePath || scenarioStartUrl)
-  ) {
+  if (!preparedStartUrl && (profilePath || authStatePath || scenarioStartUrl)) {
     ({ startUrl: preparedStartUrl } = await prepareBrowserSession({
       cwd: options.cwd,
       timeoutMs: options.config.agent.bashTimeoutMs,
@@ -497,7 +512,9 @@ export async function runScenario(
             env: resolvedEnv,
           });
           if (preToolResult.action === "abort") {
-            throw new Error(preToolResult.abortError ?? "Hook aborted bash tool");
+            throw new Error(
+              preToolResult.abortError ?? "Hook aborted bash tool",
+            );
           }
           if (preToolResult.command !== undefined) {
             resolvedCommand = preToolResult.command;
@@ -574,9 +591,7 @@ export async function runScenario(
           ),
         name: z
           .string()
-          .describe(
-            "Item name: dogfood (bundled), prose-qa (custom), etc.",
-          ),
+          .describe("Item name: dogfood (bundled), prose-qa (custom), etc."),
       }),
       execute: async ({ kind, name }) => {
         try {
@@ -586,7 +601,9 @@ export async function runScenario(
             name,
           );
           if (options.verbose && !result.alreadyLoaded) {
-            console.log(`\n[load_skill] ${kind}:${name} (${result.content.length} chars)`);
+            console.log(
+              `\n[load_skill] ${kind}:${name} (${result.content.length} chars)`,
+            );
           }
           return {
             kind: result.kind,
@@ -602,10 +619,7 @@ export async function runScenario(
     });
   }
 
-  const initialPrompt = buildInitialPrompt(
-    options.scenario,
-    preparedStartUrl,
-  );
+  const initialPrompt = buildInitialPrompt(options.scenario, preparedStartUrl);
   appendTranscriptMessage(transcript, "user", initialPrompt);
 
   const initialMessages: ModelMessage[] = [
@@ -647,13 +661,13 @@ export async function runScenario(
     const formatted = formatStepForTranscript(stepInput);
     const safeFormatted = options.redactor
       ? {
-        content: formatted.content
-          ? options.redactor.redact(formatted.content)
-          : formatted.content,
-        thinking: formatted.thinking
-          ? options.redactor.redact(formatted.thinking)
-          : formatted.thinking,
-      }
+          content: formatted.content
+            ? options.redactor.redact(formatted.content)
+            : formatted.content,
+          thinking: formatted.thinking
+            ? options.redactor.redact(formatted.thinking)
+            : formatted.thinking,
+        }
       : formatted;
     const changed = appendStepToTranscript(
       transcript,
@@ -767,10 +781,16 @@ export async function runScenario(
       healingMeta.signals = classified.signals;
 
       if (isRecoveryAllowed(classified, options.config, options.noHealing)) {
-        const maxRecovery = resolveHealingConfig(options.config).maxRecoveryTurns;
+        const maxRecovery = resolveHealingConfig(
+          options.config,
+        ).maxRecoveryTurns;
         const failed = verdict.checkpoints.filter((c) => !c.pass);
 
-        for (let recoveryAttempt = 0; recoveryAttempt < maxRecovery; recoveryAttempt++) {
+        for (
+          let recoveryAttempt = 0;
+          recoveryAttempt < maxRecovery;
+          recoveryAttempt++
+        ) {
           const recoveryPrompt = buildRecoveryPrompt(failed);
           appendTranscriptMessage(transcript, "user", recoveryPrompt);
           persistTranscript(options, transcript);
@@ -801,7 +821,10 @@ export async function runScenario(
             guardMetadata,
             stepIntentCapture,
           });
-          tokenUsage = addLanguageModelUsage(tokenUsage, recoveryLlmResult.totalUsage);
+          tokenUsage = addLanguageModelUsage(
+            tokenUsage,
+            recoveryLlmResult.totalUsage,
+          );
 
           finalText = recoveryLlmResult.text || finalText;
           appendFinalTextToTranscript(
@@ -871,7 +894,11 @@ export async function runScenario(
     };
   } catch (err) {
     if (pendingBashEntries.length > 0) {
-      appendStepToTranscript(transcript, { text: "", toolCalls: [] }, pendingBashEntries.splice(0));
+      appendStepToTranscript(
+        transcript,
+        { text: "", toolCalls: [] },
+        pendingBashEntries.splice(0),
+      );
     }
     persistTranscript(options, transcript);
 
