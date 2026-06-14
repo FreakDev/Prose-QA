@@ -68,9 +68,18 @@ describe("resolveAgentParallel", () => {
       agent: { ...minimalConfig("chrome").agent, parallel: 3 },
     };
     assert.equal(resolveAgentParallel(config), 3);
-    assert.equal(resolveAgentParallel({ ...config, agent: { ...config.agent, parallel: 0 } }), undefined);
     assert.equal(
-      resolveAgentParallel({ ...config, agent: { ...config.agent, parallel: -1 } }),
+      resolveAgentParallel({
+        ...config,
+        agent: { ...config.agent, parallel: 0 },
+      }),
+      undefined,
+    );
+    assert.equal(
+      resolveAgentParallel({
+        ...config,
+        agent: { ...config.agent, parallel: -1 },
+      }),
       Number.POSITIVE_INFINITY,
     );
   });
@@ -79,7 +88,10 @@ describe("resolveAgentParallel", () => {
 describe("resolveBrowserHeaded", () => {
   it("forces headless when engine is lightpanda", () => {
     assert.equal(resolveBrowserHeaded(minimalConfig("lightpanda")), false);
-    assert.equal(resolveBrowserHeaded(minimalConfig("lightpanda"), true), false);
+    assert.equal(
+      resolveBrowserHeaded(minimalConfig("lightpanda"), true),
+      false,
+    );
     assert.equal(
       resolveBrowserHeaded(minimalConfig("lightpanda"), false),
       false,
@@ -108,13 +120,10 @@ describe("loadConfig", () => {
       assert.equal(config.healing?.enabled, true);
       assert.equal(config.healing?.maxRecoveryTurns, 2);
       assert.deepEqual(config.envVars, []);
-      assert.deepEqual(config.auth?.admin, { scenario: "login-admin" });
       assert.equal(config.recorder?.bridgePort, 17_321);
       assert.equal(config.scenariosDir, "scenarios");
       assert.equal(config.agent.parallel, 0);
-      assert.deepEqual(config.skills.dirs, [
-        path.resolve(cwd, ".pqa/skills"),
-      ]);
+      assert.deepEqual(config.skills.dirs, [path.resolve(cwd, ".pqa/skills")]);
       assert.deepEqual(config.skills.preloads, []);
     } finally {
       if (prevProvider === undefined) delete process.env.PQA_LLM_PROVIDER;
@@ -203,10 +212,7 @@ describe("loadConfig", () => {
 describe("missingLlmApiKey", () => {
   it("requires PQA_LLM_API_KEY for cloud providers", () => {
     const config = minimalConfig("chrome");
-    assert.match(
-      missingLlmApiKey(config)!,
-      new RegExp(PQA_LLM_API_KEY),
-    );
+    assert.match(missingLlmApiKey(config)!, new RegExp(PQA_LLM_API_KEY));
   });
 
   it("does not require an API key for ollama", () => {
