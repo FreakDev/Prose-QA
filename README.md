@@ -11,6 +11,8 @@ Requires **Node.js 24+**, `PQA_LLM_API_KEY`, and `llm.provider` / `llm.model` in
 ```bash
 npm install prose-qa
 
+pqa install-browser chrome   # or lightpanda (headless, lighter for CI)
+
 pqa config llm.provider [ollama|fireworks|openai|anthropic|google]
 pqa config llm.model [model-string]
 
@@ -21,9 +23,9 @@ pqa run scenarios/**/*.md
 **New project checklist**
 
 1. Install the package in your app repo (or globally with `npm install -g prose-qa`).
-2. install a browser `pqa install-browser chrome` or `pqa install-browser lightpanda` (headless only but way lighter, perfect for CI pipeline)
+2. Install a browser: `pqa install-browser chrome` or `pqa install-browser lightpanda` (headless only but lighter — good for CI).
 3. Create `pqa.config.json` — use `pqa config <key> <value>` or copy the [minimal example](docs/CONFIG.md#minimal-example).
-4. Add scenarios under `scenarios/` (see [0_hello-world.md](scenarios/0_hello-world.md)).
+4. Add scenarios under `scenarios/` (see [0_hello-world.md](scenarios/0_hello-world.md); advanced patterns in [create-pqa-scenario skill](skills/create-pqa-scenario/SKILL.md)).
 5. Run `pqa run` or `pqa debug`.
 
 ## What you get
@@ -32,6 +34,7 @@ pqa run scenarios/**/*.md
 - **CI + local debug** modes with HTML/JSON reports
 - **MCP Server** to help your usual agent create scenario tailored to your codebase
 - **Cache, healing, recording, and analysis** — see [HOWTO](docs/HOWTO.md)
+- **Extensions / hooks** — lifecycle callbacks for auth, browser health, and custom logic ([extensions guide](docs/extensions.md))
 
 ## Documentation
 
@@ -39,9 +42,13 @@ pqa run scenarios/**/*.md
 | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
 | [docs/HOWTO.md](docs/HOWTO.md)                               | Step-by-step guide: scenarios → run → CI → MCP → record → cache → healing → analyze |
 | [docs/CONFIG.md](docs/CONFIG.md)                             | Full configuration reference                                                               |
+| [docs/extensions.md](docs/extensions.md)                     | Hooks system, `defaultExtensionHooks`, parallel workers                                    |
+| [CONTEXT.md](CONTEXT.md)                                     | Glossary (run unit, provisioning, profiles)                                                |
 | [CONTRIBUTING.md](CONTRIBUTING.md)                           | Pull request guidelines                                                                    |
 | [SECURITY.md](SECURITY.md)                                   | Vulnerability reporting, secrets, and run artifacts                                        |
 | [recorder-extension/README.md](recorder-extension/README.md) | Chrome extension recorder (WIP)                                                            |
+
+Run `pqa help` or `pqa help <command>` for the full CLI reference ([`src/cli/help.ts`](src/cli/help.ts)).
 
 ## CLI
 
@@ -52,9 +59,13 @@ pqa run scenarios/**/*.md
 | `pqa debug [globs]`                                 | Verbose debug run (headed by default)              |
 | `pqa clear-cache [scenario]`                        | Clear scenario replay cache                        |
 | `pqa analyze [run...]`                              | Post-run analysis and flaky detection (`--last N`) |
+| `pqa auth list` / `clear [profile]`                 | List or clear cached auth profiles                 |
+| `pqa install-browser chrome` / `lightpanda`       | Install browser binaries for agent-browser         |
 | `pqa record start` / `note` / `checkpoint` / `stop` | Record browser actions → scenario markdown         |
+| `pqa record generate <dir>`                         | Regenerate scenario markdown from a saved recording |
 | `pqa skills list` / `show` / `sync`                 | Discover and inspect agent skills                  |
 | `pqa mcp`                                           | Start MCP server (Cursor, Claude Desktop, …)       |
+| `pqa help [command...]`                             | Show CLI help for one or all commands              |
 
 Tag filters, retries, and cache flags: see [HOWTO §3–§4](docs/HOWTO.md#3-debug-vs-run) and [HOWTO §10](docs/HOWTO.md#10-healing--retries).
 
@@ -98,7 +109,7 @@ Add the following to your `mcp.json`:
 }
 ```
 
-Tools: `validate_scenario`, `run_scenario`, `get_create_pqa_scenario_skill`. Details: [HOWTO §8](docs/HOWTO.md#8-mcp--author-skill).
+Tools: `validate_scenario`, `run_scenario`, `get_create_pqa_scenario_skill`. Details: [HOWTO §7](docs/HOWTO.md#7-mcp--author-skill).
 
 ## Development (this repo)
 
@@ -107,7 +118,7 @@ git clone https://github.com/FreakDev/Prose-QA.git
 cd Prose-QA
 npm ci && npm run install-chrome
 
-npm run build
+npm run build   # required — bundled pqa.config.ts imports dist/hooks/defaults.js
 
 export PQA_LLM_API_KEY=...
 
@@ -117,7 +128,7 @@ npm run dev -- run scenarios/**/*.md --tags example   # CI smoke subset
 npm run dev -- run scenarios/**/*.md --tags demo       # full demo suite
 ```
 
-Bundled demo scenarios cover smoke tests, calculator widgets, auth profiles, multi-field forms, validation errors, navigation, and partials — see [`scenarios/`](scenarios/) and [`demo-site/`](demo-site/).
+Bundled demo scenarios cover smoke tests, calculator widgets, auth profiles, multi-field forms, validation errors, navigation, and partials — see [`scenarios/`](scenarios/) and [`demo-site/`](demo-site/). Add `scenarios/auth/login-admin.md` locally to exercise `example-authenticated` (see [create-pqa-scenario skill](skills/create-pqa-scenario/SKILL.md)).
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) and [docs/HOWTO.md](docs/HOWTO.md) for the full walkthrough.
 

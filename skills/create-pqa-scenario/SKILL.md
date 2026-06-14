@@ -42,14 +42,14 @@ One short paragraph: who is acting, what they want, and what success means.
 
 ## Frontmatter
 
-| Field     | Required | Notes                                              |
-| --------- | -------- | -------------------------------------------------- |
-| `name`    | yes      | Stable kebab-case identifier                       |
+| Field     | Required | Notes                                                 |
+| --------- | -------- | ----------------------------------------------------- |
+| `name`    | yes      | Stable kebab-case identifier                          |
 | `tags`    | no       | Filter runs: `pqa run scenarios/**/*.md --tags smoke` |
-| `auth`    | no       | Profile key for consumer scenarios (see below)   |
-| `url`     | no       | Harness opens this before Steps when set           |
-| `skills`  | no       | Extra Agent Skill names merged into the prompt     |
-| `partial` | no       | `true` = include-only fragment; never run in batch |
+| `auth`    | no       | Profile key for consumer scenarios (see below)        |
+| `url`     | no       | Harness opens this before Steps when set              |
+| `skills`  | no       | Extra Agent Skill names merged into the prompt        |
+| `partial` | no       | `true` = include-only fragment; never run in batch    |
 
 ### Auth profiles
 
@@ -164,54 +164,14 @@ Before saving a scenario file:
 - [ ] `tags` set for how you plan to filter runs (`smoke`, `checkout`, etc.)
 - [ ] No secrets in the file (passwords, API keys)
 
-## Record a scenario (Prose-QA recorder)
-
-From the Prose-QA repo, capture browser actions and generate a draft markdown file:
-
-```bash
-pqa record start --url http://localhost:3000/your-page
-pqa record note "optional context for the LLM"
-pqa record checkpoint 'page shows "Expected title"'
-pqa record stop --name my-flow
-pqa debug scenarios/recorded/my-flow.md --verbose --headed
-```
-
-Edit the generated file before committing (condense steps, add table data, partials). Recorded scenarios default-tag `recorded` (configurable via `recorder.defaultTags` in `pqa.config`).
-
-Chrome extension for a daily browser profile: `recorder-extension/` in the Prose-QA repo (see its README).
-
-## Validate locally
-
-From the Prose-QA repo (start `npm run demo:server` first — bundled examples use http://127.0.0.1:8080/):
-
-```bash
-npm run dev -- debug scenarios/0_hello-world.md --verbose
-# or
-npm run dev -- run scenarios/**/*.md --tags example
-```
-
 Parser errors (`missing 'name'`, `Circular scenario include`) mean fix frontmatter or links before debugging the UI.
 
 ## Common mistakes
 
-| Mistake                              | Fix                                                        |
-| ------------------------------------ | ---------------------------------------------------------- |
-| Then lines without `-`               | Prefix every checkpoint with `- `                          |
-| Duplicate step numbers (1, 4, 5)     | Renumber Steps sequentially                                |
-| Vague Then (“the form should work”)  | Split into `page shows "…"` / `url contains "…"` bullets   |
-
-## When unsure
-
-Read bundled examples in `scenarios/` and mirror their structure:
-
-| File | Demonstrates |
-| ---- | ------------ |
-| `0_hello-world.md` | Minimal smoke |
-| `1_demo-calculator-form.md` | Equation captcha (`10 − A + B = 13`) |
-| `3_demo-form-playground-happy.md` | Multi-field form submission |
-| `4_demo-form-validation-errors.md` | Server validation + semantic Then |
-| `auth/login-admin.md` | Auth provisioning |
-| `2_example-authenticated.md` | Consumer scenario with `auth:` |
-| `6_demo-form-with-partial.md` | Reusable partial include |
+| Mistake                             | Fix                                                      |
+| ----------------------------------- | -------------------------------------------------------- |
+| Then lines without `-`              | Prefix every checkpoint with `- `                        |
+| Duplicate step numbers (1, 4, 5)    | Renumber Steps sequentially                              |
+| Vague Then (“the form should work”) | Split into `page shows "…"` / `url contains "…"` bullets |
 
 For browser mechanics, the run uses the `agent-browser` skill from Prose-QA — scenarios should not re-document CLI flags.

@@ -234,6 +234,34 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
     ],
   },
   {
+    name: "auth",
+    summary: "Authentication helpers",
+    usage: "pqa auth <subcommand>",
+    description:
+      "Manage cached browser auth state for scenario profiles. Provisioning runs via preBatch hooks — refresh with pqa run --auth-refresh (no pqa auth save).",
+    subcommands: [
+      {
+        name: "list",
+        summary: "List cached auth profiles",
+        usage: "pqa auth list",
+        description:
+          "Show profiles stored in the auth store with paths and timestamps.",
+      },
+      {
+        name: "clear",
+        summary: "Clear cached auth state",
+        usage: "pqa auth clear [profile]",
+        description: "Remove one profile or all profiles from the auth store.",
+        arguments: [
+          {
+            name: "profile",
+            description: "Profile name to clear; omit to clear all",
+          },
+        ],
+      },
+    ],
+  },
+  {
     name: "install-browser",
     summary: "Install browser binaries for agent-browser",
     usage: "pqa install-browser <subcommand>",

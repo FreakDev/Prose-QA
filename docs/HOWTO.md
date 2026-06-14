@@ -10,7 +10,7 @@ This guide introduces the essential **Prose-QA** (PQA) features in a progressive
 
 ```bash
 npm ci && npm run build
-npx agent-browser install
+pqa install-browser chrome   # or: npm run install-chrome in this repo
 export PQA_LLM_API_KEY=...
 pqa config llm.provider anthropic
 pqa config llm.model claude-sonnet-4-20250514
@@ -22,7 +22,7 @@ pqa config llm.model claude-sonnet-4-20250514
 npm run demo:server   # http://127.0.0.1:8080/ (keep running in another terminal)
 ```
 
-Demo site routes:
+Demo site routes (see [`demo-site/`](../demo-site/) and [`scripts/demo-server.mjs`](../scripts/demo-server.mjs)):
 
 | Route | Purpose |
 | ----- | ------- |
@@ -31,18 +31,19 @@ Demo site routes:
 | `/login` | Sign in (`PQA_TEST_EMAIL` / `PQA_TEST_PASSWORD`) |
 | `/projects` | Protected page (requires session) |
 
-Bundled example scenarios:
+**Bundled scenarios in this harness repo**
 
 | Tag | Scenarios |
 | --- | --------- |
 | `example` | CI smoke — `hello-world`, `demo-form-playground-happy` |
-| `demo` | Full demo suite — calculator, auth, navigation, validation, partials |
-| `forms` | Form-focused scenarios |
-| `auth` | Auth provisioning (`login-admin`; excluded from batch when referenced in config) |
+| `demo` | Calculator, auth consumer, navigation, validation, partials |
+| `forms` | Form-focused scenarios (`demo-form-playground-happy`, validation, partial) |
+
+`auth/login-admin` (provisioning scenario for `config.auth`) is whitelisted in `.gitignore` but not committed — add it locally to run `example-authenticated`, or see the [create-pqa-scenario skill](../skills/create-pqa-scenario/SKILL.md).
 
 ```bash
 pqa run scenarios/**/*.md --tags example    # CI subset
-pqa run scenarios/**/*.md --tags demo         # full demo suite
+pqa run scenarios/**/*.md --tags demo         # full demo suite (minus auth-dependent if login-admin missing)
 pqa run scenarios/**/*.md --tags demo,forms   # forms only
 ```
 
@@ -118,18 +119,20 @@ Consumer scenarios declare `auth: <profile-key>` to run as an already-signed-in 
 }
 ```
 
-- **Auth scenario** (`login-admin`) — performs login; do **not** set `auth:` on it. Excluded from batch runs when referenced in config.
-- **Consumer scenario** — `auth: admin` in frontmatter; harness ensures the profile exists before Steps.
+- **Auth scenario** (e.g. `login-admin`) — performs login; do **not** set `auth:` on it. Excluded from batch runs when referenced in config.
+- **Consumer scenario** — `auth: admin` in frontmatter; harness provisions the profile in `preBatch` before Steps.
 - **Chrome** — profile stored under `.pqa/profiles/<key>/`
 - **Lightpanda** — state JSON under `.pqa/auth/<key>.json`
 
-Refresh a stale profile:
+Refresh a stale profile with `pqa run … --auth-refresh`. There is no `pqa auth save` command (removed — see [ADR-0001](adr/0001-auth-via-pre-batch-hooks.md)).
 
 ```bash
 pqa run scenarios/checkout.md --auth-refresh
 pqa auth list
 pqa auth clear admin
 ```
+
+See the [create-pqa-scenario skill](../skills/create-pqa-scenario/SKILL.md) for auth scenario patterns against the demo site.
 
 ### Author checklist
 
@@ -169,7 +172,7 @@ Config: `skills.onDemand` in `pqa.config.*` (`enabled`, `autoLoad`, `maxChars`).
 2. **Action** on a ref (`@eN`) or semantic locator — **one UI command per bash call**.
 3. **Re-snapshot** after navigation, submit, or DOM change.
 
-The system prompt system prompt enforces this loop and forbids `curl`/`wget` for UI testing.
+The system prompt enforces this loop and forbids `curl`/`wget` for UI testing.
 
 ### Then verification
 
@@ -196,29 +199,63 @@ The agent ends with a structured JSON block (pass/fail per checkpoint). The harn
 | --------- | -------------------------- | --------------------- |
 | Use case  | Development, investigation | CI, batch regression  |
 | Browser   | Headed by default          | Headless by default   |
-| Verbosity | `--verbose` recommended    | Concise output        |
-| Scenarios | One                        | One or multiple globs |
+| Verbosity | Verbose by default         | Concise output        |
+| Scenarios | One or multiple globs      | One or multiple globs |
 
-### Debug (single scenario, visible)
+### Debug (visible browser, verbose)
 
 ```bash
 npm run demo:server &
-npm run dev -- debug scenarios/0_hello-world.md --verbose
+npm run dev -- debug scenarios/0_hello-world.md
 ```
 
 The **action overlay** (in-page cursor and highlight before each agent-browser command) is enabled by default in debug. Disable with `--no-action-overlay`.
 
-Useful options: `--headed` / `--no-headed`, `--tag` / `--tags`, `--no-action-overlay`.
+Useful options: `--no-headed`, `--tag` / `--tags`, `--no-action-overlay`, `--pause`, `--keep-browser`.
 
 ### Run (batch, CI)
 
 ```bash
-npm run dev -- run scenarios/**/*.md --tags smoke
+npm run dev -- run scenarios/**/*.md --tags example
 ```
 
 Exit codes: `0` = success · `1` = scenario failure · `2` = config/harness error.
 
 Default browser settings: [`pqa.config.ts`](../pqa.config.ts) → `browser.headed`, `defaultTimeout`, etc.
+
+### Common flags (`run` and `debug`)
+
+| Flag | `run` | `debug` | Description |
+| ---- | ----- | ------- | ----------- |
+| `-c, --config <path>` | yes | yes | Explicit config file path |
+| `--tags` / `--tag` | yes | yes | Tag filters (AND within `--tags`, OR across repeats) |
+| `--skills-dir <dirs>` | yes | yes | Extra skill directories (comma-separated) |
+| `--retries <n>` | yes | yes | Retries per failed scenario |
+| `--retries-policy transient\|always` | yes | yes | Retry gating when healing is enabled |
+| `--no-healing` | yes | yes | Disable in-run recovery and transient retry gating |
+| `--no-cache` | yes | yes | Skip replay hints cache read/write |
+| `--auth-refresh` | yes | yes | Re-run auth scenarios and refresh profiles |
+| `--parallel [n]` | yes | yes | Parallel subprocess workers; optional max concurrency |
+| `--fail-fast` | yes | yes | Stop on first scenario failure |
+| `--report-output <path>` | yes | yes | Custom report output path |
+| `--report-zip` | yes | yes | Emit report as zip instead of directory |
+| `--keep-browser` | yes | yes | Leave browser open after each scenario |
+| `--headed` | yes | — | Headed browser (run default is headless) |
+| `--no-headed` | — | yes | Headless browser (debug default is headed) |
+| `--action-overlay` | yes | — | Enable in-page overlay (Chrome headed only) |
+| `--no-action-overlay` | yes | yes | Disable overlay (debug enables by default) |
+| `--artifacts on-failure\|always\|never` | yes | — | When to keep failure artifacts |
+| `--pause` | — | yes | Pause between agent turns |
+
+### Parallel execution and fail-fast
+
+```bash
+pqa run scenarios/**/*.md --parallel 4      # up to 4 concurrent workers
+pqa run scenarios/**/*.md --parallel        # unlimited concurrency
+pqa run scenarios/**/*.md --fail-fast       # stop on first failure
+```
+
+Config default: `agent.parallel` (`0` = sequential). When using `--parallel`, prefer **module path hooks** over inline closures — see [extensions.md](extensions.md#worker-parallelism-limitation).
 
 ---
 
@@ -246,7 +283,7 @@ pqa run scenarios/**/*.md --tag smoke --tag checkout
 
 ## 5. Reports
 
-Each run writes artifacts under **`.pqa/runs/<runId>/`**:
+Each run writes artifacts under **`.pqa/runs/<runId>/`** (or a custom path via `--report-output` / `report.outputPath`):
 
 | File                          | Content                             |
 | ----------------------------- | ----------------------------------- |
@@ -267,7 +304,8 @@ Integrating PQA in a pipeline means: install the browser, start the app (or demo
 Example in this repo: [`.github/workflows/smoke_tests.yml`](../.github/workflows/smoke_tests.yml).
 
 ```yaml
-- run: npx agent-browser install --with-deps
+- run: npm ci
+- run: npm run install-chrome
 - run: npm run build
 - run: |
     npm run demo:server &
@@ -280,13 +318,17 @@ Example in this repo: [`.github/workflows/smoke_tests.yml`](../.github/workflows
     PQA_LLM_API_KEY: ${{ secrets.PQA_LLM_API_KEY }}
     PQA_LLM_PROVIDER: fireworks
     PQA_LLM_MODEL: accounts/fireworks/models/deepseek-v4-flash
+    PQA_TEST_EMAIL: demo@pqa.local
+    PQA_TEST_PASSWORD: demo-password
 ```
+
+The workflow skips the PQA step when `PQA_LLM_API_KEY` is not configured.
 
 Best practices:
 
 - GitHub Secrets → `PQA_LLM_API_KEY`, `PQA_TEST_EMAIL`, etc.
 - `envVars` in `pqa.config.json` for test credentials
-- `--tag example` to limit scope (bundled demo scenarios in this repo)
+- `--tag example` to limit scope (single smoke scenario in this harness repo)
 - Upload `.pqa/runs/` on failure (`actions/upload-artifact`)
 
 Optional: `--retries 1 --retries-policy transient` (§10).
@@ -341,8 +383,10 @@ pqa record note "optional context for the LLM"
 # interact in the browser (headed session)
 pqa record checkpoint 'page shows "Projects"'
 pqa record stop --name my-flow
-pqa debug scenarios/recorded/my-flow.md --verbose
+pqa debug scenarios/recorded/my-flow.md
 ```
+
+`record start` options: `--url`, `--no-headed`, `--session <name>`, `--connect <cdp-url>` (attach to existing Chrome), `-c/--config`, `-v/--verbose`.
 
 - Events: `.pqa/recordings/<timestamp>/events.jsonl`
 - Snapshots: `.pqa/recordings/.../snapshots/`
@@ -436,7 +480,7 @@ Related prompts: [`prompt/ANALYZE.md`](../prompt/ANALYZE.md), [`prompt/ANALYZE-F
 
 | Minutes | Section | Action                                                                |
 | ------- | ------- | --------------------------------------------------------------------- |
-| 0–10    | §1–2    | `npm run demo:server`, read `0_hello-world.md`, run `debug --verbose` |
+| 0–10    | §1–2    | `npm run demo:server`, read `0_hello-world.md`, run `debug`           |
 | 10–15   | §3–4    | `run` with `--tag example`                                            |
 | 15–20   | §5      | Open latest `report.html`                                             |
 | 20–30   | §6      | Review `smoke_tests.yml`                                              |
@@ -449,5 +493,6 @@ Sections §7–11: separate workshop on a real app or as follow-up depth.
 
 - [README.md](../README.md) — quick start and CLI
 - [CONFIG.md](CONFIG.md) — full configuration reference
+- [extensions.md](extensions.md) — hooks and extensions
 - [CONTRIBUTING.md](../CONTRIBUTING.md) — contributing to the repo
 - [SECURITY.md](../SECURITY.md) — secrets and artifacts

@@ -124,7 +124,7 @@ export interface PqaConfig {
     lightpanda?: LightpandaBrowserConfig;
   };
   skills: {
-    /** Directories scanned for custom SKILL.md files. Default: [] */
+    /** Directories scanned for custom SKILL.md files. Default: [".pqa/skills"] */
     dirs?: string[];
     /** Extra skill names always appended to the system prompt (core is always loaded). Default: [] */
     preloads?: string[];

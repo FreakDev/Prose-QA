@@ -25,6 +25,11 @@ const config = {
   },
   envVars: [],
   sensitiveEnvVars: [],
+  auth: {
+    admin: {
+      scenario: "login-admin",
+    },
+  },
   skills: {
     dirs: [".pqa/skills"],
     preloads: [],
@@ -32,11 +37,6 @@ const config = {
       enabled: true,
       autoLoad: true,
       maxChars: 50_000,
-    },
-  },
-  auth: {
-    admin: {
-      scenario: "login-admin",
     },
   },
   agent: {

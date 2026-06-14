@@ -21,5 +21,7 @@ scenarios/*
 !scenarios/4_demo-form-validation-errors.md
 !scenarios/5_demo-multi-page-nav.md
 !scenarios/6_demo-form-with-partial.md
+!scenarios/partials/
+!scenarios/partials/**
+!scenarios/auth/
 !scenarios/auth/login-admin.md
-!scenarios/partials/fill-playground-minimal.md

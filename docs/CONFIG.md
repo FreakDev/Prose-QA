@@ -14,6 +14,8 @@ pqa config envVars '["PQA_TEST_EMAIL","PQA_TEST_PASSWORD"]'
 
 Unknown keys are rejected; only properties that exist in the bundled reference config are allowed.
 
+The bundled `pqa.config.ts` imports `./dist/hooks/defaults.js` — run `npm run build` before relying on bundled defaults in this repo (see [ADR-0001](adr/0001-auth-via-pre-batch-hooks.md)).
+
 ## Minimal example
 
 ```json
@@ -43,7 +45,7 @@ Root directory for scenario markdown files. Set directly in `pqa.config.json`.
 
 |             |              |
 | ----------- | ------------ |
-| **Default** | `scenarios/` |
+| **Default** | `scenarios` |
 
 ### `envVars` (string[])
 
@@ -88,11 +90,23 @@ Extended thinking / reasoning. Provider support varies.
 
 Default browser behavior for scenario runs (overridable per run with `--headed` / `--no-headed`).
 
-| Key              | Type    | Default | Description                          |
-| ---------------- | ------- | ------- | ------------------------------------ |
-| `headed`         | boolean | `false` | Run browser in visible (headed) mode |
-| `sessionName`    | string  | `"pqa"` | agent-browser session name           |
-| `defaultTimeout` | number  | `25000` | Default timeout in milliseconds      |
+| Key              | Type                              | Default   | Description                          |
+| ---------------- | --------------------------------- | --------- | ------------------------------------ |
+| `headed`         | boolean                           | `false`   | Run browser in visible (headed) mode |
+| `sessionName`    | string                            | `"pqa"`   | agent-browser session name           |
+| `defaultTimeout` | number                            | `25000`   | Default timeout in milliseconds      |
+| `engine`         | `"chrome"` \| `"lightpanda"`    | `"chrome"` | agent-browser engine (`AGENT_BROWSER_ENGINE`) |
+
+#### `browser.lightpanda` (object, optional)
+
+Used when `browser.engine` is `lightpanda`.
+
+| Key              | Type    | Default           | Description                                                                 |
+| ---------------- | ------- | ----------------- | --------------------------------------------------------------------------- |
+| `executablePath` | string  | `"./.pqa/engine"` | Path to Lightpanda binary or directory (`AGENT_BROWSER_EXECUTABLE_PATH`)  |
+| `telemetry`      | boolean | `false`           | When `false`, sets `LIGHTPANDA_DISABLE_TELEMETRY=true`                      |
+
+Install the binary with `pqa install-browser lightpanda`.
 
 ---
 
@@ -147,7 +161,7 @@ Persistence depends on `browser.engine`:
 - **chrome** — Chrome profile directory (`.pqa/profiles/<key>/`)
 - **lightpanda** — agent-browser state JSON (`.pqa/auth/<key>.json`)
 
-CLI: `pqa auth list`, `pqa auth clear [profile]`, `--auth-refresh` on `pqa run`.
+CLI: `pqa auth list`, `pqa auth clear [profile]`, `--auth-refresh` on `pqa run`. Provisioning runs via `preBatch` hooks — see [extensions.md](extensions.md) and [ADR-0001](adr/0001-auth-via-pre-batch-hooks.md). There is no `pqa auth save`.
 
 ---
 
@@ -155,15 +169,20 @@ CLI: `pqa auth list`, `pqa auth clear [profile]`, `--auth-refresh` on `pqa run`.
 
 Agent loop limits.
 
-| Key             | Type   | Default  | Description                                                   |
-| --------------- | ------ | -------- | ------------------------------------------------------------- |
-| `maxTurns`      | number | `200`    | Maximum agent turns per scenario                              |
-| `bashTimeoutMs` | number | `120000` | Timeout for each bash (agent-browser) command in milliseconds |
-| `guard`         | object | see below | Generic effort limits (failed bash budget, recovery step cap) |
+| Key                           | Type   | Default  | Description                                                   |
+| ----------------------------- | ------ | -------- | ------------------------------------------------------------- |
+| `maxTurns`                    | number | `80`     | Maximum agent turns per scenario                              |
+| `bashTimeoutMs`               | number | `10000`  | Timeout for each bash (agent-browser) command in milliseconds |
+| `parallel`                    | number | `0`      | Max concurrent workers when `--parallel` is used (`0` = sequential; `-1` = unlimited) |
+| `workerInactivityTimeoutMs`   | number | `120000` | Worker subprocess watchdog timeout (ms)                       |
+| `workerHeartbeatIntervalMs`   | number | `15000`  | Worker heartbeat write interval (ms)                          |
+| `guard`                       | object | see below | Generic effort limits (failed bash budget, recovery step cap) |
+
+If the bundled config file is missing (broken install), [`MINIMAL_FALLBACK_CONFIG`](../src/config/load.ts) uses `maxTurns: 200` and `bashTimeoutMs: 120000`.
 
 #### `agent.guard` (object, optional)
 
-Limits agent effort when bash commands fail repeatedly. Enforced by the default `preLlmTurn` and `postTool` hooks.
+Limits agent effort when bash commands fail repeatedly. Enforced by the default `preLlmTurn` and `postTool` hooks. See [ADR-0002](adr/0002-agent-run-guard.md).
 
 | Key                    | Type   | Default | Description                                                                 |
 | ---------------------- | ------ | ------- | --------------------------------------------------------------------------- |
@@ -185,7 +204,7 @@ Fail-fast checks for unrecoverable browser errors (via the default `postTool` ho
 
 ### `healing` (object, optional)
 
-Conservative self-healing: in-run recovery and transient-only scenario retries. See [HOWTO §11 — Healing / retries](HOWTO.md#11-healing--retries).
+Conservative self-healing: in-run recovery and transient-only scenario retries. See [HOWTO §10 — Healing / retries](HOWTO.md#10-healing--retries).
 
 | Key                 | Type     | Default   | Description                                                                                  |
 | ------------------- | -------- | --------- | -------------------------------------------------------------------------------------------- |
@@ -204,7 +223,7 @@ CLI equivalents: `--no-healing`, `--retries N`, `--retries-policy transient|alwa
 
 ### `cache` (object, optional)
 
-Scenario replay cache settings. See [HOWTO §10 — Replay cache](HOWTO.md#10-replay-cache).
+Scenario replay cache settings. See [HOWTO §9 — Replay cache](HOWTO.md#9-replay-cache).
 
 | Key       | Type    | Default        | Description                              |
 | --------- | ------- | -------------- | ---------------------------------------- |
@@ -215,13 +234,60 @@ Scenario replay cache settings. See [HOWTO §10 — Replay cache](HOWTO.md#10-re
 
 ### `recorder` (object, optional)
 
-Settings for `pqa record`. See [HOWTO §9 — Record → markdown](HOWTO.md#9-record--markdown).
+Settings for `pqa record`. See [HOWTO §8 — Record → markdown](HOWTO.md#8-record--markdown).
 
 | Key           | Type     | Default             | Description                                    |
 | ------------- | -------- | ------------------- | ---------------------------------------------- |
 | `bridgePort`  | number   | `17321`             | Local HTTP port for the recording event bridge |
 | `outputDir`   | string   | `".pqa/recordings"` | Directory for saved recording sessions         |
 | `defaultTags` | string[] | `["recorded"]`      | Tags added to generated scenario frontmatter   |
+
+---
+
+### `report` (object, optional)
+
+Default report output location. Overridable per run with `--report-output` and `--report-zip`.
+
+| Key          | Type    | Default | Description                                                                 |
+| ------------ | ------- | ------- | --------------------------------------------------------------------------- |
+| `outputPath` | string  | `""`    | Directory or file path; trailing `/` creates a `runId` folder or zip inside |
+| `zip`        | boolean | `false` | Emit report as zip instead of a directory                                   |
+
+When `outputPath` is empty, reports go to `.pqa/runs/<runId>/`.
+
+---
+
+### `extensions` (object, optional)
+
+Extension hooks and action overlay defaults. See [extensions.md](extensions.md).
+
+#### `extensions.hooks` (object, optional)
+
+Lifecycle hook arrays keyed by slot (`preBatch`, `postBatch`, `preScenario`, `preSystemPrompt`, `preLlmTurn`, `postLlmTurn`, `preTool`, `postTool`, `preVerdict`, `postScenario`). Each slot accepts inline functions or module paths (`.ts`, `.js`, `.mjs`).
+
+Bundled default: `defaultExtensionHooks` from `prose-qa/hooks` (auth provisioning, browser health, run guard). **Override is strict** — replacing `extensions.hooks` without spreading defaults removes built-in auth provisioning.
+
+```ts
+import { defineConfig } from "prose-qa/define-config";
+import { defaultExtensionHooks, mergeExtensionHooks } from "prose-qa/hooks";
+
+export default defineConfig({
+  extensions: {
+    hooks: mergeExtensionHooks(defaultExtensionHooks, {
+      postBatch: [notifySlack],
+    }),
+  },
+});
+```
+
+#### `extensions.actionOverlay` (object, optional)
+
+In-page visual overlay before agent-browser actions (Chrome headed only). Debug mode enables overlay by default unless `--no-action-overlay`.
+
+| Key         | Type    | Default | Description                                      |
+| ----------- | ------- | ------- | ------------------------------------------------ |
+| `enabled`   | boolean | `false` | Master switch when not overridden by CLI         |
+| `previewMs` | number  | `800`   | Blocking preview duration before each action (ms) |
 
 ---
 
@@ -244,15 +310,34 @@ Settings for `pqa record`. See [HOWTO §9 — Record → markdown](HOWTO.md#9-re
   "browser": {
     "headed": false,
     "sessionName": "pqa",
-    "defaultTimeout": 25000
+    "defaultTimeout": 25000,
+    "engine": "chrome",
+    "lightpanda": {
+      "executablePath": "./.pqa/engine",
+      "telemetry": false
+    }
   },
   "skills": {
     "dirs": [".pqa/skills"],
-    "preloads": ["prose-qa"]
+    "preloads": []
+  },
+  "auth": {
+    "admin": {
+      "scenario": "login-admin"
+    }
   },
   "agent": {
-    "maxTurns": 200,
-    "bashTimeoutMs": 120000
+    "maxTurns": 80,
+    "bashTimeoutMs": 10000,
+    "parallel": 0,
+    "guard": {
+      "nudgeFailedToolCalls": 10,
+      "maxFailedToolCalls": 20,
+      "maxRecoverySteps": 10
+    }
+  },
+  "browserHealth": {
+    "circuitBreakerThreshold": 3
   },
   "healing": {
     "enabled": true,
@@ -261,14 +346,13 @@ Settings for `pqa record`. See [HOWTO §9 — Record → markdown](HOWTO.md#9-re
     "transientPatterns": [
       "timeout",
       "timed out",
-      "not found",
       "waiting for",
       "navigation",
       "net::",
-      "target closed",
       "detached",
       "stale",
-      "interrupted"
+      "interrupted",
+      "networkidle"
     ]
   },
   "recorder": {
@@ -279,12 +363,25 @@ Settings for `pqa record`. See [HOWTO §9 — Record → markdown](HOWTO.md#9-re
   "cache": {
     "dir": ".pqa/cache",
     "enabled": true
+  },
+  "report": {
+    "outputPath": "",
+    "zip": false
+  },
+  "extensions": {
+    "actionOverlay": {
+      "enabled": false,
+      "previewMs": 800
+    }
   }
 }
 ```
+
+For `extensions.hooks`, import `defaultExtensionHooks` in TypeScript config — see [extensions.md](extensions.md).
 
 ## See also
 
 - [README.md](../README.md) — quick start and CLI
 - [HOWTO.md](HOWTO.md) — progressive tutorials
+- [extensions.md](extensions.md) — hooks system
 - [SECURITY.md](../SECURITY.md) — secrets and artifacts

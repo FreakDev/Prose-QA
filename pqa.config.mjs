@@ -7,6 +7,11 @@ export default {
     },
   },
   envVars: ["PQA_TEST_EMAIL", "PQA_TEST_PASSWORD"],
+  auth: {
+    admin: {
+      scenario: "login-admin",
+    },
+  },
   // llm: {
   //   provider: "google",
   //   model: "gemini-2.5-flash",

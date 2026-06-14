@@ -20,11 +20,12 @@ npm run demo:server   # separate terminal; serves demo-site/ at http://127.0.0.1
 export PQA_LLM_API_KEY=...
 pqa config llm.provider anthropic
 pqa config llm.model claude-sonnet-4-20250514
-npm run dev -- run scenarios/**/*.md --tags example --verbose   # CI smoke
-npm run dev -- run scenarios/**/*.md --tags demo --verbose      # full demo suite
+npm run dev -- run scenarios/**/*.md --tags example    # CI smoke subset
+npm run dev -- run scenarios/**/*.md --tags demo       # full demo suite
+npm run dev -- debug scenarios/0_hello-world.md        # verbose local debug
 ```
 
-Demo site pages live in [`demo-site/`](demo-site/). Example scenarios in [`scenarios/`](scenarios/) cover smoke, forms, auth, navigation, and partials.
+Bundled scenarios live in [`scenarios/`](scenarios/) with the demo site ([`demo-site/`](demo-site/)). Add `scenarios/auth/login-admin.md` locally (see [create-pqa-scenario skill](skills/create-pqa-scenario/SKILL.md)) to run auth-dependent scenarios.
 
 ## Pull requests
 
@@ -37,4 +38,4 @@ Demo site pages live in [`demo-site/`](demo-site/). Example scenarios in [`scena
 
 Example scenarios live under `scenarios/`. App-specific regression suites belong in consumer repos, not in this harness repo.
 
-See [prompt/references/scenario-format.md](prompt/references/scenario-format.md) for the scenario authoring reference.
+See [prompt/references/scenario-format.md](prompt/references/scenario-format.md) for the scenario authoring reference. For hooks and extensions, see [docs/extensions.md](docs/extensions.md).
