@@ -365,7 +365,6 @@ async function runOneScenario(
   ctx: ScenarioRunContext,
   hooks?: {
     onRetry?: (attempt: number) => void;
-    onTurn?: () => Promise<void>;
   },
 ): Promise<ScenarioResult> {
   const name = scenario.frontmatter.name;
@@ -424,7 +423,6 @@ async function runOneScenario(
           actionOverlay: ctx.actionOverlay,
           artifacts: ctx.artifacts,
           sessionName,
-          onTurn: hooks?.onTurn,
           redactor: ctx.redactor,
           noHealing: ctx.noHealing,
           scenarioCacheHints,
@@ -583,11 +581,6 @@ export async function executeRun(
 
   const parallel = resolveAgentParallel(config, options.parallel);
 
-  if (options.pause && parallel !== undefined) {
-    console.error(chalk.red("--pause and --parallel cannot be used together"));
-    return 2;
-  }
-
   const runId = createRunId();
   const reportConfig = resolveReportConfig(config, {
     reportOutputPath: options.reportOutputPath,
@@ -666,7 +659,7 @@ export async function executeRun(
   let results: ScenarioResult[];
 
   if (parallel !== undefined) {
-    const workerOptions: Omit<RunOptions, "parallel" | "pause" | "failFast"> = {
+    const workerOptions: Omit<RunOptions, "parallel" | "failFast"> = {
       configPath: options.configPath,
       tags: options.tags,
       skillsDirs: options.skillsDirs,
@@ -742,15 +735,6 @@ export async function executeRun(
         onRetry: (attempt) => {
           spinner.text = `Retry ${attempt}/${retries} ${summary.frontmatter.name}`;
         },
-        onTurn: options.pause
-          ? async () => {
-              spinner.stop();
-              await new Promise<void>((resolve) => {
-                process.stdin.once("data", () => resolve());
-              });
-              spinner.start();
-            }
-          : undefined,
       });
 
       if (result.status === "pass") {
@@ -810,7 +794,7 @@ export async function executeRun(
 export async function executeScenarioWorker(
   scenarioFilePath: string,
   runDir: string,
-  options: Omit<RunOptions, "parallel" | "pause" | "failFast">,
+  options: Omit<RunOptions, "parallel" | "failFast">,
 ): Promise<number> {
   const cwd = process.cwd();
   const config = await loadConfig(options.configPath, cwd);

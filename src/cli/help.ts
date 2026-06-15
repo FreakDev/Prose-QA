@@ -153,10 +153,6 @@ export const CLI_REFERENCE: CliCommandHelp[] = [
         description: "Extra skill directories, comma-separated",
       },
       {
-        flags: "--pause",
-        description: "Pause between agent turns (press Enter to continue)",
-      },
-      {
         flags: "--keep-browser",
         description:
           "Leave the browser open after each scenario for inspection",

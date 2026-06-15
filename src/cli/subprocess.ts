@@ -78,7 +78,7 @@ export interface ScenarioWorkerRequest {
   scenarioName: string;
   runDir: string;
   cwd: string;
-  options: Omit<RunOptions, "parallel" | "pause" | "failFast">;
+  options: Omit<RunOptions, "parallel" | "failFast">;
 }
 
 function buildWorkerArgs(request: ScenarioWorkerRequest): string[] {

@@ -69,6 +69,7 @@ function runBashSpawn(
     cwd: string;
     timeoutMs: number;
     env: NodeJS.ProcessEnv;
+    abortSignal?: AbortSignal;
   },
 ): Promise<BashEntry> {
   const start = Date.now();
@@ -89,21 +90,15 @@ function runBashSpawn(
     let stdout = "";
     let stderr = "";
     let timedOut = false;
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      killProcessTree(child.pid, "SIGKILL");
-    }, options.timeoutMs);
-
-    child.stdout?.on("data", (chunk: Buffer) => {
-      stdout += chunk.toString();
-    });
-    child.stderr?.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString();
-    });
+    let settled = false;
 
     const finish = (exitCode: number) => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
+      if (abortListener && options.abortSignal) {
+        options.abortSignal.removeEventListener("abort", abortListener);
+      }
       activeBashChildren.delete(child);
       resolve({
         command,
@@ -113,6 +108,33 @@ function runBashSpawn(
         durationMs: Date.now() - start,
       });
     };
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      killProcessTree(child.pid, "SIGKILL");
+    }, options.timeoutMs);
+
+    const abortListener = () => {
+      if (timedOut || settled) return;
+      stderr = stderr || "Aborted";
+      killProcessTree(child.pid, "SIGKILL");
+    };
+    if (options.abortSignal) {
+      if (options.abortSignal.aborted) {
+        abortListener();
+      } else {
+        options.abortSignal.addEventListener("abort", abortListener, {
+          once: true,
+        });
+      }
+    }
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdout += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
 
     child.on("error", (err) => {
       if (!timedOut) {
@@ -127,7 +149,7 @@ function runBashSpawn(
         return;
       }
       if (signal === "SIGKILL" || signal === "SIGTERM") {
-        finish(128 + (signal === "SIGKILL" ? 9 : 15));
+        finish(options.abortSignal?.aborted ? 130 : 128 + (signal === "SIGKILL" ? 9 : 15));
         return;
       }
       finish(code ?? 1);
@@ -141,6 +163,7 @@ export async function runBash(
     cwd: string;
     timeoutMs: number;
     env: NodeJS.ProcessEnv;
+    abortSignal?: AbortSignal;
   },
 ): Promise<BashEntry> {
   return runBashSpawn(command, options);
@@ -224,6 +247,7 @@ export async function prepareBrowserSession(options: {
   startUrl?: string;
   verbose?: boolean;
   actionOverlay?: boolean;
+  overlayBridgeUrl?: string;
 }): Promise<{ startUrl: string }> {
   const env = buildBrowserEnv({
     cwd: options.cwd,
@@ -238,12 +262,14 @@ export async function prepareBrowserSession(options: {
   const startUrl = options.startUrl ?? "about:blank";
 
   let overlayScriptPath: string | undefined;
-  if (options.actionOverlay) {
+  if (options.actionOverlay && options.overlayBridgeUrl) {
     overlayScriptPath = path.join(
       os.tmpdir(),
       `pqa-overlay-${options.sessionName.replace(/[^a-zA-Z0-9_-]/g, "_")}.js`,
     );
-    writeActionOverlayScript(overlayScriptPath);
+    writeActionOverlayScript(overlayScriptPath, {
+      bridgeUrl: options.overlayBridgeUrl,
+    });
   }
 
   const initScriptArg = overlayScriptPath

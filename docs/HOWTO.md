@@ -209,9 +209,9 @@ npm run demo:server &
 npm run dev -- debug scenarios/0_hello-world.md
 ```
 
-The **action overlay** (in-page cursor and highlight before each agent-browser command) is enabled by default in debug. Disable with `--no-action-overlay`.
+The **action overlay** (in-page cursor and highlight before each agent-browser command) is enabled by default in debug. The HUD header shows the scenario name and play/pause/stop controls. Disable with `--no-action-overlay`.
 
-Useful options: `--no-headed`, `--tag` / `--tags`, `--no-action-overlay`, `--pause`, `--keep-browser`.
+Useful options: `--no-headed`, `--tag` / `--tags`, `--no-action-overlay`, `--keep-browser`.
 
 ### Run (batch, CI)
 
@@ -245,7 +245,6 @@ Default browser settings: [`pqa.config.ts`](../pqa.config.ts) → `browser.heade
 | `--action-overlay` | yes | — | Enable in-page overlay (Chrome headed only) |
 | `--no-action-overlay` | yes | yes | Disable overlay (debug enables by default) |
 | `--artifacts on-failure\|always\|never` | yes | — | When to keep failure artifacts |
-| `--pause` | — | yes | Pause between agent turns |
 
 ### Parallel execution and fail-fast
 

@@ -1,16 +1,28 @@
 import { writeFileSync } from "node:fs";
 
+export interface ActionOverlayScriptOptions {
+  bridgeUrl: string;
+}
+
 /**
  * In-page action overlay injected via agent-browser --init-script.
- * Exposes window.__pqaOverlay for preview animations before agent actions.
+ * Exposes window.__pqaOverlay for preview animations and HUD controls.
  */
-export function buildActionOverlayScript(): string {
+export function buildActionOverlayScript(
+  options: ActionOverlayScriptOptions,
+): string {
+  const bridgeUrl = JSON.stringify(options.bridgeUrl);
   return `(() => {
   if (window.__pqaOverlay) return;
 
+  const BRIDGE_URL = ${bridgeUrl};
   const ROOT_ID = "pqa-action-overlay-root";
   const PANEL_ID = "pqa-overlay-panel";
+  const PANEL_HEADER_ID = "pqa-overlay-panel-header";
+  const PANEL_TITLE_ID = "pqa-overlay-panel-title";
   const PANEL_BODY_ID = "pqa-overlay-panel-body";
+  const PLAY_PAUSE_BTN_ID = "pqa-overlay-play-pause-btn";
+  const STOP_BTN_ID = "pqa-overlay-stop-btn";
   const HIGHLIGHT_CLASS = "pqa-overlay-highlight";
   const CURSOR_CLASS = "pqa-overlay-cursor";
   const MAX_ENTRIES = 3;
@@ -23,6 +35,9 @@ export function buildActionOverlayScript(): string {
   let dragActive = false;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
+  let scenarioName = "";
+  let running = true;
+  let controlsEnabled = true;
 
   function ensureRoot() {
     let root = document.getElementById(ROOT_ID);
@@ -58,12 +73,31 @@ export function buildActionOverlayScript(): string {
       "#pqa-action-overlay-root .pqa-overlay-panel:hover {",
       "  background: rgba(15, 23, 42, 1);",
       "}",
-      "#pqa-action-overlay-root .pqa-overlay-panel-handle {",
-      "  height: 24px; flex-shrink: 0; cursor: grab;",
+      "#pqa-action-overlay-root .pqa-overlay-panel-header {",
+      "  height: 36px; flex-shrink: 0; display: flex; align-items: center;",
+      "  gap: 8px; padding: 0 8px 0 12px; cursor: grab;",
       "  background: rgba(255,255,255,0.06);",
       "  border-bottom: 1px solid rgba(148, 163, 184, 0.25);",
       "}",
-      "#pqa-action-overlay-root .pqa-overlay-panel-handle:active { cursor: grabbing; }",
+      "#pqa-action-overlay-root .pqa-overlay-panel-header:active { cursor: grabbing; }",
+      "#pqa-action-overlay-root .pqa-overlay-panel-title {",
+      "  flex: 1; min-width: 0; font-size: 12px; font-weight: 600;",
+      "  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;",
+      "}",
+      "#pqa-action-overlay-root .pqa-overlay-panel-controls {",
+      "  display: flex; align-items: center; gap: 2px; flex-shrink: 0;",
+      "}",
+      "#pqa-action-overlay-root .pqa-overlay-control-btn {",
+      "  width: 24px; height: 24px; padding: 0; border: none; border-radius: 4px;",
+      "  background: transparent; color: #e2e8f0; cursor: pointer;",
+      "  display: inline-flex; align-items: center; justify-content: center;",
+      "}",
+      "#pqa-action-overlay-root .pqa-overlay-control-btn:hover {",
+      "  background: rgba(255,255,255,0.1);",
+      "}",
+      "#pqa-action-overlay-root .pqa-overlay-control-btn:disabled {",
+      "  opacity: 0.35; cursor: default; pointer-events: none;",
+      "}",
       "#pqa-action-overlay-root .pqa-overlay-panel-body {",
       "  flex: 1; overflow-y: auto; padding: 8px 12px; text-align: left;",
       "}",
@@ -98,6 +132,48 @@ export function buildActionOverlayScript(): string {
     document.documentElement.appendChild(style);
   }
 
+  const ICONS = {
+    play:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
+      '<path fill="currentColor" d="M8 5v14l11-7z"/></svg>',
+    pause:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
+      '<path fill="currentColor" d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>',
+    stop:
+      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">' +
+      '<path fill="currentColor" d="M6 6h12v12H6z"/></svg>',
+  };
+
+  function postControl(action) {
+    if (!BRIDGE_URL) return;
+    fetch(BRIDGE_URL + "/control", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    }).catch(() => {});
+  }
+
+  function updateTitleText() {
+    const title = document.getElementById(PANEL_TITLE_ID);
+    if (title) title.textContent = scenarioName;
+  }
+
+  function updatePlayPauseIcon() {
+    const btn = document.getElementById(PLAY_PAUSE_BTN_ID);
+    if (!btn) return;
+    btn.innerHTML = running ? ICONS.pause : ICONS.play;
+    btn.setAttribute("aria-label", running ? "Pause" : "Play");
+    btn.title = running ? "Pause" : "Play";
+  }
+
+  function setControlsEnabled(enabled) {
+    controlsEnabled = enabled;
+    const playPause = document.getElementById(PLAY_PAUSE_BTN_ID);
+    const stopBtn = document.getElementById(STOP_BTN_ID);
+    if (playPause) playPause.disabled = !enabled;
+    if (stopBtn) stopBtn.disabled = !enabled;
+  }
+
   function defaultPanelPosition() {
     return {
       left: Math.max(PANEL_MARGIN, window.innerWidth - PANEL_WIDTH - PANEL_MARGIN),
@@ -128,19 +204,10 @@ export function buildActionOverlayScript(): string {
     dragActive = false;
   }
 
-  function ensurePanel(root) {
-    let panel = document.getElementById(PANEL_ID);
-    if (panel) return panel;
-
-    panel = document.createElement("div");
-    panel.id = PANEL_ID;
-    panel.className = "pqa-overlay-panel";
-
-    const handle = document.createElement("div");
-    handle.className = "pqa-overlay-panel-handle";
-    handle.setAttribute("aria-hidden", "true");
-    handle.addEventListener("mousedown", (event) => {
+  function bindHeaderDrag(header, panel) {
+    header.addEventListener("mousedown", (event) => {
       if (event.button !== 0) return;
+      if (event.target.closest(".pqa-overlay-control-btn")) return;
       dragActive = true;
       const rect = panel.getBoundingClientRect();
       dragOffsetX = event.clientX - rect.left;
@@ -149,15 +216,76 @@ export function buildActionOverlayScript(): string {
       panelTop = rect.top;
       event.preventDefault();
     });
+  }
+
+  function ensurePanel(root) {
+    let panel = document.getElementById(PANEL_ID);
+    if (panel) return panel;
+
+    panel = document.createElement("div");
+    panel.id = PANEL_ID;
+    panel.className = "pqa-overlay-panel";
+
+    const header = document.createElement("div");
+    header.id = PANEL_HEADER_ID;
+    header.className = "pqa-overlay-panel-header";
+
+    const title = document.createElement("div");
+    title.id = PANEL_TITLE_ID;
+    title.className = "pqa-overlay-panel-title";
+    title.textContent = scenarioName;
+
+    const controls = document.createElement("div");
+    controls.className = "pqa-overlay-panel-controls";
+
+    const playPauseBtn = document.createElement("button");
+    playPauseBtn.id = PLAY_PAUSE_BTN_ID;
+    playPauseBtn.type = "button";
+    playPauseBtn.className = "pqa-overlay-control-btn";
+    playPauseBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (!controlsEnabled) return;
+      if (running) {
+        running = false;
+        updatePlayPauseIcon();
+        postControl("pause");
+      } else {
+        running = true;
+        updatePlayPauseIcon();
+        postControl("play");
+      }
+    });
+
+    const stopBtn = document.createElement("button");
+    stopBtn.id = STOP_BTN_ID;
+    stopBtn.type = "button";
+    stopBtn.className = "pqa-overlay-control-btn";
+    stopBtn.innerHTML = ICONS.stop;
+    stopBtn.setAttribute("aria-label", "Stop");
+    stopBtn.title = "Stop";
+    stopBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      if (!controlsEnabled) return;
+      setControlsEnabled(false);
+      postControl("stop");
+    });
+
+    controls.appendChild(playPauseBtn);
+    controls.appendChild(stopBtn);
+    header.appendChild(title);
+    header.appendChild(controls);
+    bindHeaderDrag(header, panel);
 
     const body = document.createElement("div");
     body.id = PANEL_BODY_ID;
     body.className = "pqa-overlay-panel-body";
 
-    panel.appendChild(handle);
+    panel.appendChild(header);
     panel.appendChild(body);
     root.appendChild(panel);
     applyPanelPosition(panel);
+    updatePlayPauseIcon();
+    setControlsEnabled(controlsEnabled);
 
     window.addEventListener("mousemove", onDragMove);
     window.addEventListener("mouseup", onDragEnd);
@@ -172,6 +300,37 @@ export function buildActionOverlayScript(): string {
   function clearOverlay() {
     const root = document.getElementById(ROOT_ID);
     if (root) root.replaceChildren();
+  }
+
+  function clearEntryStack() {
+    const body = document.getElementById(PANEL_BODY_ID);
+    if (body) body.replaceChildren();
+  }
+
+  function setScenario(name) {
+    ensureStyles();
+    const root = ensureRoot();
+    ensurePanel(root);
+    scenarioName = String(name || "");
+    running = true;
+    setControlsEnabled(true);
+    updateTitleText();
+    updatePlayPauseIcon();
+    clearEntryStack();
+  }
+
+  function setOutcome(outcome) {
+    ensureStyles();
+    const root = ensureRoot();
+    ensurePanel(root);
+    const suffix = String(outcome || "");
+    scenarioName = scenarioName
+      ? scenarioName + " · " + suffix
+      : suffix;
+    running = false;
+    updateTitleText();
+    updatePlayPauseIcon();
+    setControlsEnabled(false);
   }
 
   function normalizeEntryPayload(input) {
@@ -323,12 +482,17 @@ export function buildActionOverlayScript(): string {
     showHud,
     showMutation,
     clear: clearOverlay,
+    setScenario,
+    setOutcome,
   };
 })();`;
 }
 
-export function writeActionOverlayScript(destPath: string): string {
-  const script = buildActionOverlayScript();
+export function writeActionOverlayScript(
+  destPath: string,
+  options: ActionOverlayScriptOptions,
+): string {
+  const script = buildActionOverlayScript(options);
   writeFileSync(destPath, script, "utf-8");
   return destPath;
 }

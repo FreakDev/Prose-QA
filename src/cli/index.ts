@@ -55,7 +55,6 @@ function baseRunOptions(opts: {
   retries?: string;
   artifacts?: string;
   headed?: boolean;
-  pause?: boolean;
   parallel?: number;
   failFast?: boolean;
   authRefresh?: boolean;
@@ -79,7 +78,6 @@ function baseRunOptions(opts: {
     retries: opts.retries ? parseInt(opts.retries, 10) : 0,
     artifacts: (opts.artifacts as RunOptions["artifacts"]) ?? "on-failure",
     headed: opts.headed,
-    pause: opts.pause,
     parallel: opts.parallel,
     failFast: opts.failFast ?? false,
     authRefresh: opts.authRefresh,
@@ -244,7 +242,6 @@ program
   .option("--skills-dir <dirs>", "Extra skill dirs (comma-separated)", (v: string) =>
     v.split(",").map((d) => d.trim()),
   )
-  .option("--pause", "Pause between agent turns")
   .option(
     "--keep-browser",
     "Leave browser open after each scenario (for local inspection)",
@@ -287,7 +284,6 @@ program
           ? false
           : opts.actionOverlay !== false,
       }),
-      pause: opts.pause,
     });
     process.exit(code);
   });

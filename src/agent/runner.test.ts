@@ -103,6 +103,15 @@ describe("runner transcript persistence contract", () => {
     );
   });
 
+  it("returns synthetic fail verdict when overlay stop aborts", () => {
+    assert.match(runnerSource, /OverlayStopSyntheticFailError/);
+    assert.match(runnerSource, /overlay:stopped/);
+    assert.match(
+      runnerSource,
+      /isOverlayStopSyntheticFailError\(err\) \|\| overlaySession\?\.stopped/,
+    );
+  });
+
   it("persists during verdict retry and recovery flows", () => {
     assert.match(
       runnerSource,

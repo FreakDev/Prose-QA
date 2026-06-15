@@ -71,6 +71,16 @@ import {
   resolveActionOverlayPreviewMs,
 } from "../action-overlay/enabled.js";
 import { maybePreviewAction } from "../action-overlay/preview.js";
+import { OverlayControlSession } from "../action-overlay/control-session.js";
+import {
+  buildSyntheticOverlayStopVerdict,
+  isOverlayStopSyntheticFailError,
+} from "../action-overlay/overlay-stop.js";
+import {
+  setOverlayOutcome,
+  setOverlayScenario,
+  type OverlayHudOutcome,
+} from "../action-overlay/remote.js";
 import {
   createStepIntentCapture,
   wrapModelForStepIntent,
@@ -128,7 +138,6 @@ export interface RunScenarioOptions {
   authProfile?: string;
   profilePath?: string;
   provisioning?: boolean;
-  onTurn?: () => Promise<void>;
   redactor?: EnvRedactor;
   noHealing?: boolean;
   scenarioCacheHints?: string;
@@ -155,6 +164,7 @@ async function callLlm(options: {
   scenario?: Scenario;
   guardMetadata?: RunGuardMetadata;
   stepIntentCapture?: StepIntentCapture;
+  abortSignal?: AbortSignal;
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   text: string;
@@ -205,6 +215,7 @@ async function callLlm(options: {
     providerOptions: options.providerOptions,
     stopWhen: options.stopWhen,
     onStepFinish: options.onStepFinish,
+    abortSignal: options.abortSignal,
     ...(options.config.llm.provider === "anthropic"
       ? {
           prepareStep: ({
@@ -254,6 +265,7 @@ async function retryVerdictCompletion(options: {
   tokenUsage: TokenUsageStats;
   hookRunner?: HookRunner;
   guardMetadata: RunGuardMetadata;
+  abortSignal?: AbortSignal;
 }): Promise<{
   result: GenerateTextResult<ToolSet, TextGenerateOutput>;
   finalText: string;
@@ -302,6 +314,7 @@ async function retryVerdictCompletion(options: {
       transcript: options.transcript,
       scenario: options.runOptions.scenario,
       guardMetadata: options.guardMetadata,
+      abortSignal: options.abortSignal,
     });
     result = llmResult.result;
     finalText = llmResult.text || finalText;
@@ -361,10 +374,19 @@ export async function runScenario(
   const stepIntentCapture = overlayActive
     ? createStepIntentCapture()
     : undefined;
+  const overlaySession = overlayActive
+    ? new OverlayControlSession(options.scenario)
+    : undefined;
+  let overlayBridgeUrl: string | undefined;
+  if (overlaySession) {
+    overlayBridgeUrl = await overlaySession.start();
+  }
+  let bashEnvForOverlay: NodeJS.ProcessEnv | undefined;
 
   // Pre-scenario hook
   const preScenarioResult = await hookRunner.runPreScenario(options.scenario);
   if (preScenarioResult.action === "skip") {
+    await overlaySession?.close();
     return {
       scenario: options.scenario.frontmatter.name,
       filePath: options.scenario.filePath,
@@ -406,6 +428,7 @@ export async function runScenario(
       startUrl: scenarioStartUrl,
       verbose: options.verbose,
       actionOverlay: overlayActive,
+      overlayBridgeUrl,
     }));
   }
 
@@ -424,6 +447,27 @@ export async function runScenario(
     authSavePath,
     artifactDir: options.artifactDir,
   });
+  bashEnvForOverlay = bashEnv;
+
+  const finalizeOverlayHud = async (
+    outcome: OverlayHudOutcome,
+  ): Promise<void> => {
+    if (!overlayActive || !bashEnvForOverlay) return;
+    await setOverlayOutcome(outcome, {
+      cwd: options.cwd,
+      env: bashEnvForOverlay,
+      timeoutMs: options.config.agent.bashTimeoutMs,
+    }).catch(() => {});
+    await overlaySession?.close();
+  };
+
+  if (overlayActive && bashEnvForOverlay && preparedStartUrl) {
+    await setOverlayScenario(options.scenario.frontmatter.name, {
+      cwd: options.cwd,
+      env: bashEnvForOverlay,
+      timeoutMs: options.config.agent.bashTimeoutMs,
+    }).catch(() => {});
+  }
 
   Object.assign(hookCtx.metadata, {
     bashEnv,
@@ -496,7 +540,8 @@ export async function runScenario(
       inputSchema: z.object({
         command: z.string().describe("Shell command to execute"),
       }),
-      execute: async ({ command }) => {
+      execute: async ({ command }, { abortSignal }) => {
+        overlaySession?.assertNotStopped();
         let resolvedCommand = command;
         let resolvedTimeout = options.config.agent.bashTimeoutMs;
         let resolvedEnv = { ...bashEnv } as Record<string, string>;
@@ -548,7 +593,9 @@ export async function runScenario(
           cwd: options.cwd,
           timeoutMs: resolvedTimeout,
           env: resolvedEnv as NodeJS.ProcessEnv,
+          abortSignal: overlaySession?.abortSignal ?? abortSignal,
         });
+        overlaySession?.assertNotStopped();
 
         // Post-tool hook
         if (hookRunner) {
@@ -680,8 +727,13 @@ export async function runScenario(
       persistTranscript(options, transcript);
     }
     if (step.text) finalText = step.text;
-    if (options.onTurn) await options.onTurn();
+    overlaySession?.assertNotStopped();
+    if (overlaySession) {
+      await overlaySession.waitAtTurnGate();
+    }
   };
+
+  let overlayHudOutcome: OverlayHudOutcome | undefined;
 
   try {
     const providerOptions = buildProviderOptions(options.config);
@@ -704,6 +756,7 @@ export async function runScenario(
       scenario: options.scenario,
       guardMetadata,
       stepIntentCapture,
+      abortSignal: overlaySession?.abortSignal,
     });
     let result = initialLlmResult.result;
     tokenUsage = addLanguageModelUsage(tokenUsage, initialLlmResult.totalUsage);
@@ -730,6 +783,7 @@ export async function runScenario(
       tokenUsage,
       hookRunner,
       guardMetadata,
+      abortSignal: overlaySession?.abortSignal,
     }));
 
     // Pre-verdict hook
@@ -820,6 +874,7 @@ export async function runScenario(
             scenario: options.scenario,
             guardMetadata,
             stepIntentCapture,
+            abortSignal: overlaySession?.abortSignal,
           });
           tokenUsage = addLanguageModelUsage(
             tokenUsage,
@@ -848,6 +903,7 @@ export async function runScenario(
             tokenUsage,
             hookRunner,
             guardMetadata,
+            abortSignal: overlaySession?.abortSignal,
           }));
           verdict = extractVerdict(finalText);
 
@@ -887,6 +943,7 @@ export async function runScenario(
       }
     }
 
+    overlayHudOutcome = draftResult.status === "pass" ? "passed" : "failed";
     return {
       ...draftResult,
       durationMs: Date.now() - start,
@@ -902,6 +959,35 @@ export async function runScenario(
     }
     persistTranscript(options, transcript);
 
+    if (isOverlayStopSyntheticFailError(err) || overlaySession?.stopped) {
+      const stopVerdict = isOverlayStopSyntheticFailError(err)
+        ? err.verdict
+        : buildSyntheticOverlayStopVerdict(options.scenario);
+      const stopHealing: HealingMeta = {
+        used: false,
+        recoveryTurns: 0,
+        scenarioRetries: 0,
+        failureKind: "unknown",
+        signals: ["overlay:stopped"],
+      };
+      overlayHudOutcome = "stopped";
+      return {
+        scenario: options.scenario.frontmatter.name,
+        filePath: options.scenario.filePath,
+        status: "fail",
+        durationMs: Date.now() - start,
+        verdict: finalizeVerdict(stopVerdict, transcript, {
+          durationMs: Date.now() - start,
+          healing: stopHealing,
+          redactor: options.redactor,
+          tokens: tokenUsage,
+        }),
+        transcript,
+        artifactDir: options.artifactDir,
+        healing: stopHealing,
+      };
+    }
+
     if (isRunGuardSyntheticFailError(err)) {
       const guardHealing: HealingMeta = {
         used: false,
@@ -910,6 +996,7 @@ export async function runScenario(
         failureKind: "unknown",
         signals: ["guard:max_failed_tool_calls"],
       };
+      overlayHudOutcome = "failed";
       return {
         scenario: options.scenario.frontmatter.name,
         filePath: options.scenario.filePath,
@@ -927,6 +1014,7 @@ export async function runScenario(
       };
     }
 
+    overlayHudOutcome = "failed";
     const error = err instanceof HookAbortError ? err.reason : String(err);
     return {
       scenario: options.scenario.frontmatter.name,
@@ -938,6 +1026,12 @@ export async function runScenario(
       artifactDir: options.artifactDir,
       error: options.redactor ? options.redactor.redact(error) : error,
     };
+  } finally {
+    if (overlayHudOutcome) {
+      await finalizeOverlayHud(overlayHudOutcome);
+    } else {
+      await overlaySession?.close();
+    }
   }
 }
 

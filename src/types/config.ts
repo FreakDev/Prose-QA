@@ -175,7 +175,6 @@ export interface RunOptions {
   artifacts: ArtifactsMode;
   headed?: boolean;
   verbose?: boolean;
-  pause?: boolean;
   skillsDirs?: string[];
   parallel?: number;
   /** Stop remaining scenarios on first failure (default: false) */

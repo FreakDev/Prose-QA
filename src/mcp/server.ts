@@ -41,7 +41,7 @@ const VALIDATE_SCENARIO_INPUT = z.object({
 
 function workerOptions(
   args: z.infer<typeof RUN_SCENARIO_INPUT>,
-): Omit<RunOptions, "parallel" | "pause" | "failFast"> {
+): Omit<RunOptions, "parallel" | "failFast"> {
   return {
     configPath: args.config,
     headed: args.headed,
