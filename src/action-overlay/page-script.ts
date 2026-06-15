@@ -25,6 +25,8 @@ export function buildActionOverlayScript(
   const STOP_BTN_ID = "pqa-overlay-stop-btn";
   const HIGHLIGHT_CLASS = "pqa-overlay-highlight";
   const CURSOR_CLASS = "pqa-overlay-cursor";
+  const MOVE_MS = 750;
+  const FADE_OUT_MS = 500;
   const MAX_ENTRIES = 3;
   const PANEL_WIDTH = 320;
   const PANEL_HEIGHT = 280;
@@ -118,14 +120,16 @@ export function buildActionOverlayScript(
       "  position: fixed; border: 3px solid #f59e0b;",
       "  background: rgba(245, 158, 11, 0.15); border-radius: 4px;",
       "  box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.25);",
-      "  transition: top 0.75s ease, left 0.75s ease, width 0.75s ease, height 0.75s ease;",
+      "  opacity: 1;",
+      "  transition: top 0.75s ease, left 0.75s ease, width 0.75s ease, height 0.75s ease, opacity 0.5s ease;",
       "  pointer-events: none;",
       "}",
       "#pqa-action-overlay-root .pqa-overlay-cursor {",
       "  position: fixed; width: 32px; height: 32px;",
       "  margin-left: -4px; margin-top: -2px;",
       "  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.45));",
-      "  transition: top 0.75s ease, left 0.75s ease;",
+      "  opacity: 1;",
+      "  transition: top 0.75s ease, left 0.75s ease, opacity 0.5s ease;",
       "  pointer-events: none;",
       "}",
     ].join("\\n");
@@ -293,8 +297,37 @@ export function buildActionOverlayScript(
     return panel;
   }
 
+  let animationMoveTimer = null;
+  let animationFadeTimer = null;
+
+  function clearAnimationTimers() {
+    if (animationMoveTimer) {
+      clearTimeout(animationMoveTimer);
+      animationMoveTimer = null;
+    }
+    if (animationFadeTimer) {
+      clearTimeout(animationFadeTimer);
+      animationFadeTimer = null;
+    }
+  }
+
   function clearAnimation(root) {
+    clearAnimationTimers();
     root.querySelectorAll("." + HIGHLIGHT_CLASS + ", ." + CURSOR_CLASS).forEach((el) => el.remove());
+  }
+
+  function scheduleAnimationFadeOut(highlight, cursor) {
+    clearAnimationTimers();
+    animationMoveTimer = setTimeout(() => {
+      animationMoveTimer = null;
+      if (highlight && highlight.isConnected) highlight.style.opacity = "0";
+      if (cursor && cursor.isConnected) cursor.style.opacity = "0";
+      animationFadeTimer = setTimeout(() => {
+        animationFadeTimer = null;
+        if (highlight && highlight.isConnected) highlight.remove();
+        if (cursor && cursor.isConnected) cursor.remove();
+      }, FADE_OUT_MS);
+    }, MOVE_MS);
   }
 
   function clearOverlay() {
@@ -466,6 +499,7 @@ export function buildActionOverlayScript(
       requestAnimationFrame(() => {
         cursor.style.top = cy + "px";
         cursor.style.left = cx + "px";
+        scheduleAnimationFadeOut(highlight, cursor);
       });
     });
   }

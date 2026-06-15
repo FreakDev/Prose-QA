@@ -50,7 +50,7 @@ Harness mechanism that limits agent effort when `agent-browser` bash commands fa
 
 ## Action overlay
 
-In-page visual overlay shown during local Chrome headed runs to preview the agent's next browser action (ephemeral cursor and highlight) and a persistent stacked HUD panel. Distinct from verbose terminal logging. Enabled via `--action-overlay` or `extensions.actionOverlay.enabled`; on by default for `pqa debug`.
+In-page visual overlay shown during local Chrome headed runs to preview the agent's next browser action (ephemeral cursor and highlight) and a persistent stacked HUD panel. Distinct from verbose terminal logging. Enabled via `--action-overlay` or `extensions.actionOverlay.enabled`; on by default for `pqa debug`. The ephemeral cursor and highlight appear only for mutation previews; after the cursor finishes its move to the target, both fade out over 500ms and are removed. A new mutation preview instantly replaces any in-progress animation (move or fade). Observation previews (no cursor/highlight) also clear any lingering animation from a prior mutation. HUD entries are unaffected.
 
 ## HUD entry
 

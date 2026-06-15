@@ -415,7 +415,10 @@ export async function runScenario(
 
   let preparedStartUrl = options.preparedStartUrl;
   const scenarioStartUrl = options.scenario.frontmatter.url;
-  if (!preparedStartUrl && (profilePath || authStatePath || scenarioStartUrl)) {
+  const shouldPrepareBrowser =
+    !preparedStartUrl &&
+    (profilePath || authStatePath || scenarioStartUrl || overlayActive);
+  if (shouldPrepareBrowser) {
     ({ startUrl: preparedStartUrl } = await prepareBrowserSession({
       cwd: options.cwd,
       timeoutMs: options.config.agent.bashTimeoutMs,
