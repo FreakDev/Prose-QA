@@ -13,7 +13,7 @@ npm install prose-qa
 
 pqa install-browser chrome   # or lightpanda (headless, lighter for CI)
 
-pqa config llm.provider [ollama|fireworks|openai|anthropic|google]
+pqa config llm.provider [openai-compatible|fireworks|openai|anthropic|google]
 pqa config llm.model [model-string]
 
 export PQA_LLM_API_KEY=...
@@ -87,7 +87,8 @@ Supported filenames (first match wins): `pqa.config.json`, `pqa.config.mjs`, `pq
 
 | Variable           | Required when                            |
 | ------------------ | ---------------------------------------- |
-| `PQA_LLM_API_KEY`  | Any cloud `llm.provider` (not `ollama`)  |
+| `PQA_LLM_API_KEY`  | Any cloud `llm.provider` (not `openai-compatible`) |
+| `PQA_LLM_BASE_URL` | Required when `llm.provider` is `openai-compatible` (unless set in config) |
 | `PQA_LLM_PROVIDER` | Optional env shortcut for `llm.provider` |
 | `PQA_LLM_MODEL`    | Optional env shortcut for `llm.model`    |
 

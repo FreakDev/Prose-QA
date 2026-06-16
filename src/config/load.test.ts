@@ -9,6 +9,7 @@ import type { PqaConfig } from "../types/config.js";
 import {
   loadConfig,
   missingLlmApiKey,
+  missingLlmBaseUrl,
   missingLlmConfig,
   PQA_LLM_API_KEY,
   PQA_LLM_BASE_URL,
@@ -168,7 +169,11 @@ describe("loadConfig", () => {
     writeFileSync(
       path.join(cwd, "pqa.config.json"),
       JSON.stringify({
-        llm: { provider: "ollama", model: "gemma4:e2b" },
+        llm: {
+          provider: "openai-compatible",
+          model: "gemma4:e2b",
+          baseURL: "http://localhost:11434/v1",
+        },
       }),
     );
     const prevProvider = process.env.PQA_LLM_PROVIDER;
@@ -177,7 +182,7 @@ describe("loadConfig", () => {
     process.env.PQA_LLM_MODEL = "accounts/fireworks/models/test";
     try {
       const config = await loadConfig(undefined, cwd);
-      assert.equal(config.llm.provider, "ollama");
+      assert.equal(config.llm.provider, "openai-compatible");
       assert.equal(config.llm.model, "gemma4:e2b");
     } finally {
       if (prevProvider === undefined) delete process.env.PQA_LLM_PROVIDER;
@@ -248,20 +253,33 @@ describe("missingLlmApiKey", () => {
     assert.match(missingLlmApiKey(config)!, new RegExp(PQA_LLM_API_KEY));
   });
 
-  it("does not require an API key for ollama", () => {
+  it("does not require an API key for openai-compatible", () => {
     const config = {
       ...minimalConfig("chrome"),
-      llm: { provider: "ollama" as const, model: "llama3.2" },
+      llm: {
+        provider: "openai-compatible" as const,
+        model: "llama3.2",
+        baseURL: "http://localhost:11434/v1",
+      },
     };
     assert.equal(missingLlmApiKey(config), undefined);
   });
+});
 
-  it("does not require an API key for lmstudio", () => {
+describe("missingLlmBaseUrl", () => {
+  it("requires baseURL for openai-compatible", () => {
     const config = {
       ...minimalConfig("chrome"),
-      llm: { provider: "lmstudio" as const, model: "qwen/qwen3-4b-2507" },
+      llm: {
+        provider: "openai-compatible" as const,
+        model: "llama3.2",
+      },
     };
-    assert.equal(missingLlmApiKey(config), undefined);
+    assert.match(missingLlmBaseUrl(config)!, /baseURL/);
+  });
+
+  it("does not require baseURL for cloud providers", () => {
+    assert.equal(missingLlmBaseUrl(minimalConfig("chrome")), undefined);
   });
 });
 

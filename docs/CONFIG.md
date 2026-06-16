@@ -31,11 +31,12 @@ The bundled `pqa.config.ts` imports `./dist/hooks/defaults.js` — run `npm run 
 
 | Variable           | Description                                                                                            |
 | ------------------ | ------------------------------------------------------------------------------------------------------ |
-| `PQA_LLM_API_KEY`  | API key for the configured cloud provider (`anthropic`, `openai`, `fireworks`, `google`, `openrouter`) |
+| `PQA_LLM_API_KEY`  | API key for the configured cloud provider (`anthropic`, `openai`, `fireworks`, `google`, `openrouter`). Optional for `openai-compatible`. |
 | `PQA_LLM_PROVIDER` | Sets `llm.provider` when omitted from `pqa.config` (dev / CI shortcut)                                 |
 | `PQA_LLM_MODEL`    | Sets `llm.model` when omitted from `pqa.config`                                                        |
+| `PQA_LLM_BASE_URL` | Sets `llm.baseURL` when omitted from `pqa.config` (`openai-compatible` only)                           |
 
-Ollama does not require `PQA_LLM_API_KEY`. Any name listed in `envVars` must be set before a run starts.
+`openai-compatible` does not require `PQA_LLM_API_KEY` but requires `llm.baseURL` (or `PQA_LLM_BASE_URL`). Any name listed in `envVars` must be set before a run starts.
 
 ## All options
 
@@ -69,10 +70,11 @@ Env var names whose **values** are redacted from transcripts, verdicts, reports,
 
 LLM provider and model used for test runs, recording generation, and analysis.
 
-| Key        | Type                                                                                       | Default | Description                                                                          |
-| ---------- | ------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------ |
-| `provider` | `"anthropic"` \| `"openai"` \| `"fireworks"` \| `"ollama"` \| `"google"` \| `"openrouter"` | —       | LLM backend (required in config or via `PQA_LLM_PROVIDER`)                           |
-| `model`    | string                                                                                     | —       | Model identifier for the chosen provider (required in config or via `PQA_LLM_MODEL`) |
+| Key        | Type                                                                                                      | Default | Description                                                                          |
+| ---------- | --------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------ |
+| `provider` | `"anthropic"` \| `"openai"` \| `"fireworks"` \| `"openai-compatible"` \| `"google"` \| `"openrouter"` | —       | LLM backend (required in config or via `PQA_LLM_PROVIDER`)                           |
+| `model`    | string                                                                                                    | —       | Model identifier for the chosen provider (required in config or via `PQA_LLM_MODEL`) |
+| `baseURL`  | string                                                                                                    | —       | OpenAI-compatible server URL (`openai-compatible` only; required for that provider). Override via `PQA_LLM_BASE_URL`. Ignored for other providers. |
 
 #### `llm.thinking` (object, optional)
 
@@ -82,7 +84,7 @@ Extended thinking / reasoning. Provider support varies.
 | ----------------- | ------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`         | boolean                                                                   | `true`  | Enable extended thinking                                                                                                                                          |
 | `budgetTokens`    | number                                                                    | `10000` | Thinking token budget (Anthropic, Fireworks, Google, OpenRouter)                                                                                                  |
-| `reasoningEffort` | `"none"` \| `"minimal"` \| `"low"` \| `"medium"` \| `"high"` \| `"xhigh"` | —       | OpenAI reasoning effort; mapped to Anthropic effort, Google thinking level, and OpenRouter reasoning effort. Ollama uses `think` mode only (other fields ignored) |
+| `reasoningEffort` | `"none"` \| `"minimal"` \| `"low"` \| `"medium"` \| `"high"` \| `"xhigh"` | —       | OpenAI reasoning effort; mapped to Anthropic effort, Google thinking level, OpenRouter reasoning effort, and OpenAI-compatible reasoning effort |
 
 ---
 

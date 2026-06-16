@@ -52,7 +52,7 @@ function anthropicEffort(
 
 /**
  * Provider-specific options for extended thinking / reasoning.
- * Honors `config.llm.thinking.enabled` across Anthropic, OpenAI, LM Studio, Fireworks, Google, OpenRouter, and Ollama.
+ * Honors `config.llm.thinking.enabled` across Anthropic, OpenAI, OpenAI-compatible, Fireworks, Google, and OpenRouter.
  */
 export function buildProviderOptions(
   config: PqaConfig,
@@ -84,9 +84,9 @@ export function buildProviderOptions(
           reasoningEffort: resolveOpenAIReasoningEffort(config),
         },
       };
-    case "lmstudio":
+    case "openai-compatible":
       return {
-        lmstudio: {
+        "openai-compatible": {
           reasoningEffort: resolveOpenAIReasoningEffort(config),
         },
       };
@@ -110,10 +110,6 @@ export function buildProviderOptions(
         },
       };
     }
-    case "ollama":
-      return {
-        ollama: { think: true },
-      };
     case "openrouter":
       return {
         openrouter: {

@@ -83,3 +83,11 @@ Assistant text (`step.text`) captured from the LLM response in the same agent st
 ## Nudge
 
 One-time harness message injected before a hard run-guard stop, prompting the agent to conclude instead of looping on failed commands.
+
+## LLM provider
+
+Configured backend for the agent's language model (`llm.provider` in `pqa.config`). Each provider value selects a client SDK and API surface (Anthropic, OpenAI, OpenAI-compatible, etc.).
+
+## OpenAI-compatible provider
+
+LLM provider (`llm.provider: "openai-compatible"`) that targets any server speaking the OpenAI Chat Completions API via a **required** custom `baseURL` (config or `PQA_LLM_BASE_URL`) — e.g. LM Studio (`http://localhost:1234/v1`) or Ollama compatibility mode (`http://localhost:11434/v1`). No default URL; startup fails if `baseURL` is unset. On other `llm.provider` values, `baseURL` is ignored. `PQA_LLM_API_KEY` is optional; when set, it is passed to the server. Extended thinking uses OpenAI-style `reasoningEffort` only (no native Ollama `think` mode). Distinct from the `openai` provider, which targets the OpenAI cloud API.

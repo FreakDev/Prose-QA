@@ -337,7 +337,6 @@ export function resolveHealingConfig(config: PqaConfig): Required<
 
 export const PQA_LLM_API_KEY = "PQA_LLM_API_KEY";
 export const PQA_LLM_BASE_URL = "PQA_LLM_BASE_URL";
-export const DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1";
 
 const LLM_PROVIDERS_REQUIRING_API_KEY = new Set<
   NonNullable<PqaConfig["llm"]["provider"]>
@@ -365,6 +364,12 @@ export function missingLlmConfig(config: PqaConfig): string | undefined {
   return undefined;
 }
 
+export function missingLlmBaseUrl(config: PqaConfig): string | undefined {
+  if (config.llm.provider !== "openai-compatible") return undefined;
+  if (config.llm.baseURL) return undefined;
+  return `Missing llm.baseURL for llm.provider "openai-compatible" (set in pqa.config or ${PQA_LLM_BASE_URL})`;
+}
+
 export function missingLlmApiKey(config: PqaConfig): string | undefined {
   const provider = config.llm.provider;
   if (!provider || !LLM_PROVIDERS_REQUIRING_API_KEY.has(provider)) {
@@ -374,9 +379,13 @@ export function missingLlmApiKey(config: PqaConfig): string | undefined {
   return `Missing ${PQA_LLM_API_KEY} for llm.provider "${provider}"`;
 }
 
-/** First missing llm.provider / llm.model / API key error, if any. */
+/** First missing llm.provider / llm.model / baseURL / API key error, if any. */
 export function missingLlmRequirements(config: PqaConfig): string | undefined {
-  return missingLlmConfig(config) ?? missingLlmApiKey(config);
+  return (
+    missingLlmConfig(config) ??
+    missingLlmBaseUrl(config) ??
+    missingLlmApiKey(config)
+  );
 }
 
 export function missingDeclaredEnvVars(config: PqaConfig): string | undefined {

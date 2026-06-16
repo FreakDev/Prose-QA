@@ -138,19 +138,14 @@ describe("resolveSensitiveEnvVars", () => {
     assert.deepEqual(names, [PQA_LLM_API_KEY, "PQA_TEST_PASSWORD"]);
   });
 
-  it("omits LLM API key env var for ollama", () => {
+  it("omits LLM API key env var for openai-compatible", () => {
     const names = resolveSensitiveEnvVars({
       ...baseConfig,
-      llm: { provider: "ollama", model: "llama3.2" },
-      envVars: ["PQA_TEST_PASSWORD"],
-    });
-    assert.deepEqual(names, ["PQA_TEST_PASSWORD"]);
-  });
-
-  it("omits LLM API key env var for lmstudio", () => {
-    const names = resolveSensitiveEnvVars({
-      ...baseConfig,
-      llm: { provider: "lmstudio", model: "qwen/qwen3-4b-2507" },
+      llm: {
+        provider: "openai-compatible",
+        model: "llama3.2",
+        baseURL: "http://localhost:11434/v1",
+      },
       envVars: ["PQA_TEST_PASSWORD"],
     });
     assert.deepEqual(names, ["PQA_TEST_PASSWORD"]);

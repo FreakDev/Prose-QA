@@ -174,19 +174,12 @@ describe("buildProviderOptions", () => {
     );
   });
 
-  it("enables ollama think mode", () => {
-    assert.deepEqual(
-      buildProviderOptions(config("ollama", { enabled: true })),
-      { ollama: { think: true } },
-    );
-  });
-
-  it("maps thinking budget to lmstudio reasoning effort", () => {
+  it("maps thinking budget to openai-compatible reasoning effort", () => {
     assert.deepEqual(
       buildProviderOptions(
-        config("lmstudio", { enabled: true, budgetTokens: 3_000 }),
+        config("openai-compatible", { enabled: true, budgetTokens: 3_000 }),
       ),
-      { lmstudio: { reasoningEffort: "low" } },
+      { "openai-compatible": { reasoningEffort: "low" } },
     );
   });
 

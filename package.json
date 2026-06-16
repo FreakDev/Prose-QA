@@ -58,6 +58,7 @@
     "@ai-sdk/fireworks": "^2.0.53",
     "@ai-sdk/google": "^3.0.80",
     "@ai-sdk/openai": "^3.0.67",
+    "@ai-sdk/openai-compatible": "^2.0.50",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@openrouter/ai-sdk-provider": "^2.9.0",
     "agent-browser": "^0.27.1",
@@ -68,7 +69,6 @@
     "fast-glob": "^3.3.3",
     "gray-matter": "^4.0.3",
     "jiti": "^2.4.2",
-    "ollama-ai-provider-v2": "^3.5.1",
     "ora": "^8.2.0",
     "zod": "^4.1.8"
   },

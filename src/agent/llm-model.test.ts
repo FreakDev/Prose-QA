@@ -28,25 +28,30 @@ describe("createLlmModel", () => {
     assert.equal(typeof model, "object");
   });
 
-  it("returns a model for lmstudio provider", () => {
+  it("returns a model for openai-compatible provider", () => {
     const model = createLlmModel({
       ...base,
-      llm: { provider: "lmstudio", model: "qwen/qwen3-4b-2507" },
+      llm: {
+        provider: "openai-compatible",
+        model: "qwen/qwen3-4b-2507",
+        baseURL: "http://localhost:1234/v1",
+      },
     } as PqaConfig);
     assert.ok(model);
     assert.equal(typeof model, "object");
   });
 
-  it("uses custom baseURL for lmstudio provider", () => {
-    const model = createLlmModel({
-      ...base,
-      llm: {
-        provider: "lmstudio",
-        model: "qwen/qwen3-4b-2507",
-        baseURL: "http://127.0.0.1:8080/v1",
-      },
-    } as PqaConfig);
-    assert.ok(model);
-    assert.equal(typeof model, "object");
+  it("throws when openai-compatible provider has no baseURL", () => {
+    assert.throws(
+      () =>
+        createLlmModel({
+          ...base,
+          llm: {
+            provider: "openai-compatible",
+            model: "qwen/qwen3-4b-2507",
+          },
+        } as PqaConfig),
+      /llm\.baseURL must be set/,
+    );
   });
 });
