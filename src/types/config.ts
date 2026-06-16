@@ -100,13 +100,16 @@ export interface PqaConfig {
       | "openai"
       | "fireworks"
       | "ollama"
+      | "lmstudio"
       | "google"
       | "openrouter";
     model?: string;
+    /** LM Studio OpenAI-compatible server URL. Default: http://localhost:1234/v1 */
+    baseURL?: string;
     /**
      * Extended thinking / reasoning (opt-in).
      * `budgetTokens`: Anthropic, Fireworks & OpenRouter reasoning budget (ignored for Google).
-     * `reasoningEffort`: OpenAI reasoning effort; Anthropic effort; Google thinking level (mapped); OpenRouter reasoning effort.
+     * `reasoningEffort`: OpenAI reasoning effort; Anthropic effort; Google thinking level (mapped); OpenRouter reasoning effort; LM Studio reasoning effort.
      * Ollama: `think` only (other fields ignored).
      */
     thinking?: {

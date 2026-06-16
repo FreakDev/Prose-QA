@@ -27,4 +27,26 @@ describe("createLlmModel", () => {
     assert.ok(model);
     assert.equal(typeof model, "object");
   });
+
+  it("returns a model for lmstudio provider", () => {
+    const model = createLlmModel({
+      ...base,
+      llm: { provider: "lmstudio", model: "qwen/qwen3-4b-2507" },
+    } as PqaConfig);
+    assert.ok(model);
+    assert.equal(typeof model, "object");
+  });
+
+  it("uses custom baseURL for lmstudio provider", () => {
+    const model = createLlmModel({
+      ...base,
+      llm: {
+        provider: "lmstudio",
+        model: "qwen/qwen3-4b-2507",
+        baseURL: "http://127.0.0.1:8080/v1",
+      },
+    } as PqaConfig);
+    assert.ok(model);
+    assert.equal(typeof model, "object");
+  });
 });

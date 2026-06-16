@@ -146,4 +146,13 @@ describe("resolveSensitiveEnvVars", () => {
     });
     assert.deepEqual(names, ["PQA_TEST_PASSWORD"]);
   });
+
+  it("omits LLM API key env var for lmstudio", () => {
+    const names = resolveSensitiveEnvVars({
+      ...baseConfig,
+      llm: { provider: "lmstudio", model: "qwen/qwen3-4b-2507" },
+      envVars: ["PQA_TEST_PASSWORD"],
+    });
+    assert.deepEqual(names, ["PQA_TEST_PASSWORD"]);
+  });
 });

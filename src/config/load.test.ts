@@ -11,6 +11,7 @@ import {
   missingLlmApiKey,
   missingLlmConfig,
   PQA_LLM_API_KEY,
+  PQA_LLM_BASE_URL,
   resolveAgentGuardConfig,
   resolveAgentParallel,
   resolveBrowserHeaded,
@@ -186,6 +187,38 @@ describe("loadConfig", () => {
     }
   });
 
+  it("applies PQA_LLM_BASE_URL when llm.baseURL is unset", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
+    const prevBaseUrl = process.env[PQA_LLM_BASE_URL];
+    process.env[PQA_LLM_BASE_URL] = "http://127.0.0.1:8080/v1";
+    try {
+      const config = await loadConfig(undefined, cwd);
+      assert.equal(config.llm.baseURL, "http://127.0.0.1:8080/v1");
+    } finally {
+      if (prevBaseUrl === undefined) delete process.env[PQA_LLM_BASE_URL];
+      else process.env[PQA_LLM_BASE_URL] = prevBaseUrl;
+    }
+  });
+
+  it("prefers llm.baseURL from pqa.config.json over env var", async () => {
+    const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
+    writeFileSync(
+      path.join(cwd, "pqa.config.json"),
+      JSON.stringify({
+        llm: { baseURL: "http://custom.local:1234/v1" },
+      }),
+    );
+    const prevBaseUrl = process.env[PQA_LLM_BASE_URL];
+    process.env[PQA_LLM_BASE_URL] = "http://127.0.0.1:8080/v1";
+    try {
+      const config = await loadConfig(undefined, cwd);
+      assert.equal(config.llm.baseURL, "http://custom.local:1234/v1");
+    } finally {
+      if (prevBaseUrl === undefined) delete process.env[PQA_LLM_BASE_URL];
+      else process.env[PQA_LLM_BASE_URL] = prevBaseUrl;
+    }
+  });
+
   it("deep-merges browser.lightpanda overrides", async () => {
     const cwd = mkdtempSync(path.join(tmpdir(), "pqa-config-"));
     writeFileSync(
@@ -219,6 +252,14 @@ describe("missingLlmApiKey", () => {
     const config = {
       ...minimalConfig("chrome"),
       llm: { provider: "ollama" as const, model: "llama3.2" },
+    };
+    assert.equal(missingLlmApiKey(config), undefined);
+  });
+
+  it("does not require an API key for lmstudio", () => {
+    const config = {
+      ...minimalConfig("chrome"),
+      llm: { provider: "lmstudio" as const, model: "qwen/qwen3-4b-2507" },
     };
     assert.equal(missingLlmApiKey(config), undefined);
   });

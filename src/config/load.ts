@@ -193,12 +193,14 @@ type LlmProvider = NonNullable<PqaConfig["llm"]["provider"]>;
 function applyLlmEnvOverrides(config: PqaConfig): PqaConfig {
   const provider = process.env.PQA_LLM_PROVIDER as LlmProvider | undefined;
   const model = process.env.PQA_LLM_MODEL;
+  const baseURL = process.env[PQA_LLM_BASE_URL];
   return {
     ...config,
     llm: {
       ...config.llm,
       ...(provider && !config.llm.provider ? { provider } : {}),
       ...(model && !config.llm.model ? { model } : {}),
+      ...(baseURL && !config.llm.baseURL ? { baseURL } : {}),
     },
   };
 }
@@ -334,6 +336,8 @@ export function resolveHealingConfig(config: PqaConfig): Required<
 }
 
 export const PQA_LLM_API_KEY = "PQA_LLM_API_KEY";
+export const PQA_LLM_BASE_URL = "PQA_LLM_BASE_URL";
+export const DEFAULT_LMSTUDIO_BASE_URL = "http://localhost:1234/v1";
 
 const LLM_PROVIDERS_REQUIRING_API_KEY = new Set<
   NonNullable<PqaConfig["llm"]["provider"]>

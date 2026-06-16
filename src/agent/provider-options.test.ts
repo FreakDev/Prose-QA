@@ -181,6 +181,15 @@ describe("buildProviderOptions", () => {
     );
   });
 
+  it("maps thinking budget to lmstudio reasoning effort", () => {
+    assert.deepEqual(
+      buildProviderOptions(
+        config("lmstudio", { enabled: true, budgetTokens: 3_000 }),
+      ),
+      { lmstudio: { reasoningEffort: "low" } },
+    );
+  });
+
   it("enables openrouter reasoning with budget", () => {
     assert.deepEqual(
       buildProviderOptions(
